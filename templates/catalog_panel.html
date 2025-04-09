@@ -1,0 +1,97 @@
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5>Enabled Catalogs</h5>
+    </div>
+    <div class="card-body">
+        <form action="{{ url_for('save_configuration') }}" method="post" id="catalogForm">
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <ul class="list-unstyled">
+                        <li style="margin-bottom: 15px;">
+                            <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
+                                <input type="checkbox" name="enabled_catalogs" value="hive" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs.hive.enabled %}checked{% endif %}>
+                                Hive
+                            </label>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
+                                <input type="checkbox" name="enabled_catalogs" value="iceberg" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs.iceberg.enabled %}checked{% endif %}>
+                                Iceberg
+                            </label>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
+                                <input type="checkbox" name="enabled_catalogs" value="delta-lake" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs['delta-lake'].enabled %}checked{% endif %}>
+                                Delta Lake
+                            </label>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
+                                <input type="checkbox" name="enabled_catalogs" value="mysql" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs.mysql.enabled %}checked{% endif %}>
+                                MySQL
+                            </label>
+                        </li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <ul class="list-unstyled">
+                        <li style="margin-bottom: 15px;">
+                            <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
+                                <input type="checkbox" name="enabled_catalogs" value="mariadb" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs.mariadb.enabled %}checked{% endif %}>
+                                MariaDB
+                            </label>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
+                                <input type="checkbox" name="enabled_catalogs" value="postgres" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs.postgres.enabled %}checked{% endif %}>
+                                PostgreSQL
+                            </label>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
+                                <input type="checkbox" name="enabled_catalogs" value="sqlserver" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs.sqlserver.enabled %}checked{% endif %}>
+                                SQL Server
+                            </label>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
+                                <input type="checkbox" name="enabled_catalogs" value="db2" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs.db2.enabled %}checked{% endif %}>
+                                DB2
+                            </label>
+                        </li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <ul class="list-unstyled">
+                        <li style="margin-bottom: 15px;">
+                            <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
+                                <input type="checkbox" name="enabled_catalogs" value="clickhouse" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs.clickhouse.enabled %}checked{% endif %}>
+                                ClickHouse
+                            </label>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
+                                <input type="checkbox" name="enabled_catalogs" value="pinot" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs.pinot.enabled %}checked{% endif %}>
+                                Pinot
+                            </label>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
+                                <input type="checkbox" name="enabled_catalogs" value="elasticsearch" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs.elasticsearch.enabled %}checked{% endif %}>
+                                Elasticsearch
+                            </label>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div style="margin-top: 20px;">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-1"></i> Save Catalog Configuration
+                </button>
+                <a href="{{ url_for('catalog_config_page') }}" class="btn btn-info">
+                    <i class="fas fa-cogs me-1"></i> Advanced Catalog Config
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
