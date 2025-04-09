@@ -25,7 +25,7 @@ catalogs:
     metastore_host: localhost
     metastore_port: '9083'
   iceberg:
-    enabled: true
+    enabled: false
     metastore_host: localhost
     metastore_port: '9083'
   mariadb:
