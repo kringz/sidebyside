@@ -54,11 +54,9 @@
                                 <i class="fas fa-download me-1"></i> Pull Images
                             </button>
                         </form>
-                        <form action="{{ url_for('start_clusters') }}" method="post" class="me-2">
-                            <button type="submit" class="btn btn-success" {% if not docker_available %}disabled{% endif %}>
-                                <i class="fas fa-play me-1"></i> Start Clusters
-                            </button>
-                        </form>
+                        <button id="startClustersBtn" class="btn btn-success me-2" {% if not docker_available %}disabled{% endif %}>
+                            <i class="fas fa-play me-1"></i> Start Clusters
+                        </button>
                         <form action="{{ url_for('stop_clusters') }}" method="post" class="me-2">
                             <button type="submit" class="btn btn-danger" {% if not docker_available %}disabled{% endif %}>
                                 <i class="fas fa-stop me-1"></i> Stop Clusters
@@ -832,4 +830,121 @@ $(document).ready(function() {
     });
 });
 </script>
+<!-- Start Clusters Progress Modal -->
+<div class="modal fade" id="startClustersProgressModal" tabindex="-1" aria-labelledby="startClustersProgressModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="startClustersProgressModalLabel">Starting Trino Clusters</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Spinning loader -->
+                <div class="text-center mb-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                
+                <!-- Progress bar -->
+                <div class="progress mb-3" style="height: 25px;">
+                    <div id="clusterProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                </div>
+                
+                <!-- Status for each cluster -->
+                <div id="cluster1Status" class="alert alert-info mb-2">
+                    <strong>Cluster 1:</strong> <span id="cluster1StatusText">Preparing...</span>
+                </div>
+                
+                <div id="cluster2Status" class="alert alert-info mb-2">
+                    <strong>Cluster 2:</strong> <span id="cluster2StatusText">Waiting...</span>
+                </div>
+                
+                <!-- Overall status -->
+                <div id="overallStatus" class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> <span id="overallStatusText">Initializing clusters...</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelStartBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Handle the Start Clusters button click
+    $('#startClustersBtn').click(function() {
+        // Show the progress modal
+        var startClustersModal = new bootstrap.Modal(document.getElementById('startClustersProgressModal'));
+        startClustersModal.show();
+        
+        // Reset progress bar and status
+        $('#clusterProgressBar').css('width', '0%').attr('aria-valuenow', 0).text('0%');
+        $('#cluster1StatusText').text('Preparing...');
+        $('#cluster2StatusText').text('Waiting...');
+        $('#overallStatusText').text('Initializing clusters...');
+        
+        // Make AJAX request to start clusters
+        $.ajax({
+            url: '{{ url_for("start_clusters_ajax") }}',
+            type: 'POST',
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    // Update progress bar
+                    updateProgressBar(response.progress, 'success');
+                    
+                    // Update status
+                    if (response.cluster1_status) {
+                        $('#cluster1StatusText').text(response.cluster1_status);
+                    }
+                    if (response.cluster2_status) {
+                        $('#cluster2StatusText').text(response.cluster2_status);
+                    }
+                    if (response.message) {
+                        $('#overallStatusText').text(response.message);
+                        $('#overallStatus').removeClass('alert-danger').addClass('alert-info');
+                    }
+                    
+                    // Complete - change Cancel button to Done
+                    if (response.status === 'complete') {
+                        $('#cancelStartBtn').text('Done');
+                        setTimeout(function() {
+                            // Reload the page after a short delay
+                            window.location.reload();
+                        }, 2000);
+                    }
+                } else {
+                    // Error - show error in progress bar
+                    updateProgressBar(100, 'danger');
+                    $('#overallStatusText').text(response.message);
+                    $('#overallStatus').removeClass('alert-info').addClass('alert-danger');
+                    $('#cancelStartBtn').text('Close');
+                }
+            },
+            error: function(xhr, status, error) {
+                // Network error
+                updateProgressBar(100, 'danger');
+                $('#overallStatusText').text('Error contacting server: ' + error);
+                $('#overallStatus').removeClass('alert-info').addClass('alert-danger');
+                $('#cancelStartBtn').text('Close');
+            }
+        });
+    });
+    
+    // Function to update the progress bar
+    function updateProgressBar(progress, state) {
+        $('#clusterProgressBar')
+            .removeClass('bg-success bg-danger')
+            .addClass(state === 'danger' ? 'bg-danger' : 'bg-success')
+            .css('width', progress + '%')
+            .attr('aria-valuenow', progress)
+            .text(progress + '%');
+    }
+});
+</script>
+
 {% endblock %}
