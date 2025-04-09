@@ -1,0 +1,2 @@
+connector.name: pinot
+pinot.controller-url: http://${host}:${port}

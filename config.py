@@ -39,12 +39,60 @@ def get_default_config():
                         'metastore_host': 'localhost',
                         'metastore_port': '9083'
                     },
+                    'delta-lake': {
+                        'enabled': False,
+                        'metastore_host': 'localhost',
+                        'metastore_port': '9083'
+                    },
                     'mysql': {
                         'enabled': True,
                         'host': 'localhost',
                         'port': '3306',
                         'user': 'root',
                         'password': ''
+                    },
+                    'mariadb': {
+                        'enabled': False,
+                        'host': 'localhost',
+                        'port': '3306',
+                        'user': 'root',
+                        'password': ''
+                    },
+                    'postgres': {
+                        'enabled': False,
+                        'host': 'localhost',
+                        'port': '5432',
+                        'database': 'postgres',
+                        'user': 'postgres',
+                        'password': ''
+                    },
+                    'sqlserver': {
+                        'enabled': False,
+                        'host': 'localhost',
+                        'port': '1433',
+                        'database': 'master',
+                        'user': 'sa',
+                        'password': ''
+                    },
+                    'db2': {
+                        'enabled': False,
+                        'host': 'localhost',
+                        'port': '50000',
+                        'database': 'sample',
+                        'user': 'db2inst1',
+                        'password': ''
+                    },
+                    'clickhouse': {
+                        'enabled': False,
+                        'host': 'localhost',
+                        'port': '8123',
+                        'user': 'default',
+                        'password': ''
+                    },
+                    'pinot': {
+                        'enabled': False,
+                        'host': 'localhost',
+                        'port': '9000'
                     },
                     'elasticsearch': {
                         'enabled': True,

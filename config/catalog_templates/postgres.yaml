@@ -1,0 +1,4 @@
+connector.name: postgresql
+connection-url: jdbc:postgresql://${host}:${port}/${database}
+connection-user: ${user}
+connection-password: ${password}

@@ -80,6 +80,38 @@
                         </div>
                     </div>
                     
+                    <!-- Delta Lake Catalog -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="delta-lake" name="delta-lake" {% if config.catalogs['delta-lake'].enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="delta-lake">
+                                    <h5 class="mb-0">Delta Lake Catalog</h5>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="delta-lake_metastore_host" class="form-label">Metastore Host</label>
+                                        <input type="text" class="form-control" id="delta-lake_metastore_host" name="delta-lake_metastore_host" value="{{ config.catalogs['delta-lake'].metastore_host }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="delta-lake_metastore_port" class="form-label">Metastore Port</label>
+                                        <input type="text" class="form-control" id="delta-lake_metastore_port" name="delta-lake_metastore_port" value="{{ config.catalogs['delta-lake'].metastore_port }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> Delta Lake uses Hive metastore for catalog storage. Ensure your metastore is compatible with Delta Lake tables.
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- MySQL Catalog -->
                     <div class="card mb-4">
                         <div class="card-header">
@@ -122,6 +154,286 @@
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
                                 <strong>Note:</strong> You need a running MySQL server accessible from the Trino containers.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- MariaDB Catalog -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="mariadb" name="mariadb" {% if config.catalogs.mariadb.enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="mariadb">
+                                    <h5 class="mb-0">MariaDB Catalog</h5>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="mariadb_host" class="form-label">Host</label>
+                                        <input type="text" class="form-control" id="mariadb_host" name="mariadb_host" value="{{ config.catalogs.mariadb.host }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="mariadb_port" class="form-label">Port</label>
+                                        <input type="text" class="form-control" id="mariadb_port" name="mariadb_port" value="{{ config.catalogs.mariadb.port }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="mariadb_user" class="form-label">User</label>
+                                        <input type="text" class="form-control" id="mariadb_user" name="mariadb_user" value="{{ config.catalogs.mariadb.user }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="mariadb_password" class="form-label">Password</label>
+                                        <input type="password" class="form-control" id="mariadb_password" name="mariadb_password" value="{{ config.catalogs.mariadb.password }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> You need a running MariaDB server accessible from the Trino containers.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- PostgreSQL Catalog -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="postgres" name="postgres" {% if config.catalogs.postgres.enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="postgres">
+                                    <h5 class="mb-0">PostgreSQL Catalog</h5>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="postgres_host" class="form-label">Host</label>
+                                        <input type="text" class="form-control" id="postgres_host" name="postgres_host" value="{{ config.catalogs.postgres.host }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="postgres_port" class="form-label">Port</label>
+                                        <input type="text" class="form-control" id="postgres_port" name="postgres_port" value="{{ config.catalogs.postgres.port }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="postgres_database" class="form-label">Database</label>
+                                        <input type="text" class="form-control" id="postgres_database" name="postgres_database" value="{{ config.catalogs.postgres.database }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="postgres_user" class="form-label">User</label>
+                                        <input type="text" class="form-control" id="postgres_user" name="postgres_user" value="{{ config.catalogs.postgres.user }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="postgres_password" class="form-label">Password</label>
+                                        <input type="password" class="form-control" id="postgres_password" name="postgres_password" value="{{ config.catalogs.postgres.password }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> You need a running PostgreSQL server accessible from the Trino containers.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- SQL Server Catalog -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="sqlserver" name="sqlserver" {% if config.catalogs.sqlserver.enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="sqlserver">
+                                    <h5 class="mb-0">SQL Server Catalog</h5>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="sqlserver_host" class="form-label">Host</label>
+                                        <input type="text" class="form-control" id="sqlserver_host" name="sqlserver_host" value="{{ config.catalogs.sqlserver.host }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="sqlserver_port" class="form-label">Port</label>
+                                        <input type="text" class="form-control" id="sqlserver_port" name="sqlserver_port" value="{{ config.catalogs.sqlserver.port }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="sqlserver_database" class="form-label">Database</label>
+                                        <input type="text" class="form-control" id="sqlserver_database" name="sqlserver_database" value="{{ config.catalogs.sqlserver.database }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="sqlserver_user" class="form-label">User</label>
+                                        <input type="text" class="form-control" id="sqlserver_user" name="sqlserver_user" value="{{ config.catalogs.sqlserver.user }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="sqlserver_password" class="form-label">Password</label>
+                                        <input type="password" class="form-control" id="sqlserver_password" name="sqlserver_password" value="{{ config.catalogs.sqlserver.password }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> You need a running SQL Server instance accessible from the Trino containers.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- DB2 Catalog -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="db2" name="db2" {% if config.catalogs.db2.enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="db2">
+                                    <h5 class="mb-0">DB2 Catalog</h5>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="db2_host" class="form-label">Host</label>
+                                        <input type="text" class="form-control" id="db2_host" name="db2_host" value="{{ config.catalogs.db2.host }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="db2_port" class="form-label">Port</label>
+                                        <input type="text" class="form-control" id="db2_port" name="db2_port" value="{{ config.catalogs.db2.port }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="db2_database" class="form-label">Database</label>
+                                        <input type="text" class="form-control" id="db2_database" name="db2_database" value="{{ config.catalogs.db2.database }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="db2_user" class="form-label">User</label>
+                                        <input type="text" class="form-control" id="db2_user" name="db2_user" value="{{ config.catalogs.db2.user }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="db2_password" class="form-label">Password</label>
+                                        <input type="password" class="form-control" id="db2_password" name="db2_password" value="{{ config.catalogs.db2.password }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> You need a running DB2 instance accessible from the Trino containers.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ClickHouse Catalog -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="clickhouse" name="clickhouse" {% if config.catalogs.clickhouse.enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="clickhouse">
+                                    <h5 class="mb-0">ClickHouse Catalog</h5>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="clickhouse_host" class="form-label">Host</label>
+                                        <input type="text" class="form-control" id="clickhouse_host" name="clickhouse_host" value="{{ config.catalogs.clickhouse.host }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="clickhouse_port" class="form-label">Port</label>
+                                        <input type="text" class="form-control" id="clickhouse_port" name="clickhouse_port" value="{{ config.catalogs.clickhouse.port }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="clickhouse_user" class="form-label">User</label>
+                                        <input type="text" class="form-control" id="clickhouse_user" name="clickhouse_user" value="{{ config.catalogs.clickhouse.user }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="clickhouse_password" class="form-label">Password</label>
+                                        <input type="password" class="form-control" id="clickhouse_password" name="clickhouse_password" value="{{ config.catalogs.clickhouse.password }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> You need a running ClickHouse server accessible from the Trino containers.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Pinot Catalog -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="pinot" name="pinot" {% if config.catalogs.pinot.enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="pinot">
+                                    <h5 class="mb-0">Pinot Catalog</h5>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="pinot_host" class="form-label">Host</label>
+                                        <input type="text" class="form-control" id="pinot_host" name="pinot_host" value="{{ config.catalogs.pinot.host }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="pinot_port" class="form-label">Port</label>
+                                        <input type="text" class="form-control" id="pinot_port" name="pinot_port" value="{{ config.catalogs.pinot.port }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> You need a running Apache Pinot controller accessible from the Trino containers.
                             </div>
                         </div>
                     </div>

@@ -1,0 +1,4 @@
+connector.name: mariadb
+connection-url: jdbc:mariadb://${host}:${port}
+connection-user: ${user}
+connection-password: ${password}

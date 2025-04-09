@@ -1,0 +1,4 @@
+connector.name: sqlserver
+connection-url: jdbc:sqlserver://${host}:${port};databaseName=${database}
+connection-user: ${user}
+connection-password: ${password}

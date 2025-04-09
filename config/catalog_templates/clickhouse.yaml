@@ -1,0 +1,4 @@
+connector.name: clickhouse
+connection-url: jdbc:clickhouse://${host}:${port}
+connection-user: ${user}
+connection-password: ${password}

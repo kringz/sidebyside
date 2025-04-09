@@ -77,7 +77,7 @@ def save_configuration():
         config['cluster2']['container_name'] = request.form.get('cluster2_container_name')
         
         # Save catalog configurations
-        for catalog in ['hive', 'iceberg', 'mysql', 'elasticsearch']:
+        for catalog in ['hive', 'iceberg', 'delta-lake', 'mysql', 'mariadb', 'postgres', 'sqlserver', 'db2', 'clickhouse', 'pinot', 'elasticsearch']:
             config['catalogs'][catalog]['enabled'] = catalog in request.form.getlist('enabled_catalogs')
         
         save_config(config)
@@ -301,17 +301,40 @@ def save_catalog_config():
                 config['catalogs'][catalog]['enabled'] = True
                 
                 # Save catalog-specific configurations
-                if catalog == 'hive':
+                if catalog == 'hive' or catalog == 'iceberg' or catalog == 'delta-lake':
                     config['catalogs'][catalog]['metastore_host'] = request.form.get(f'{catalog}_metastore_host', 'localhost')
                     config['catalogs'][catalog]['metastore_port'] = request.form.get(f'{catalog}_metastore_port', '9083')
-                elif catalog == 'iceberg':
-                    config['catalogs'][catalog]['metastore_host'] = request.form.get(f'{catalog}_metastore_host', 'localhost')
-                    config['catalogs'][catalog]['metastore_port'] = request.form.get(f'{catalog}_metastore_port', '9083')
-                elif catalog == 'mysql':
+                elif catalog == 'mysql' or catalog == 'mariadb':
                     config['catalogs'][catalog]['host'] = request.form.get(f'{catalog}_host', 'localhost')
                     config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '3306')
                     config['catalogs'][catalog]['user'] = request.form.get(f'{catalog}_user', 'root')
                     config['catalogs'][catalog]['password'] = request.form.get(f'{catalog}_password', '')
+                elif catalog == 'postgres':
+                    config['catalogs'][catalog]['host'] = request.form.get(f'{catalog}_host', 'localhost')
+                    config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '5432')
+                    config['catalogs'][catalog]['database'] = request.form.get(f'{catalog}_database', 'postgres')
+                    config['catalogs'][catalog]['user'] = request.form.get(f'{catalog}_user', 'postgres')
+                    config['catalogs'][catalog]['password'] = request.form.get(f'{catalog}_password', '')
+                elif catalog == 'sqlserver':
+                    config['catalogs'][catalog]['host'] = request.form.get(f'{catalog}_host', 'localhost')
+                    config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '1433')
+                    config['catalogs'][catalog]['database'] = request.form.get(f'{catalog}_database', 'master')
+                    config['catalogs'][catalog]['user'] = request.form.get(f'{catalog}_user', 'sa')
+                    config['catalogs'][catalog]['password'] = request.form.get(f'{catalog}_password', '')
+                elif catalog == 'db2':
+                    config['catalogs'][catalog]['host'] = request.form.get(f'{catalog}_host', 'localhost')
+                    config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '50000')
+                    config['catalogs'][catalog]['database'] = request.form.get(f'{catalog}_database', 'sample')
+                    config['catalogs'][catalog]['user'] = request.form.get(f'{catalog}_user', 'db2inst1')
+                    config['catalogs'][catalog]['password'] = request.form.get(f'{catalog}_password', '')
+                elif catalog == 'clickhouse':
+                    config['catalogs'][catalog]['host'] = request.form.get(f'{catalog}_host', 'localhost')
+                    config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '8123')
+                    config['catalogs'][catalog]['user'] = request.form.get(f'{catalog}_user', 'default')
+                    config['catalogs'][catalog]['password'] = request.form.get(f'{catalog}_password', '')
+                elif catalog == 'pinot':
+                    config['catalogs'][catalog]['host'] = request.form.get(f'{catalog}_host', 'localhost')
+                    config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '9000')
                 elif catalog == 'elasticsearch':
                     config['catalogs'][catalog]['host'] = request.form.get(f'{catalog}_host', 'localhost')
                     config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '9200')

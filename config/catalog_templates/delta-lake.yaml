@@ -1,0 +1,3 @@
+connector.name: delta-lake
+hive.metastore.uri: thrift://${metastore_host}:${metastore_port}
+delta.enable-non-concurrent-writes: true
