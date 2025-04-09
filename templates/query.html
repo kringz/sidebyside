@@ -1,0 +1,128 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title"><i class="fas fa-terminal me-2"></i>Query Comparison</h2>
+            </div>
+            <div class="card-body">
+                {% if not docker_available %}
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Docker is not available in this environment.</strong> Query execution against Trino clusters is disabled in demo mode.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endif %}
+                <!-- Cluster Status Indicators -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <h5 class="mb-0 me-2">Cluster 1:</h5>
+                            <span class="badge {% if cluster1_status == 'running' %}bg-success{% elif cluster1_status == 'not_found' %}bg-secondary{% else %}bg-danger{% endif %}">
+                                {{ cluster1_status|capitalize }}
+                            </span>
+                            <small class="ms-2">({{ config.cluster1.version }})</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <h5 class="mb-0 me-2">Cluster 2:</h5>
+                            <span class="badge {% if cluster2_status == 'running' %}bg-success{% elif cluster2_status == 'not_found' %}bg-secondary{% else %}bg-danger{% endif %}">
+                                {{ cluster2_status|capitalize }}
+                            </span>
+                            <small class="ms-2">({{ config.cluster2.version }})</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Available Catalogs -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5>Available Catalogs:</h5>
+                        <div class="d-flex flex-wrap">
+                            {% for catalog in catalogs %}
+                                <span class="badge bg-info me-2 mb-2">{{ catalog }}</span>
+                            {% else %}
+                                <span class="text-muted">No catalogs configured</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Query Form -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>SQL Query</h5>
+                            </div>
+                            <div class="card-body">
+                                <form action="{{ url_for('run_query') }}" method="post">
+                                    <div class="mb-3">
+                                        <textarea class="form-control" id="query" name="query" rows="8" placeholder="Enter your SQL query here..." required></textarea>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <button type="submit" class="btn btn-primary" {% if not docker_available %}disabled{% endif %} title="{% if not docker_available %}Docker is not available in this environment{% endif %}">
+                                            <i class="fas fa-play me-1"></i> Run Query
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" id="clearQuery">
+                                            <i class="fas fa-eraser me-1"></i> Clear
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Example Queries -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Example Queries</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="list-group">
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW CATALOGS
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SELECT * FROM system.runtime.nodes
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SELECT * FROM system.metadata.catalogs
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SELECT node_id, http_uri, node_version FROM system.runtime.nodes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Example query click handler
+        document.querySelectorAll('.example-query').forEach(function(element) {
+            element.addEventListener('click', function() {
+                document.getElementById('query').value = this.textContent.trim();
+            });
+        });
+        
+        // Clear query button
+        document.getElementById('clearQuery').addEventListener('click', function() {
+            document.getElementById('query').value = '';
+        });
+    });
+</script>
+{% endblock %}

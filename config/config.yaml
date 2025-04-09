@@ -1,0 +1,23 @@
+catalogs:
+  elasticsearch:
+    enabled: true
+    host: localhost
+    port: '9200'
+  hive:
+    enabled: true
+    metastore_host: localhost
+    metastore_port: '9083'
+  mysql:
+    enabled: true
+    host: localhost
+    password: ''
+    port: '3306'
+    user: root
+cluster1:
+  container_name: trino1
+  port: 8001
+  version: '405'
+cluster2:
+  container_name: trino2
+  port: 8002
+  version: '406'

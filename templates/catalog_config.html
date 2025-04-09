@@ -1,0 +1,142 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title"><i class="fas fa-cogs me-2"></i>Catalog Configuration</h2>
+            </div>
+            <div class="card-body">
+                {% if not docker_available %}
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Docker is not available in this environment.</strong> You can configure catalogs, but they cannot be used with Trino clusters in demo mode.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endif %}
+                <form action="{{ url_for('save_catalog_config') }}" method="post">
+                    <!-- Hive Catalog -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="hive" name="hive" {% if config.catalogs.hive.enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="hive">
+                                    <h5 class="mb-0">Hive Catalog</h5>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="hive_metastore_host" class="form-label">Metastore Host</label>
+                                        <input type="text" class="form-control" id="hive_metastore_host" name="hive_metastore_host" value="{{ config.catalogs.hive.metastore_host }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="hive_metastore_port" class="form-label">Metastore Port</label>
+                                        <input type="text" class="form-control" id="hive_metastore_port" name="hive_metastore_port" value="{{ config.catalogs.hive.metastore_port }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> For a local setup, you may need to run a separate Hive metastore service.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- MySQL Catalog -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="mysql" name="mysql" {% if config.catalogs.mysql.enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="mysql">
+                                    <h5 class="mb-0">MySQL Catalog</h5>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="mysql_host" class="form-label">Host</label>
+                                        <input type="text" class="form-control" id="mysql_host" name="mysql_host" value="{{ config.catalogs.mysql.host }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="mysql_port" class="form-label">Port</label>
+                                        <input type="text" class="form-control" id="mysql_port" name="mysql_port" value="{{ config.catalogs.mysql.port }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="mysql_user" class="form-label">User</label>
+                                        <input type="text" class="form-control" id="mysql_user" name="mysql_user" value="{{ config.catalogs.mysql.user }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="mysql_password" class="form-label">Password</label>
+                                        <input type="password" class="form-control" id="mysql_password" name="mysql_password" value="{{ config.catalogs.mysql.password }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> You need a running MySQL server accessible from the Trino containers.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Elasticsearch Catalog -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="elasticsearch" name="elasticsearch" {% if config.catalogs.elasticsearch.enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="elasticsearch">
+                                    <h5 class="mb-0">Elasticsearch Catalog</h5>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="elasticsearch_host" class="form-label">Host</label>
+                                        <input type="text" class="form-control" id="elasticsearch_host" name="elasticsearch_host" value="{{ config.catalogs.elasticsearch.host }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="elasticsearch_port" class="form-label">Port</label>
+                                        <input type="text" class="form-control" id="elasticsearch_port" name="elasticsearch_port" value="{{ config.catalogs.elasticsearch.port }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> You need a running Elasticsearch instance accessible from the Trino containers.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Save Catalog Configuration
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> Back to Home
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

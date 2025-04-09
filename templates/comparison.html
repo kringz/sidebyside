@@ -1,0 +1,197 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title"><i class="fas fa-exchange-alt me-2"></i>Query Results Comparison</h2>
+            </div>
+            <div class="card-body">
+                <!-- SQL Query Display -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>SQL Query</h5>
+                            </div>
+                            <div class="card-body">
+                                <pre class="bg-dark text-light p-3 rounded"><code>{{ query }}</code></pre>
+                                <div class="d-flex justify-content-end">
+                                    <a href="{{ url_for('query_page') }}" class="btn btn-primary">
+                                        <i class="fas fa-edit me-1"></i> Modify Query
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Results Comparison -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5>Cluster 1 Results ({{ config.cluster1.version }})</h5>
+                                {% if 'cluster1' in timing %}
+                                    <span class="badge bg-info">{{ "%.3f"|format(timing.cluster1) }} seconds</span>
+                                {% endif %}
+                            </div>
+                            <div class="card-body">
+                                {% if 'cluster1' in errors %}
+                                    <div class="alert alert-danger">
+                                        <strong>Error:</strong> {{ errors.cluster1 }}
+                                    </div>
+                                {% elif 'cluster1' in results %}
+                                    {% if results.cluster1.row_count > 0 %}
+                                        <div class="table-responsive">
+                                            <table class="table table-striped table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        {% for column in results.cluster1.columns %}
+                                                            <th>{{ column }}</th>
+                                                        {% endfor %}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for row in results.cluster1.rows %}
+                                                        <tr>
+                                                            {% for cell in row %}
+                                                                <td>{{ cell }}</td>
+                                                            {% endfor %}
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="mt-2">
+                                            <span class="badge bg-secondary">{{ results.cluster1.row_count }} rows</span>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-info">
+                                            Query executed successfully, but returned no rows.
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        No results available for Cluster 1.
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5>Cluster 2 Results ({{ config.cluster2.version }})</h5>
+                                {% if 'cluster2' in timing %}
+                                    <span class="badge bg-info">{{ "%.3f"|format(timing.cluster2) }} seconds</span>
+                                {% endif %}
+                            </div>
+                            <div class="card-body">
+                                {% if 'cluster2' in errors %}
+                                    <div class="alert alert-danger">
+                                        <strong>Error:</strong> {{ errors.cluster2 }}
+                                    </div>
+                                {% elif 'cluster2' in results %}
+                                    {% if results.cluster2.row_count > 0 %}
+                                        <div class="table-responsive">
+                                            <table class="table table-striped table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        {% for column in results.cluster2.columns %}
+                                                            <th>{{ column }}</th>
+                                                        {% endfor %}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for row in results.cluster2.rows %}
+                                                        <tr>
+                                                            {% for cell in row %}
+                                                                <td>{{ cell }}</td>
+                                                            {% endfor %}
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="mt-2">
+                                            <span class="badge bg-secondary">{{ results.cluster2.row_count }} rows</span>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-info">
+                                            Query executed successfully, but returned no rows.
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        No results available for Cluster 2.
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Result Comparison Analysis -->
+                {% if 'cluster1' in results and 'cluster2' in results %}
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5>Comparison Analysis</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-3">
+                                        <div>
+                                            <strong>Rows:</strong> 
+                                            {% if results.cluster1.row_count == results.cluster2.row_count %}
+                                                <span class="badge bg-success">Match ({{ results.cluster1.row_count }})</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Mismatch (Cluster 1: {{ results.cluster1.row_count }}, Cluster 2: {{ results.cluster2.row_count }})</span>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <strong>Columns:</strong> 
+                                            {% if results.cluster1.columns|length == results.cluster2.columns|length %}
+                                                <span class="badge bg-success">Match ({{ results.cluster1.columns|length }})</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Mismatch (Cluster 1: {{ results.cluster1.columns|length }}, Cluster 2: {{ results.cluster2.columns|length }})</span>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <strong>Execution Time:</strong>
+                                            {% if 'cluster1' in timing and 'cluster2' in timing %}
+                                                {% set time_diff = (timing.cluster1 - timing.cluster2) %}
+                                                {% if time_diff > 0 %}
+                                                    <span class="badge bg-warning">Cluster 2 faster by {{ "%.3f"|format(time_diff) }} seconds</span>
+                                                {% elif time_diff < 0 %}
+                                                    <span class="badge bg-warning">Cluster 1 faster by {{ "%.3f"|format(-time_diff) }} seconds</span>
+                                                {% else %}
+                                                    <span class="badge bg-success">Same execution time</span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Back to Query Button -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('query_page') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Back to Query Page
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,4 @@
+connector.name: elasticsearch
+elasticsearch.host: ${host}
+elasticsearch.port: ${port}
+elasticsearch.default-schema-name: default

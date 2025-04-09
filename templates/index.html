@@ -1,0 +1,195 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title"><i class="fas fa-server me-2"></i>Trino Cluster Management</h2>
+            </div>
+            <div class="card-body">
+                {% if not docker_available %}
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Docker is not available in this environment.</strong> You're viewing the application in demo mode. Actual cluster management functionality is disabled.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endif %}
+                <!-- Cluster Status Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5>Cluster 1</h5>
+                                <span class="badge {% if cluster1_status == 'running' %}bg-success{% elif cluster1_status == 'not_found' %}bg-secondary{% else %}bg-danger{% endif %}">
+                                    {{ cluster1_status|capitalize }}
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Version:</strong> {{ config.cluster1.version }}</p>
+                                <p><strong>Port:</strong> {{ config.cluster1.port }}</p>
+                                <p><strong>Container:</strong> {{ config.cluster1.container_name }}</p>
+                                {% if cluster1_status == 'running' %}
+                                <p><strong>UI:</strong> <a href="http://localhost:{{ config.cluster1.port }}" target="_blank">http://localhost:{{ config.cluster1.port }}</a></p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5>Cluster 2</h5>
+                                <span class="badge {% if cluster2_status == 'running' %}bg-success{% elif cluster2_status == 'not_found' %}bg-secondary{% else %}bg-danger{% endif %}">
+                                    {{ cluster2_status|capitalize }}
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Version:</strong> {{ config.cluster2.version }}</p>
+                                <p><strong>Port:</strong> {{ config.cluster2.port }}</p>
+                                <p><strong>Container:</strong> {{ config.cluster2.container_name }}</p>
+                                {% if cluster2_status == 'running' %}
+                                <p><strong>UI:</strong> <a href="http://localhost:{{ config.cluster2.port }}" target="_blank">http://localhost:{{ config.cluster2.port }}</a></p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Control Buttons -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-center">
+                            <form action="{{ url_for('start_clusters') }}" method="post" class="me-2">
+                                <button type="submit" class="btn btn-success" {% if not docker_available %}disabled{% endif %} title="{% if not docker_available %}Docker is not available in this environment{% endif %}">
+                                    <i class="fas fa-play me-1"></i> Start Clusters
+                                </button>
+                            </form>
+                            
+                            <form action="{{ url_for('stop_clusters') }}" method="post" class="me-2">
+                                <button type="submit" class="btn btn-danger" {% if not docker_available %}disabled{% endif %} title="{% if not docker_available %}Docker is not available in this environment{% endif %}">
+                                    <i class="fas fa-stop me-1"></i> Stop Clusters
+                                </button>
+                            </form>
+                            
+                            <form action="{{ url_for('restart_clusters') }}" method="post">
+                                <button type="submit" class="btn btn-warning" {% if not docker_available %}disabled{% endif %} title="{% if not docker_available %}Docker is not available in this environment{% endif %}">
+                                    <i class="fas fa-sync me-1"></i> Restart Clusters
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Configuration Form -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Cluster Configuration</h5>
+                            </div>
+                            <div class="card-body">
+                                <form action="{{ url_for('save_configuration') }}" method="post">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <h6>Cluster 1</h6>
+                                            <div class="mb-3">
+                                                <label for="cluster1_version" class="form-label">Version</label>
+                                                <input type="text" class="form-control" id="cluster1_version" name="cluster1_version" value="{{ config.cluster1.version }}" required>
+                                                <small class="form-text text-muted">e.g., 405, 406, latest</small>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="cluster1_port" class="form-label">Port</label>
+                                                <input type="number" class="form-control" id="cluster1_port" name="cluster1_port" value="{{ config.cluster1.port }}" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="cluster1_container_name" class="form-label">Container Name</label>
+                                                <input type="text" class="form-control" id="cluster1_container_name" name="cluster1_container_name" value="{{ config.cluster1.container_name }}" required>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-md-6">
+                                            <h6>Cluster 2</h6>
+                                            <div class="mb-3">
+                                                <label for="cluster2_version" class="form-label">Version</label>
+                                                <input type="text" class="form-control" id="cluster2_version" name="cluster2_version" value="{{ config.cluster2.version }}" required>
+                                                <small class="form-text text-muted">e.g., 405, 406, latest</small>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="cluster2_port" class="form-label">Port</label>
+                                                <input type="number" class="form-control" id="cluster2_port" name="cluster2_port" value="{{ config.cluster2.port }}" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="cluster2_container_name" class="form-label">Container Name</label>
+                                                <input type="text" class="form-control" id="cluster2_container_name" name="cluster2_container_name" value="{{ config.cluster2.container_name }}" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row mb-3">
+                                        <div class="col-12">
+                                            <h6>Catalogs</h6>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" value="hive" id="hive_enabled" name="enabled_catalogs" {% if config.catalogs.hive.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="hive_enabled">
+                                                    Hive
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" value="mysql" id="mysql_enabled" name="enabled_catalogs" {% if config.catalogs.mysql.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="mysql_enabled">
+                                                    MySQL
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" value="elasticsearch" id="elasticsearch_enabled" name="enabled_catalogs" {% if config.catalogs.elasticsearch.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="elasticsearch_enabled">
+                                                    Elasticsearch
+                                                </label>
+                                            </div>
+                                            <small class="form-text text-muted">For detailed catalog configuration, visit the Catalog Config page.</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-flex justify-content-between">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-1"></i> Save Configuration
+                                        </button>
+                                        <a href="{{ url_for('catalog_config_page') }}" class="btn btn-info">
+                                            <i class="fas fa-cogs me-1"></i> Advanced Catalog Config
+                                        </a>
+                                        <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#resetConfigModal">
+                                            <i class="fas fa-undo me-1"></i> Reset to Defaults
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Configuration Modal -->
+<div class="modal fade" id="resetConfigModal" tabindex="-1" aria-labelledby="resetConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resetConfigModalLabel">Reset Configuration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to reset all configuration settings to their default values?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="{{ url_for('reset_config') }}" method="post">
+                    <button type="submit" class="btn btn-danger">Reset</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

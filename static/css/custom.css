@@ -1,0 +1,68 @@
+/* Custom CSS for Trino Comparison Tool */
+
+/* Query textarea */
+#query {
+    font-family: monospace;
+    min-height: 150px;
+}
+
+/* Example queries */
+.example-query {
+    font-family: monospace;
+    white-space: pre-wrap;
+    cursor: pointer;
+}
+
+/* SQL code display */
+pre code {
+    font-family: monospace;
+    white-space: pre-wrap;
+    display: block;
+}
+
+/* Table styling for query results */
+.table-responsive {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Card equal height */
+.card-deck {
+    display: flex;
+    flex-flow: row wrap;
+}
+
+.card-deck .card {
+    flex: 1 0 0%;
+    margin-right: 15px;
+    margin-bottom: 15px;
+    margin-left: 15px;
+}
+
+/* Status indicators */
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.status-running {
+    background-color: #28a745;
+}
+
+.status-stopped {
+    background-color: #dc3545;
+}
+
+.status-unknown {
+    background-color: #6c757d;
+}
+
+/* Footer styling */
+.footer {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #343a40;
+}
