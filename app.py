@@ -51,11 +51,12 @@ trino_clients = {
 
 @app.route('/')
 def index():
-    """Main page with cluster status and management"""
+    """Main page with cluster status and management and catalog configuration"""
     config = load_config()
     cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
     cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
     
+    # Merged the catalog_config_page and index page
     return render_template('index.html', 
                            config=config, 
                            cluster1_status=cluster1_status,
@@ -81,8 +82,14 @@ def save_configuration():
             config['cluster2']['container_name'] = request.form.get('cluster2_container_name')
         
         # Save catalog configurations (both forms include this)
+        enabled_catalogs = []
         for catalog in ['hive', 'iceberg', 'delta-lake', 'mysql', 'mariadb', 'postgres', 'sqlserver', 'db2', 'clickhouse', 'pinot', 'elasticsearch']:
-            config['catalogs'][catalog]['enabled'] = catalog in request.form.getlist('enabled_catalogs')
+            # Check both methods of enabling catalogs (checkbox name or direct name)
+            if catalog in request.form or catalog in request.form.getlist('enabled_catalogs'):
+                enabled_catalogs.append(catalog)
+                config['catalogs'][catalog]['enabled'] = True
+            else:
+                config['catalogs'][catalog]['enabled'] = False
         
         save_config(config)
         
@@ -362,7 +369,7 @@ def save_catalog_config():
         logger.error(f"Error saving catalog configuration: {str(e)}")
         flash(f'Error saving catalog configuration: {str(e)}', 'danger')
     
-    return redirect(url_for('catalog_config_page'))
+    return redirect(url_for('index'))
 
 @app.route('/version_compatibility')
 def version_compatibility():
