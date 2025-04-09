@@ -3,33 +3,17 @@ import subprocess
 import sys
 import time
 
-def setup_postgres():
-    """Set up PostgreSQL database with Replit"""
-    try:
-        # Check if PostgreSQL environment variables are already set
-        postgres_vars = ["PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGPORT", "DATABASE_URL"]
-        if all(os.environ.get(var) for var in postgres_vars):
-            print("PostgreSQL database environment variables already set")
-            return True
-        
-        # Try to check database status, which will fail if no PostgreSQL is available
-        subprocess.run([sys.executable, "-c", "import os, psycopg2; conn = psycopg2.connect(os.environ.get('DATABASE_URL')); conn.close()"], check=True)
-        print("PostgreSQL database connection successful")
-        return True
-    except Exception as e:
-        print(f"PostgreSQL setup failed: {e}")
-        return False
-
 def setup_and_run():
-    # Check if PostgreSQL environment variables are already set (Replit)
-    postgres_ready = setup_postgres()
-    
-    if not postgres_ready:
-        # Use SQLite as fallback for local development
-        print("PostgreSQL not detected, using SQLite as fallback database")
+    # Use SQLite by default for simplicity and local development
+    if not os.environ.get("DATABASE_URL"):
+        print("Setting up SQLite database for local development")
         os.environ["DATABASE_URL"] = "sqlite:///trino_comparison.db"
     else:
-        print("PostgreSQL database detected and ready to use")
+        db_url = os.environ.get("DATABASE_URL")
+        if db_url:
+            print(f"Using database from environment: {db_url[:10]}...")
+        else:
+            print("DATABASE_URL environment variable is set but empty")
     
     # Initialize the database
     print("Initializing database...")

@@ -58,7 +58,7 @@ fi
 
 echo -e "\n${GREEN}2. Installing required dependencies...${NC}"
 pip install --upgrade pip
-pip install flask flask-sqlalchemy gunicorn psycopg2-binary pyyaml docker trafilatura trino email-validator
+pip install flask flask-sqlalchemy gunicorn pyyaml docker trafilatura trino email-validator
 
 echo -e "\n${GREEN}3. Initializing the database...${NC}"
 # Set DATABASE_URL environment variable to use SQLite if not set
