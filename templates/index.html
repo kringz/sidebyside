@@ -92,75 +92,53 @@
                                 <form action="{{ url_for('save_configuration') }}" method="post" id="catalogForm">
                                     <div class="row">
                                         <div class="col-md-4">
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" value="hive" id="hive_enabled" name="enabled_catalogs" {% if config.catalogs.hive.enabled %}checked{% endif %}>
-                                                <label class="form-check-label fw-bold" for="hive_enabled">
-                                                    Hive
-                                                </label>
+                                            <div class="mb-2">
+                                                <input type="checkbox" class="form-check-input" id="hive" name="enabled_catalogs" value="hive" {% if config.catalogs.hive.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="hive">Hive</label>
                                             </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" value="iceberg" id="iceberg_enabled" name="enabled_catalogs" {% if config.catalogs.iceberg.enabled %}checked{% endif %}>
-                                                <label class="form-check-label fw-bold" for="iceberg_enabled">
-                                                    Iceberg
-                                                </label>
+                                            <div class="mb-2">
+                                                <input type="checkbox" class="form-check-input" id="iceberg" name="enabled_catalogs" value="iceberg" {% if config.catalogs.iceberg.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="iceberg">Iceberg</label>
                                             </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" value="delta-lake" id="delta_lake_enabled" name="enabled_catalogs" {% if config.catalogs['delta-lake'].enabled %}checked{% endif %}>
-                                                <label class="form-check-label fw-bold" for="delta_lake_enabled">
-                                                    Delta Lake
-                                                </label>
+                                            <div class="mb-2">
+                                                <input type="checkbox" class="form-check-input" id="delta_lake" name="enabled_catalogs" value="delta-lake" {% if config.catalogs['delta-lake'].enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="delta_lake">Delta Lake</label>
                                             </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" value="mysql" id="mysql_enabled" name="enabled_catalogs" {% if config.catalogs.mysql.enabled %}checked{% endif %}>
-                                                <label class="form-check-label fw-bold" for="mysql_enabled">
-                                                    MySQL
-                                                </label>
+                                            <div class="mb-2">
+                                                <input type="checkbox" class="form-check-input" id="mysql" name="enabled_catalogs" value="mysql" {% if config.catalogs.mysql.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="mysql">MySQL</label>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" value="mariadb" id="mariadb_enabled" name="enabled_catalogs" {% if config.catalogs.mariadb.enabled %}checked{% endif %}>
-                                                <label class="form-check-label fw-bold" for="mariadb_enabled">
-                                                    MariaDB
-                                                </label>
+                                            <div class="mb-2">
+                                                <input type="checkbox" class="form-check-input" id="mariadb" name="enabled_catalogs" value="mariadb" {% if config.catalogs.mariadb.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="mariadb">MariaDB</label>
                                             </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" value="postgres" id="postgres_enabled" name="enabled_catalogs" {% if config.catalogs.postgres.enabled %}checked{% endif %}>
-                                                <label class="form-check-label fw-bold" for="postgres_enabled">
-                                                    PostgreSQL
-                                                </label>
+                                            <div class="mb-2">
+                                                <input type="checkbox" class="form-check-input" id="postgres" name="enabled_catalogs" value="postgres" {% if config.catalogs.postgres.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="postgres">PostgreSQL</label>
                                             </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" value="sqlserver" id="sqlserver_enabled" name="enabled_catalogs" {% if config.catalogs.sqlserver.enabled %}checked{% endif %}>
-                                                <label class="form-check-label fw-bold" for="sqlserver_enabled">
-                                                    SQL Server
-                                                </label>
+                                            <div class="mb-2">
+                                                <input type="checkbox" class="form-check-input" id="sqlserver" name="enabled_catalogs" value="sqlserver" {% if config.catalogs.sqlserver.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="sqlserver">SQL Server</label>
                                             </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" value="db2" id="db2_enabled" name="enabled_catalogs" {% if config.catalogs.db2.enabled %}checked{% endif %}>
-                                                <label class="form-check-label fw-bold" for="db2_enabled">
-                                                    DB2
-                                                </label>
+                                            <div class="mb-2">
+                                                <input type="checkbox" class="form-check-input" id="db2" name="enabled_catalogs" value="db2" {% if config.catalogs.db2.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="db2">DB2</label>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" value="clickhouse" id="clickhouse_enabled" name="enabled_catalogs" {% if config.catalogs.clickhouse.enabled %}checked{% endif %}>
-                                                <label class="form-check-label fw-bold" for="clickhouse_enabled">
-                                                    ClickHouse
-                                                </label>
+                                            <div class="mb-2">
+                                                <input type="checkbox" class="form-check-input" id="clickhouse" name="enabled_catalogs" value="clickhouse" {% if config.catalogs.clickhouse.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="clickhouse">ClickHouse</label>
                                             </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" value="pinot" id="pinot_enabled" name="enabled_catalogs" {% if config.catalogs.pinot.enabled %}checked{% endif %}>
-                                                <label class="form-check-label fw-bold" for="pinot_enabled">
-                                                    Pinot
-                                                </label>
+                                            <div class="mb-2">
+                                                <input type="checkbox" class="form-check-input" id="pinot" name="enabled_catalogs" value="pinot" {% if config.catalogs.pinot.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="pinot">Pinot</label>
                                             </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" value="elasticsearch" id="elasticsearch_enabled" name="enabled_catalogs" {% if config.catalogs.elasticsearch.enabled %}checked{% endif %}>
-                                                <label class="form-check-label fw-bold" for="elasticsearch_enabled">
-                                                    Elasticsearch
-                                                </label>
+                                            <div class="mb-2">
+                                                <input type="checkbox" class="form-check-input" id="elasticsearch" name="enabled_catalogs" value="elasticsearch" {% if config.catalogs.elasticsearch.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="elasticsearch">Elasticsearch</label>
                                             </div>
                                         </div>
                                     </div>

@@ -66,3 +66,28 @@ pre code {
     padding-top: 20px;
     border-top: 1px solid #343a40;
 }
+
+/* Ensure checkboxes are visible in dark mode */
+.form-check-input {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+    width: 1.2em;
+    height: 1.2em;
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.form-check-input:checked {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+
+.form-check-label {
+    cursor: pointer;
+    font-weight: 500;
+}
+
+/* Make catalog section stand out more */
+.card-header.bg-primary {
+    background-color: var(--bs-primary) !important;
+}
