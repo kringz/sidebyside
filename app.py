@@ -66,7 +66,7 @@ def index():
                            cluster2_status=cluster2_status,
                            docker_available=docker_available)
 
-@app.route('/pull_images', methods=['POST'])
+@app.route('/pull_trino_images', methods=['POST'])
 def pull_trino_images():
     """Pull Trino Docker images in advance"""
     try:
