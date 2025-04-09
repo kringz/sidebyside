@@ -38,8 +38,16 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # Initialize the database
 db.init_app(app)
 
-# Initialize Docker manager
-docker_manager = DockerManager()
+# Load configuration to get Docker settings
+config = load_config()
+
+# Initialize Docker manager with custom settings if available
+docker_settings = config.get('docker', {})
+docker_manager = DockerManager(
+    socket_path=docker_settings.get('socket_path', None),
+    timeout=int(docker_settings.get('timeout', 30)),
+    trino_connect_host=docker_settings.get('trino_connect_host', 'localhost')
+)
 
 # Check Docker availability
 docker_available = docker_manager.docker_available
@@ -119,6 +127,15 @@ def save_configuration():
                 config['cluster2']['version'] != request.form.get('cluster2_version')
             )
             
+            # Update Docker configuration
+            if 'docker' not in config:
+                config['docker'] = {}
+                
+            config['docker']['trino_connect_host'] = request.form.get('docker_trino_connect_host', 'localhost')
+            config['docker']['socket_path'] = request.form.get('docker_socket_path', '')
+            config['docker']['auto_pull_images'] = 'docker_auto_pull_images' in request.form
+            config['docker']['timeout'] = int(request.form.get('docker_timeout', 30))
+            
             # Update cluster configurations (full form)
             config['cluster1']['version'] = request.form.get('cluster1_version')
             config['cluster1']['port'] = int(request.form.get('cluster1_port'))
@@ -129,7 +146,7 @@ def save_configuration():
             config['cluster2']['container_name'] = request.form.get('cluster2_container_name')
             
             # Automatically pull images if versions changed and Docker is available
-            if versions_changed and docker_available:
+            if versions_changed and docker_available and config['docker'].get('auto_pull_images', True):
                 logger.info("Versions changed, automatically pulling images...")
                 for version in [config['cluster1']['version'], config['cluster2']['version']]:
                     docker_manager.pull_trino_image(version)
@@ -225,16 +242,17 @@ def start_clusters():
         flash('Waiting for clusters to initialize...', 'info')
         time.sleep(5)
         
-        # Initialize Trino clients
+        # Initialize Trino clients using the configured host
+        trino_host = config.get('docker', {}).get('trino_connect_host', 'localhost')
         trino_clients['cluster1'] = TrinoClient(
-            host='localhost',
+            host=trino_host,
             port=config['cluster1']['port'],
             user='trino',
             cluster_name=f"Trino {config['cluster1']['version']}"
         )
         
         trino_clients['cluster2'] = TrinoClient(
-            host='localhost',
+            host=trino_host,
             port=config['cluster2']['port'],
             user='trino',
             cluster_name=f"Trino {config['cluster2']['version']}"

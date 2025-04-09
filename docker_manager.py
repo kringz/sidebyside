@@ -20,22 +20,86 @@ except ImportError:
 class DockerManager:
     """Manages Docker containers for Trino clusters"""
     
-    def __init__(self):
-        """Initialize the Docker client"""
+    def __init__(self, socket_path=None, timeout=30, trino_connect_host='localhost'):
+        """Initialize the Docker client with configurable connection options
+        
+        Args:
+            socket_path (str, optional): Custom Docker socket path, e.g. 'unix:///var/run/docker.sock' or 'tcp://localhost:2375'
+            timeout (int, optional): Timeout for Docker operations in seconds, defaults to 30
+            trino_connect_host (str, optional): Hostname used by Trino clients to connect to Trino servers
+        """
         self.docker_available = False
         self.client = None
+        self.timeout = timeout
+        self.trino_connect_host = trino_connect_host
         
         if not docker_imported:
             logger.warning("Docker package not available. Running in demo mode.")
             return
+        
+        # If a custom socket path is provided, try that first
+        if socket_path and socket_path.strip():
+            try:
+                logger.info(f"Attempting to connect to Docker using custom socket path: {socket_path}")
+                self.client = docker.DockerClient(base_url=socket_path, timeout=timeout)
+                # Test connection
+                self.client.containers.list()
+                self.docker_available = True
+                logger.info(f"Docker client initialized successfully using custom socket path: {socket_path}")
+                return
+            except Exception as e:
+                logger.warning(f"Cannot connect to Docker using custom socket path ({socket_path}): {str(e)}")
             
+        # Try multiple methods to connect to Docker
+        # Method 1: Default environment (typically works on Linux with standard Docker setup)
         try:
-            self.client = docker.from_env()
+            self.client = docker.from_env(timeout=timeout)
+            # Test connection by listing containers
+            self.client.containers.list()
             self.docker_available = True
-            logger.info("Docker client initialized successfully")
+            logger.info("Docker client initialized successfully using default environment")
+            return
         except Exception as e:
-            logger.error(f"Docker not available: {str(e)}")
-            logger.info("Running in demo mode (Docker functionality disabled)")
+            logger.warning(f"Cannot connect to Docker using default environment: {str(e)}")
+            
+        # Method 2: Try using Docker host from environment variable (common for Docker Machine/Docker Desktop)
+        docker_host = os.environ.get('DOCKER_HOST')
+        if docker_host:
+            try:
+                self.client = docker.DockerClient(base_url=docker_host, timeout=timeout)
+                # Test connection
+                self.client.containers.list()
+                self.docker_available = True
+                logger.info(f"Docker client initialized successfully using DOCKER_HOST: {docker_host}")
+                return
+            except Exception as e:
+                logger.warning(f"Cannot connect to Docker using DOCKER_HOST ({docker_host}): {str(e)}")
+        
+        # Method 3: Try common Docker socket paths (macOS, Windows with WSL)
+        socket_paths = [
+            'unix:///var/run/docker.sock',      # Standard Linux/macOS
+            'unix:///run/docker.sock',          # Some Linux distros
+            'tcp://localhost:2375',             # Docker without TLS
+            'tcp://127.0.0.1:2375',             # Alternative localhost format
+            'tcp://host.docker.internal:2375',  # Docker Desktop for Mac/Windows
+            'npipe:////./pipe/docker_engine'    # Windows named pipe
+        ]
+        
+        for socket_path in socket_paths:
+            try:
+                self.client = docker.DockerClient(base_url=socket_path, timeout=timeout)
+                # Test connection
+                self.client.containers.list()
+                self.docker_available = True
+                logger.info(f"Docker client initialized successfully using socket: {socket_path}")
+                return
+            except Exception:
+                # Just try the next path without logging each failure
+                continue
+        
+        # If we get here, Docker is not available
+        logger.error("Docker not available: Could not connect to Docker with any method")
+        logger.info("Running in demo mode (Docker functionality disabled)")
     
     def get_container_status(self, container_name):
         """Get the status of a container"""

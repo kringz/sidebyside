@@ -18,6 +18,12 @@ def get_default_config():
         else:
             # Return hardcoded default config
             return {
+                'docker': {
+                    'trino_connect_host': 'localhost',  # Use 'host.docker.internal' for Mac Docker Desktop
+                    'socket_path': '',  # Will be auto-detected if empty
+                    'timeout': 30,  # Timeout in seconds for Docker operations
+                    'auto_pull_images': True  # Whether to auto-pull images when versions change
+                },
                 'cluster1': {
                     'version': '405',
                     'port': 8001,
