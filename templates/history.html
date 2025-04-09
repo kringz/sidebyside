@@ -1,0 +1,190 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title"><i class="fas fa-history me-2"></i>Query History</h2>
+            </div>
+            <div class="card-body">
+                {% if not history %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No query history found. Execute some queries to see them here.
+                </div>
+                {% else %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Query</th>
+                                <th>Time</th>
+                                <th>Cluster 1 Status</th>
+                                <th>Cluster 2 Status</th>
+                                <th>Cluster 1 Time</th>
+                                <th>Cluster 2 Time</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for query in history %}
+                            <tr>
+                                <td>{{ query.id }}</td>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 300px;" title="{{ query.query_text }}">
+                                        {{ query.query_text }}
+                                    </div>
+                                </td>
+                                <td>{{ query.execution_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td>
+                                    <span class="badge {% if query.cluster1_status == 'Success' %}bg-success{% elif query.cluster1_status == 'Error' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                        {{ query.cluster1_status or 'N/A' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if query.cluster2_status == 'Success' %}bg-success{% elif query.cluster2_status == 'Error' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                        {{ query.cluster2_status or 'N/A' }}
+                                    </span>
+                                </td>
+                                <td>{{ '%.3f'|format(query.cluster1_timing or 0) }}s</td>
+                                <td>{{ '%.3f'|format(query.cluster2_timing or 0) }}s</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-info view-query-details" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#queryDetailsModal"
+                                            data-query-id="{{ query.id }}"
+                                            data-query-text="{{ query.query_text }}"
+                                            data-query-time="{{ query.execution_time.strftime('%Y-%m-%d %H:%M:%S') }}"
+                                            data-cluster1-status="{{ query.cluster1_status or 'N/A' }}"
+                                            data-cluster2-status="{{ query.cluster2_status or 'N/A' }}"
+                                            data-cluster1-time="{{ '%.3f'|format(query.cluster1_timing or 0) }}"
+                                            data-cluster2-time="{{ '%.3f'|format(query.cluster2_timing or 0) }}"
+                                            data-cluster1-error="{{ query.cluster1_error or '' }}"
+                                            data-cluster2-error="{{ query.cluster2_error or '' }}">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Query Details Modal -->
+<div class="modal fade" id="queryDetailsModal" tabindex="-1" aria-labelledby="queryDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="queryDetailsModalLabel">Query Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h6>Query:</h6>
+                    <pre id="modalQueryText" class="bg-dark text-light p-3 rounded"></pre>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>Execution Time:</h6>
+                        <p id="modalQueryTime"></p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Cluster 1</h6>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Status:</strong> <span id="modalCluster1Status"></span></p>
+                                <p><strong>Execution Time:</strong> <span id="modalCluster1Time"></span> seconds</p>
+                                <div id="modalCluster1ErrorContainer" class="d-none">
+                                    <h6>Error:</h6>
+                                    <pre id="modalCluster1Error" class="bg-dark text-danger p-2 rounded"></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Cluster 2</h6>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Status:</strong> <span id="modalCluster2Status"></span></p>
+                                <p><strong>Execution Time:</strong> <span id="modalCluster2Time"></span> seconds</p>
+                                <div id="modalCluster2ErrorContainer" class="d-none">
+                                    <h6>Error:</h6>
+                                    <pre id="modalCluster2Error" class="bg-dark text-danger p-2 rounded"></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="#" id="rerunQueryLink" class="btn btn-primary">
+                    <i class="fas fa-redo me-1"></i> Re-run Query
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set up the modal details when clicking View button
+        document.querySelectorAll('.view-query-details').forEach(function(element) {
+            element.addEventListener('click', function() {
+                const button = this;
+                const queryId = button.getAttribute('data-query-id');
+                const queryText = button.getAttribute('data-query-text');
+                const queryTime = button.getAttribute('data-query-time');
+                const cluster1Status = button.getAttribute('data-cluster1-status');
+                const cluster2Status = button.getAttribute('data-cluster2-status');
+                const cluster1Time = button.getAttribute('data-cluster1-time');
+                const cluster2Time = button.getAttribute('data-cluster2-time');
+                const cluster1Error = button.getAttribute('data-cluster1-error');
+                const cluster2Error = button.getAttribute('data-cluster2-error');
+                
+                // Set modal content
+                document.getElementById('modalQueryText').textContent = queryText;
+                document.getElementById('modalQueryTime').textContent = queryTime;
+                document.getElementById('modalCluster1Status').textContent = cluster1Status;
+                document.getElementById('modalCluster2Status').textContent = cluster2Status;
+                document.getElementById('modalCluster1Time').textContent = cluster1Time;
+                document.getElementById('modalCluster2Time').textContent = cluster2Time;
+                
+                // Handle errors
+                if (cluster1Error && cluster1Error.trim() !== '') {
+                    document.getElementById('modalCluster1ErrorContainer').classList.remove('d-none');
+                    document.getElementById('modalCluster1Error').textContent = cluster1Error;
+                } else {
+                    document.getElementById('modalCluster1ErrorContainer').classList.add('d-none');
+                }
+                
+                if (cluster2Error && cluster2Error.trim() !== '') {
+                    document.getElementById('modalCluster2ErrorContainer').classList.remove('d-none');
+                    document.getElementById('modalCluster2Error').textContent = cluster2Error;
+                } else {
+                    document.getElementById('modalCluster2ErrorContainer').classList.add('d-none');
+                }
+                
+                // Set up re-run query link
+                const rerunLink = document.getElementById('rerunQueryLink');
+                rerunLink.href = `/query?query=${encodeURIComponent(queryText)}`;
+            });
+        });
+    });
+</script>
+{% endblock %}

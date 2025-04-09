@@ -8,6 +8,7 @@ import traceback
 from config import load_config, save_config, get_default_config
 from docker_manager import DockerManager
 from trino_client import TrinoClient
+from models import db, QueryHistory
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -16,6 +17,22 @@ logger = logging.getLogger(__name__)
 # Initialize Flask application
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev_secret_key")
+
+# Configure the database
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if DATABASE_URL:
+    app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_recycle": 300,
+        "pool_pre_ping": True,
+    }
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    logger.info(f"Database URL configured: {DATABASE_URL[:15]}...")
+else:
+    logger.warning("No DATABASE_URL environment variable found. Database functionality will be disabled.")
+
+# Initialize the database
+db.init_app(app)
 
 # Initialize Docker manager
 docker_manager = DockerManager()
@@ -178,12 +195,16 @@ def query_page():
     # Get list of catalogs
     catalogs = [catalog for catalog, settings in config['catalogs'].items() if settings['enabled']]
     
+    # Check if a query is provided in the URL (e.g., when re-running a query from history)
+    pre_populated_query = request.args.get('query', '')
+    
     return render_template('query.html', 
                            config=config,
                            catalogs=catalogs,
                            cluster1_status=cluster1_status,
                            cluster2_status=cluster2_status,
-                           docker_available=docker_available)
+                           docker_available=docker_available,
+                           pre_populated_query=pre_populated_query)
 
 @app.route('/run_query', methods=['POST'])
 def run_query():
@@ -203,6 +224,9 @@ def run_query():
         results = {}
         errors = {}
         timing = {}
+        
+        # Create a new query history record
+        query_history = QueryHistory(query_text=query)
         
         # Only run query against clusters that are running
         for cluster_name in ['cluster1', 'cluster2']:
@@ -224,6 +248,17 @@ def run_query():
             else:
                 errors[cluster_name] = "Cluster not running"
         
+        # Save the results to the database if we have DATABASE_URL configured
+        if DATABASE_URL:
+            try:
+                query_history.save_results(results, timing, errors)
+                db.session.add(query_history)
+                db.session.commit()
+                logger.info(f"Saved query history for query: {query[:50]}...")
+            except Exception as e:
+                logger.error(f"Error saving query history: {str(e)}")
+                db.session.rollback()
+        
         return render_template('comparison.html',
                                query=query,
                                results=results,
@@ -236,6 +271,18 @@ def run_query():
         logger.error(f"Error during query execution: {str(e)}")
         flash(f'Error during query execution: {str(e)}', 'danger')
         return redirect(url_for('query_page'))
+
+@app.route('/history')
+def query_history():
+    """Page for viewing query history"""
+    if not DATABASE_URL:
+        flash('Database functionality is disabled.', 'warning')
+        return redirect(url_for('index'))
+        
+    history = QueryHistory.query.order_by(QueryHistory.execution_time.desc()).all()
+    return render_template('history.html', 
+                           history=history,
+                           docker_available=docker_available)
 
 @app.route('/catalog_config')
 def catalog_config_page():
@@ -280,6 +327,9 @@ def save_catalog_config():
 # Flask 2.x doesn't have before_first_request anymore
 # Use with app.app_context() instead
 with app.app_context():
+    # Create all database tables
+    db.create_all()
+    
     # Make sure config exists
     if not os.path.exists('config/config.yaml'):
         default_config = get_default_config()

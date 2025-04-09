@@ -61,7 +61,7 @@
                             <div class="card-body">
                                 <form action="{{ url_for('run_query') }}" method="post">
                                     <div class="mb-3">
-                                        <textarea class="form-control" id="query" name="query" rows="8" placeholder="Enter your SQL query here..." required></textarea>
+                                        <textarea class="form-control" id="query" name="query" rows="8" placeholder="Enter your SQL query here..." required>{{ pre_populated_query }}</textarea>
                                     </div>
                                     <div class="d-flex justify-content-between">
                                         <button type="submit" class="btn btn-primary" {% if not docker_available %}disabled{% endif %} title="{% if not docker_available %}Docker is not available in this environment{% endif %}">
