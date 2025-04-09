@@ -1,614 +1,611 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title"><i class="fas fa-server me-2"></i>Trino Cluster Management</h2>
-            </div>
-            <div class="card-body">
-                {% if not docker_available %}
-                <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Docker is not available in this environment.</strong> You're viewing the application in demo mode. Actual cluster management functionality is disabled.
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-dark">
+                    <h2 class="card-title"><i class="fas fa-server me-2"></i>Trino Cluster Status</h2>
                 </div>
-                {% endif %}
-                <!-- Cluster Status Cards -->
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <div class="card h-100">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5>Cluster 1</h5>
-                                <span class="badge {% if cluster1_status == 'running' %}bg-success{% elif cluster1_status == 'not_found' %}bg-secondary{% else %}bg-danger{% endif %}">
-                                    {{ cluster1_status|capitalize }}
-                                </span>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Cluster 1 Status -->
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header {% if cluster1_status == 'running' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    <h5 class="card-title text-white mb-0">
+                                        <i class="fas {% if cluster1_status == 'running' %}fa-check-circle{% else %}fa-times-circle{% endif %} me-2"></i>
+                                        Cluster 1 ({{ config.cluster1.version }})
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Status:</strong> <span class="badge {% if cluster1_status == 'running' %}bg-success{% else %}bg-secondary{% endif %}">{{ cluster1_status|capitalize }}</span></p>
+                                    <p><strong>Port:</strong> {{ config.cluster1.port }}</p>
+                                    <p><strong>Container:</strong> {{ config.cluster1.container_name }}</p>
+                                </div>
                             </div>
-                            <div class="card-body">
-                                <p><strong>Version:</strong> {{ config.cluster1.version }}</p>
-                                <p><strong>Port:</strong> {{ config.cluster1.port }}</p>
-                                <p><strong>Container:</strong> {{ config.cluster1.container_name }}</p>
-                                {% if cluster1_status == 'running' %}
-                                <p><strong>UI:</strong> <a href="http://localhost:{{ config.cluster1.port }}" target="_blank">http://localhost:{{ config.cluster1.port }}</a></p>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <div class="card h-100">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5>Cluster 2</h5>
-                                <span class="badge {% if cluster2_status == 'running' %}bg-success{% elif cluster2_status == 'not_found' %}bg-secondary{% else %}bg-danger{% endif %}">
-                                    {{ cluster2_status|capitalize }}
-                                </span>
-                            </div>
-                            <div class="card-body">
-                                <p><strong>Version:</strong> {{ config.cluster2.version }}</p>
-                                <p><strong>Port:</strong> {{ config.cluster2.port }}</p>
-                                <p><strong>Container:</strong> {{ config.cluster2.container_name }}</p>
-                                {% if cluster2_status == 'running' %}
-                                <p><strong>UI:</strong> <a href="http://localhost:{{ config.cluster2.port }}" target="_blank">http://localhost:{{ config.cluster2.port }}</a></p>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Control Buttons -->
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <div class="d-flex justify-content-center">
-                            <form action="{{ url_for('start_clusters') }}" method="post" class="me-2">
-                                <button type="submit" class="btn btn-success" {% if not docker_available %}disabled{% endif %} title="{% if not docker_available %}Docker is not available in this environment{% endif %}">
-                                    <i class="fas fa-play me-1"></i> Start Clusters
-                                </button>
-                            </form>
-                            
-                            <form action="{{ url_for('stop_clusters') }}" method="post" class="me-2">
-                                <button type="submit" class="btn btn-danger" {% if not docker_available %}disabled{% endif %} title="{% if not docker_available %}Docker is not available in this environment{% endif %}">
-                                    <i class="fas fa-stop me-1"></i> Stop Clusters
-                                </button>
-                            </form>
-                            
-                            <form action="{{ url_for('restart_clusters') }}" method="post">
-                                <button type="submit" class="btn btn-warning" {% if not docker_available %}disabled{% endif %} title="{% if not docker_available %}Docker is not available in this environment{% endif %}">
-                                    <i class="fas fa-sync me-1"></i> Restart Clusters
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Configuration Form -->
-                <div class="row">
-                    <div class="col-12">
-                        <div class="mb-4">
-                            <h3>Catalog Configuration</h3>
-                            <p class="text-muted">Configure all catalogs below. Catalogs enabled here will be available on both clusters.</p>
-                            <form action="{{ url_for('save_catalog_config') }}" method="post">
-                                <!-- Hive Catalog -->
-                                <div class="card mb-4">
-                                    <div class="card-header">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="hive" name="hive" {% if config.catalogs.hive.enabled %}checked{% endif %}>
-                                            <label class="form-check-label" for="hive">
-                                                <h5 class="mb-0">Hive Catalog</h5>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="hive_metastore_host" class="form-label">Metastore Host</label>
-                                                    <input type="text" class="form-control" id="hive_metastore_host" name="hive_metastore_host" value="{{ config.catalogs.hive.metastore_host }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="hive_metastore_port" class="form-label">Metastore Port</label>
-                                                    <input type="text" class="form-control" id="hive_metastore_port" name="hive_metastore_port" value="{{ config.catalogs.hive.metastore_port }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Note:</strong> For a local setup, you may need to run a separate Hive metastore service.
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Iceberg Catalog -->
-                                <div class="card mb-4">
-                                    <div class="card-header">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="iceberg" name="iceberg" {% if config.catalogs.iceberg.enabled %}checked{% endif %}>
-                                            <label class="form-check-label" for="iceberg">
-                                                <h5 class="mb-0">Iceberg Catalog</h5>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="iceberg_metastore_host" class="form-label">Metastore Host</label>
-                                                    <input type="text" class="form-control" id="iceberg_metastore_host" name="iceberg_metastore_host" value="{{ config.catalogs.iceberg.metastore_host }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="iceberg_metastore_port" class="form-label">Metastore Port</label>
-                                                    <input type="text" class="form-control" id="iceberg_metastore_port" name="iceberg_metastore_port" value="{{ config.catalogs.iceberg.metastore_port }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Note:</strong> Iceberg uses Hive metastore for catalog storage. Ensure your metastore is compatible with Iceberg tables.
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Delta Lake Catalog -->
-                                <div class="card mb-4">
-                                    <div class="card-header">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="delta-lake" name="delta-lake" {% if config.catalogs['delta-lake'].enabled %}checked{% endif %}>
-                                            <label class="form-check-label" for="delta-lake">
-                                                <h5 class="mb-0">Delta Lake Catalog</h5>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="delta-lake_metastore_host" class="form-label">Metastore Host</label>
-                                                    <input type="text" class="form-control" id="delta-lake_metastore_host" name="delta-lake_metastore_host" value="{{ config.catalogs['delta-lake'].metastore_host }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="delta-lake_metastore_port" class="form-label">Metastore Port</label>
-                                                    <input type="text" class="form-control" id="delta-lake_metastore_port" name="delta-lake_metastore_port" value="{{ config.catalogs['delta-lake'].metastore_port }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Note:</strong> Delta Lake uses Hive metastore for catalog storage. Ensure your metastore is compatible with Delta Lake tables.
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- MySQL Catalog -->
-                                <div class="card mb-4">
-                                    <div class="card-header">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="mysql" name="mysql" {% if config.catalogs.mysql.enabled %}checked{% endif %}>
-                                            <label class="form-check-label" for="mysql">
-                                                <h5 class="mb-0">MySQL Catalog</h5>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="mysql_host" class="form-label">Host</label>
-                                                    <input type="text" class="form-control" id="mysql_host" name="mysql_host" value="{{ config.catalogs.mysql.host }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="mysql_port" class="form-label">Port</label>
-                                                    <input type="text" class="form-control" id="mysql_port" name="mysql_port" value="{{ config.catalogs.mysql.port }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="mysql_user" class="form-label">User</label>
-                                                    <input type="text" class="form-control" id="mysql_user" name="mysql_user" value="{{ config.catalogs.mysql.user }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="mysql_password" class="form-label">Password</label>
-                                                    <input type="password" class="form-control" id="mysql_password" name="mysql_password" value="{{ config.catalogs.mysql.password }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Note:</strong> You need a running MySQL server accessible from the Trino containers.
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- MariaDB Catalog -->
-                                <div class="card mb-4">
-                                    <div class="card-header">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="mariadb" name="mariadb" {% if config.catalogs.mariadb.enabled %}checked{% endif %}>
-                                            <label class="form-check-label" for="mariadb">
-                                                <h5 class="mb-0">MariaDB Catalog</h5>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="mariadb_host" class="form-label">Host</label>
-                                                    <input type="text" class="form-control" id="mariadb_host" name="mariadb_host" value="{{ config.catalogs.mariadb.host }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="mariadb_port" class="form-label">Port</label>
-                                                    <input type="text" class="form-control" id="mariadb_port" name="mariadb_port" value="{{ config.catalogs.mariadb.port }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="mariadb_user" class="form-label">User</label>
-                                                    <input type="text" class="form-control" id="mariadb_user" name="mariadb_user" value="{{ config.catalogs.mariadb.user }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="mariadb_password" class="form-label">Password</label>
-                                                    <input type="password" class="form-control" id="mariadb_password" name="mariadb_password" value="{{ config.catalogs.mariadb.password }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Note:</strong> You need a running MariaDB server accessible from the Trino containers.
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- PostgreSQL Catalog -->
-                                <div class="card mb-4">
-                                    <div class="card-header">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="postgres" name="postgres" {% if config.catalogs.postgres.enabled %}checked{% endif %}>
-                                            <label class="form-check-label" for="postgres">
-                                                <h5 class="mb-0">PostgreSQL Catalog</h5>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="postgres_host" class="form-label">Host</label>
-                                                    <input type="text" class="form-control" id="postgres_host" name="postgres_host" value="{{ config.catalogs.postgres.host }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="postgres_port" class="form-label">Port</label>
-                                                    <input type="text" class="form-control" id="postgres_port" name="postgres_port" value="{{ config.catalogs.postgres.port }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="postgres_database" class="form-label">Database</label>
-                                                    <input type="text" class="form-control" id="postgres_database" name="postgres_database" value="{{ config.catalogs.postgres.database }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="postgres_user" class="form-label">User</label>
-                                                    <input type="text" class="form-control" id="postgres_user" name="postgres_user" value="{{ config.catalogs.postgres.user }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="postgres_password" class="form-label">Password</label>
-                                                    <input type="password" class="form-control" id="postgres_password" name="postgres_password" value="{{ config.catalogs.postgres.password }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Note:</strong> You need a running PostgreSQL server accessible from the Trino containers.
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- SQL Server Catalog -->
-                                <div class="card mb-4">
-                                    <div class="card-header">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="sqlserver" name="sqlserver" {% if config.catalogs.sqlserver.enabled %}checked{% endif %}>
-                                            <label class="form-check-label" for="sqlserver">
-                                                <h5 class="mb-0">SQL Server Catalog</h5>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="sqlserver_host" class="form-label">Host</label>
-                                                    <input type="text" class="form-control" id="sqlserver_host" name="sqlserver_host" value="{{ config.catalogs.sqlserver.host }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="sqlserver_port" class="form-label">Port</label>
-                                                    <input type="text" class="form-control" id="sqlserver_port" name="sqlserver_port" value="{{ config.catalogs.sqlserver.port }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="sqlserver_database" class="form-label">Database</label>
-                                                    <input type="text" class="form-control" id="sqlserver_database" name="sqlserver_database" value="{{ config.catalogs.sqlserver.database }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="sqlserver_user" class="form-label">User</label>
-                                                    <input type="text" class="form-control" id="sqlserver_user" name="sqlserver_user" value="{{ config.catalogs.sqlserver.user }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="sqlserver_password" class="form-label">Password</label>
-                                                    <input type="password" class="form-control" id="sqlserver_password" name="sqlserver_password" value="{{ config.catalogs.sqlserver.password }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Note:</strong> You need a running SQL Server accessible from the Trino containers.
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- DB2 Catalog -->
-                                <div class="card mb-4">
-                                    <div class="card-header">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="db2" name="db2" {% if config.catalogs.db2.enabled %}checked{% endif %}>
-                                            <label class="form-check-label" for="db2">
-                                                <h5 class="mb-0">DB2 Catalog</h5>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="db2_host" class="form-label">Host</label>
-                                                    <input type="text" class="form-control" id="db2_host" name="db2_host" value="{{ config.catalogs.db2.host }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="db2_port" class="form-label">Port</label>
-                                                    <input type="text" class="form-control" id="db2_port" name="db2_port" value="{{ config.catalogs.db2.port }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="db2_database" class="form-label">Database</label>
-                                                    <input type="text" class="form-control" id="db2_database" name="db2_database" value="{{ config.catalogs.db2.database }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="db2_user" class="form-label">User</label>
-                                                    <input type="text" class="form-control" id="db2_user" name="db2_user" value="{{ config.catalogs.db2.user }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="mb-3">
-                                                    <label for="db2_password" class="form-label">Password</label>
-                                                    <input type="password" class="form-control" id="db2_password" name="db2_password" value="{{ config.catalogs.db2.password }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Note:</strong> You need a running DB2 server accessible from the Trino containers.
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- ClickHouse Catalog -->
-                                <div class="card mb-4">
-                                    <div class="card-header">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="clickhouse" name="clickhouse" {% if config.catalogs.clickhouse.enabled %}checked{% endif %}>
-                                            <label class="form-check-label" for="clickhouse">
-                                                <h5 class="mb-0">ClickHouse Catalog</h5>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="clickhouse_host" class="form-label">Host</label>
-                                                    <input type="text" class="form-control" id="clickhouse_host" name="clickhouse_host" value="{{ config.catalogs.clickhouse.host }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="clickhouse_port" class="form-label">Port</label>
-                                                    <input type="text" class="form-control" id="clickhouse_port" name="clickhouse_port" value="{{ config.catalogs.clickhouse.port }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="clickhouse_user" class="form-label">User</label>
-                                                    <input type="text" class="form-control" id="clickhouse_user" name="clickhouse_user" value="{{ config.catalogs.clickhouse.user }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="clickhouse_password" class="form-label">Password</label>
-                                                    <input type="password" class="form-control" id="clickhouse_password" name="clickhouse_password" value="{{ config.catalogs.clickhouse.password }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Note:</strong> You need a running ClickHouse server accessible from the Trino containers.
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Pinot Catalog -->
-                                <div class="card mb-4">
-                                    <div class="card-header">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="pinot" name="pinot" {% if config.catalogs.pinot.enabled %}checked{% endif %}>
-                                            <label class="form-check-label" for="pinot">
-                                                <h5 class="mb-0">Pinot Catalog</h5>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="pinot_host" class="form-label">Host</label>
-                                                    <input type="text" class="form-control" id="pinot_host" name="pinot_host" value="{{ config.catalogs.pinot.host }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="pinot_port" class="form-label">Port</label>
-                                                    <input type="text" class="form-control" id="pinot_port" name="pinot_port" value="{{ config.catalogs.pinot.port }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Note:</strong> You need a running Pinot server accessible from the Trino containers.
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Elasticsearch Catalog -->
-                                <div class="card mb-4">
-                                    <div class="card-header">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="elasticsearch" name="elasticsearch" {% if config.catalogs.elasticsearch.enabled %}checked{% endif %}>
-                                            <label class="form-check-label" for="elasticsearch">
-                                                <h5 class="mb-0">Elasticsearch Catalog</h5>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="elasticsearch_host" class="form-label">Host</label>
-                                                    <input type="text" class="form-control" id="elasticsearch_host" name="elasticsearch_host" value="{{ config.catalogs.elasticsearch.host }}">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="elasticsearch_port" class="form-label">Port</label>
-                                                    <input type="text" class="form-control" id="elasticsearch_port" name="elasticsearch_port" value="{{ config.catalogs.elasticsearch.port }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Note:</strong> You need a running Elasticsearch server accessible from the Trino containers.
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="d-flex justify-content-between">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-save me-1"></i> Save Catalog Configuration
-                                    </button>
-                                </div>
-                            </form>
                         </div>
                         
-                        <div class="card">
-                            <div class="card-header">
-                                <h5>Cluster Configuration</h5>
-                            </div>
-                            <div class="card-body">
-                                <form action="{{ url_for('save_configuration') }}" method="post">
-                                    <div class="row mb-3">
-                                        <div class="col-md-6">
-                                            <h6>Cluster 1</h6>
-                                            <div class="mb-3">
-                                                <label for="cluster1_version" class="form-label">Version</label>
-                                                <input type="text" class="form-control" id="cluster1_version" name="cluster1_version" value="{{ config.cluster1.version }}" required>
-                                                <small class="form-text text-muted">e.g., 405, 406, latest</small>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="cluster1_port" class="form-label">Port</label>
-                                                <input type="number" class="form-control" id="cluster1_port" name="cluster1_port" value="{{ config.cluster1.port }}" required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="cluster1_container_name" class="form-label">Container Name</label>
-                                                <input type="text" class="form-control" id="cluster1_container_name" name="cluster1_container_name" value="{{ config.cluster1.container_name }}" required>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-md-6">
-                                            <h6>Cluster 2</h6>
-                                            <div class="mb-3">
-                                                <label for="cluster2_version" class="form-label">Version</label>
-                                                <input type="text" class="form-control" id="cluster2_version" name="cluster2_version" value="{{ config.cluster2.version }}" required>
-                                                <small class="form-text text-muted">e.g., 405, 406, latest</small>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="cluster2_port" class="form-label">Port</label>
-                                                <input type="number" class="form-control" id="cluster2_port" name="cluster2_port" value="{{ config.cluster2.port }}" required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="cluster2_container_name" class="form-label">Container Name</label>
-                                                <input type="text" class="form-control" id="cluster2_container_name" name="cluster2_container_name" value="{{ config.cluster2.container_name }}" required>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Cluster configuration options only -->
-                                    
-                                    <div class="d-flex justify-content-between">
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="fas fa-save me-1"></i> Save Configuration
-                                        </button>
-                                        <a href="{{ url_for('catalog_config_page') }}" class="btn btn-info">
-                                            <i class="fas fa-cogs me-1"></i> Advanced Catalog Config
-                                        </a>
-                                        <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#resetConfigModal">
-                                            <i class="fas fa-undo me-1"></i> Reset to Defaults
-                                        </button>
-                                    </div>
-                                </form>
+                        <!-- Cluster 2 Status -->
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header {% if cluster2_status == 'running' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    <h5 class="card-title text-white mb-0">
+                                        <i class="fas {% if cluster2_status == 'running' %}fa-check-circle{% else %}fa-times-circle{% endif %} me-2"></i>
+                                        Cluster 2 ({{ config.cluster2.version }})
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Status:</strong> <span class="badge {% if cluster2_status == 'running' %}bg-success{% else %}bg-secondary{% endif %}">{{ cluster2_status|capitalize }}</span></p>
+                                    <p><strong>Port:</strong> {{ config.cluster2.port }}</p>
+                                    <p><strong>Container:</strong> {{ config.cluster2.container_name }}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
+                </div>
+                
+                <!-- Control buttons -->
+                <div class="card-footer">
+                    <div class="d-flex justify-content-center">
+                        <form action="{{ url_for('start_clusters') }}" method="post" class="me-2">
+                            <button type="submit" class="btn btn-success" {% if not docker_available %}disabled{% endif %}>
+                                <i class="fas fa-play me-1"></i> Start Clusters
+                            </button>
+                        </form>
+                        <form action="{{ url_for('stop_clusters') }}" method="post" class="me-2">
+                            <button type="submit" class="btn btn-danger" {% if not docker_available %}disabled{% endif %}>
+                                <i class="fas fa-stop me-1"></i> Stop Clusters
+                            </button>
+                        </form>
+                        <form action="{{ url_for('restart_clusters') }}" method="post">
+                            <button type="submit" class="btn btn-warning" {% if not docker_available %}disabled{% endif %}>
+                                <i class="fas fa-redo me-1"></i> Restart Clusters
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- CATALOG CONFIGURATION SECTION -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary">
+                    <h2 class="card-title text-white"><i class="fas fa-cogs me-2"></i>Catalog Configuration</h2>
+                </div>
+                <div class="card-body">
+                    {% if not docker_available %}
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Docker is not available in this environment.</strong> You can configure catalogs, but they cannot be used with Trino clusters in demo mode.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    {% endif %}
+                    <form action="{{ url_for('save_catalog_config') }}" method="post">
+                        <!-- Hive Catalog -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="hive" name="hive" {% if config.catalogs.hive.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="hive">
+                                        <h5 class="mb-0">Hive Catalog</h5>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="hive_metastore_host" class="form-label">Metastore Host</label>
+                                            <input type="text" class="form-control" id="hive_metastore_host" name="hive_metastore_host" value="{{ config.catalogs.hive.metastore_host }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="hive_metastore_port" class="form-label">Metastore Port</label>
+                                            <input type="text" class="form-control" id="hive_metastore_port" name="hive_metastore_port" value="{{ config.catalogs.hive.metastore_port }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note:</strong> For a local setup, you may need to run a separate Hive metastore service.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Iceberg Catalog -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="iceberg" name="iceberg" {% if config.catalogs.iceberg.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="iceberg">
+                                        <h5 class="mb-0">Iceberg Catalog</h5>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="iceberg_metastore_host" class="form-label">Metastore Host</label>
+                                            <input type="text" class="form-control" id="iceberg_metastore_host" name="iceberg_metastore_host" value="{{ config.catalogs.iceberg.metastore_host }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="iceberg_metastore_port" class="form-label">Metastore Port</label>
+                                            <input type="text" class="form-control" id="iceberg_metastore_port" name="iceberg_metastore_port" value="{{ config.catalogs.iceberg.metastore_port }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note:</strong> Iceberg uses Hive metastore for catalog storage. Ensure your metastore is compatible with Iceberg tables.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Delta Lake Catalog -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="delta-lake" name="delta-lake" {% if config.catalogs['delta-lake'].enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="delta-lake">
+                                        <h5 class="mb-0">Delta Lake Catalog</h5>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="delta-lake_metastore_host" class="form-label">Metastore Host</label>
+                                            <input type="text" class="form-control" id="delta-lake_metastore_host" name="delta-lake_metastore_host" value="{{ config.catalogs['delta-lake'].metastore_host }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="delta-lake_metastore_port" class="form-label">Metastore Port</label>
+                                            <input type="text" class="form-control" id="delta-lake_metastore_port" name="delta-lake_metastore_port" value="{{ config.catalogs['delta-lake'].metastore_port }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note:</strong> Delta Lake uses Hive metastore for catalog storage. Ensure your metastore is compatible with Delta Lake tables.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- MySQL Catalog -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="mysql" name="mysql" {% if config.catalogs.mysql.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="mysql">
+                                        <h5 class="mb-0">MySQL Catalog</h5>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="mysql_host" class="form-label">Host</label>
+                                            <input type="text" class="form-control" id="mysql_host" name="mysql_host" value="{{ config.catalogs.mysql.host }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="mysql_port" class="form-label">Port</label>
+                                            <input type="text" class="form-control" id="mysql_port" name="mysql_port" value="{{ config.catalogs.mysql.port }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="mysql_user" class="form-label">User</label>
+                                            <input type="text" class="form-control" id="mysql_user" name="mysql_user" value="{{ config.catalogs.mysql.user }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="mysql_password" class="form-label">Password</label>
+                                            <input type="password" class="form-control" id="mysql_password" name="mysql_password" value="{{ config.catalogs.mysql.password }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note:</strong> You need a running MySQL server accessible from the Trino containers.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- MariaDB Catalog -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="mariadb" name="mariadb" {% if config.catalogs.mariadb.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="mariadb">
+                                        <h5 class="mb-0">MariaDB Catalog</h5>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="mariadb_host" class="form-label">Host</label>
+                                            <input type="text" class="form-control" id="mariadb_host" name="mariadb_host" value="{{ config.catalogs.mariadb.host }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="mariadb_port" class="form-label">Port</label>
+                                            <input type="text" class="form-control" id="mariadb_port" name="mariadb_port" value="{{ config.catalogs.mariadb.port }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="mariadb_user" class="form-label">User</label>
+                                            <input type="text" class="form-control" id="mariadb_user" name="mariadb_user" value="{{ config.catalogs.mariadb.user }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="mariadb_password" class="form-label">Password</label>
+                                            <input type="password" class="form-control" id="mariadb_password" name="mariadb_password" value="{{ config.catalogs.mariadb.password }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note:</strong> You need a running MariaDB server accessible from the Trino containers.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- PostgreSQL Catalog -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="postgres" name="postgres" {% if config.catalogs.postgres.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="postgres">
+                                        <h5 class="mb-0">PostgreSQL Catalog</h5>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="postgres_host" class="form-label">Host</label>
+                                            <input type="text" class="form-control" id="postgres_host" name="postgres_host" value="{{ config.catalogs.postgres.host }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="postgres_port" class="form-label">Port</label>
+                                            <input type="text" class="form-control" id="postgres_port" name="postgres_port" value="{{ config.catalogs.postgres.port }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="postgres_database" class="form-label">Database</label>
+                                            <input type="text" class="form-control" id="postgres_database" name="postgres_database" value="{{ config.catalogs.postgres.database }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="postgres_user" class="form-label">User</label>
+                                            <input type="text" class="form-control" id="postgres_user" name="postgres_user" value="{{ config.catalogs.postgres.user }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="postgres_password" class="form-label">Password</label>
+                                            <input type="password" class="form-control" id="postgres_password" name="postgres_password" value="{{ config.catalogs.postgres.password }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note:</strong> You need a running PostgreSQL server accessible from the Trino containers.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- SQL Server Catalog -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="sqlserver" name="sqlserver" {% if config.catalogs.sqlserver.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="sqlserver">
+                                        <h5 class="mb-0">SQL Server Catalog</h5>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="sqlserver_host" class="form-label">Host</label>
+                                            <input type="text" class="form-control" id="sqlserver_host" name="sqlserver_host" value="{{ config.catalogs.sqlserver.host }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="sqlserver_port" class="form-label">Port</label>
+                                            <input type="text" class="form-control" id="sqlserver_port" name="sqlserver_port" value="{{ config.catalogs.sqlserver.port }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="sqlserver_database" class="form-label">Database</label>
+                                            <input type="text" class="form-control" id="sqlserver_database" name="sqlserver_database" value="{{ config.catalogs.sqlserver.database }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="sqlserver_user" class="form-label">User</label>
+                                            <input type="text" class="form-control" id="sqlserver_user" name="sqlserver_user" value="{{ config.catalogs.sqlserver.user }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="sqlserver_password" class="form-label">Password</label>
+                                            <input type="password" class="form-control" id="sqlserver_password" name="sqlserver_password" value="{{ config.catalogs.sqlserver.password }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note:</strong> You need a running SQL Server accessible from the Trino containers.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- DB2 Catalog -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="db2" name="db2" {% if config.catalogs.db2.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="db2">
+                                        <h5 class="mb-0">DB2 Catalog</h5>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="db2_host" class="form-label">Host</label>
+                                            <input type="text" class="form-control" id="db2_host" name="db2_host" value="{{ config.catalogs.db2.host }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="db2_port" class="form-label">Port</label>
+                                            <input type="text" class="form-control" id="db2_port" name="db2_port" value="{{ config.catalogs.db2.port }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="db2_database" class="form-label">Database</label>
+                                            <input type="text" class="form-control" id="db2_database" name="db2_database" value="{{ config.catalogs.db2.database }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="db2_user" class="form-label">User</label>
+                                            <input type="text" class="form-control" id="db2_user" name="db2_user" value="{{ config.catalogs.db2.user }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="db2_password" class="form-label">Password</label>
+                                            <input type="password" class="form-control" id="db2_password" name="db2_password" value="{{ config.catalogs.db2.password }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note:</strong> You need a running DB2 server accessible from the Trino containers.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- ClickHouse Catalog -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="clickhouse" name="clickhouse" {% if config.catalogs.clickhouse.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="clickhouse">
+                                        <h5 class="mb-0">ClickHouse Catalog</h5>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="clickhouse_host" class="form-label">Host</label>
+                                            <input type="text" class="form-control" id="clickhouse_host" name="clickhouse_host" value="{{ config.catalogs.clickhouse.host }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="clickhouse_port" class="form-label">Port</label>
+                                            <input type="text" class="form-control" id="clickhouse_port" name="clickhouse_port" value="{{ config.catalogs.clickhouse.port }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="clickhouse_user" class="form-label">User</label>
+                                            <input type="text" class="form-control" id="clickhouse_user" name="clickhouse_user" value="{{ config.catalogs.clickhouse.user }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="clickhouse_password" class="form-label">Password</label>
+                                            <input type="password" class="form-control" id="clickhouse_password" name="clickhouse_password" value="{{ config.catalogs.clickhouse.password }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note:</strong> You need a running ClickHouse server accessible from the Trino containers.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Pinot Catalog -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="pinot" name="pinot" {% if config.catalogs.pinot.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="pinot">
+                                        <h5 class="mb-0">Pinot Catalog</h5>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="pinot_host" class="form-label">Host</label>
+                                            <input type="text" class="form-control" id="pinot_host" name="pinot_host" value="{{ config.catalogs.pinot.host }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="pinot_port" class="form-label">Port</label>
+                                            <input type="text" class="form-control" id="pinot_port" name="pinot_port" value="{{ config.catalogs.pinot.port }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note:</strong> You need a running Pinot server accessible from the Trino containers.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Elasticsearch Catalog -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="elasticsearch" name="elasticsearch" {% if config.catalogs.elasticsearch.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="elasticsearch">
+                                        <h5 class="mb-0">Elasticsearch Catalog</h5>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="elasticsearch_host" class="form-label">Host</label>
+                                            <input type="text" class="form-control" id="elasticsearch_host" name="elasticsearch_host" value="{{ config.catalogs.elasticsearch.host }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="elasticsearch_port" class="form-label">Port</label>
+                                            <input type="text" class="form-control" id="elasticsearch_port" name="elasticsearch_port" value="{{ config.catalogs.elasticsearch.port }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note:</strong> You need a running Elasticsearch server accessible from the Trino containers.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Save button for catalog configuration -->
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Save Catalog Configuration
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- CLUSTER CONFIGURATION SECTION -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info">
+                    <h2 class="card-title text-white"><i class="fas fa-server me-2"></i>Cluster Configuration</h2>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('save_configuration') }}" method="post">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <h4>Cluster 1</h4>
+                                <div class="mb-3">
+                                    <label for="cluster1_version" class="form-label">Version</label>
+                                    <input type="text" class="form-control" id="cluster1_version" name="cluster1_version" value="{{ config.cluster1.version }}" required>
+                                    <small class="form-text text-muted">e.g., 405, 406, latest</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="cluster1_port" class="form-label">Port</label>
+                                    <input type="number" class="form-control" id="cluster1_port" name="cluster1_port" value="{{ config.cluster1.port }}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="cluster1_container_name" class="form-label">Container Name</label>
+                                    <input type="text" class="form-control" id="cluster1_container_name" name="cluster1_container_name" value="{{ config.cluster1.container_name }}" required>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h4>Cluster 2</h4>
+                                <div class="mb-3">
+                                    <label for="cluster2_version" class="form-label">Version</label>
+                                    <input type="text" class="form-control" id="cluster2_version" name="cluster2_version" value="{{ config.cluster2.version }}" required>
+                                    <small class="form-text text-muted">e.g., 405, 406, latest</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="cluster2_port" class="form-label">Port</label>
+                                    <input type="number" class="form-control" id="cluster2_port" name="cluster2_port" value="{{ config.cluster2.port }}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="cluster2_container_name" class="form-label">Container Name</label>
+                                    <input type="text" class="form-control" id="cluster2_container_name" name="cluster2_container_name" value="{{ config.cluster2.container_name }}" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Save Configuration
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#resetConfigModal">
+                                <i class="fas fa-undo me-1"></i> Reset to Defaults
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
