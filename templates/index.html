@@ -557,6 +557,57 @@
         </div>
     </div>
     
+    <!-- LOCAL SETUP SECTION -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h2 class="card-title"><i class="fas fa-download me-2"></i>Local Setup</h2>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Download and run these scripts to quickly set up the Trino Comparison Tool on your local machine.
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-primary text-white">
+                                    <h4><i class="fab fa-linux me-2"></i><i class="fab fa-apple me-2"></i> For Mac/Linux</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p>Download and run the shell script to set up and launch the application:</p>
+                                    <ol>
+                                        <li>Download <a href="{{ url_for('static', filename='setup/start_app.sh') }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i>start_app.sh</a></li>
+                                        <li>Open terminal in the download location</li>
+                                        <li>Make it executable: <code>chmod +x start_app.sh</code></li>
+                                        <li>Run it: <code>./start_app.sh</code></li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-info text-white">
+                                    <h4><i class="fab fa-windows me-2"></i> For Windows</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p>Download and run the batch file to set up and launch the application:</p>
+                                    <ol>
+                                        <li>Download <a href="{{ url_for('static', filename='setup/start_app.bat') }}" class="btn btn-sm btn-outline-info"><i class="fas fa-download me-1"></i>start_app.bat</a></li>
+                                        <li>Double-click the downloaded file to run</li>
+                                        <li>Or run it from Command Prompt: <code>start_app.bat</code></li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- CLUSTER CONFIGURATION SECTION -->
     <div class="row mb-4">
         <div class="col-12">

@@ -13,7 +13,7 @@ def setup_postgres():
             return True
         
         # Try to check database status, which will fail if no PostgreSQL is available
-        subprocess.run([sys.executable, "-c", "import psycopg2; conn = psycopg2.connect(os.environ.get('DATABASE_URL')); conn.close()"], check=True)
+        subprocess.run([sys.executable, "-c", "import os, psycopg2; conn = psycopg2.connect(os.environ.get('DATABASE_URL')); conn.close()"], check=True)
         print("PostgreSQL database connection successful")
         return True
     except Exception as e:
