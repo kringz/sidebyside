@@ -1,4 +1,21 @@
 catalogs:
+  clickhouse:
+    enabled: false
+    host: localhost
+    password: ''
+    port: '8123'
+    user: default
+  db2:
+    database: sample
+    enabled: false
+    host: localhost
+    password: ''
+    port: '50000'
+    user: db2inst1
+  delta-lake:
+    enabled: false
+    metastore_host: localhost
+    metastore_port: '9083'
   elasticsearch:
     enabled: true
     host: localhost
@@ -7,12 +24,40 @@ catalogs:
     enabled: true
     metastore_host: localhost
     metastore_port: '9083'
+  iceberg:
+    enabled: false
+    metastore_host: localhost
+    metastore_port: '9083'
+  mariadb:
+    enabled: false
+    host: localhost
+    password: ''
+    port: '3306'
+    user: root
   mysql:
     enabled: true
     host: localhost
     password: ''
     port: '3306'
     user: root
+  pinot:
+    enabled: false
+    host: localhost
+    port: '9000'
+  postgres:
+    database: postgres
+    enabled: false
+    host: localhost
+    password: ''
+    port: '5432'
+    user: postgres
+  sqlserver:
+    database: master
+    enabled: false
+    host: localhost
+    password: ''
+    port: '1433'
+    user: sa
 cluster1:
   container_name: trino1
   port: 8001
