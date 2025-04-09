@@ -92,57 +92,57 @@
                                 <form action="{{ url_for('save_configuration') }}" method="post" id="catalogForm">
                                     <div class="row">
                                         <div class="col-md-4">
-                                            <div class="mb-2">
-                                                <input type="checkbox" class="form-check-input" id="hive" name="enabled_catalogs" value="hive" {% if config.catalogs.hive.enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="hive">Hive</label>
+                                            <div style="margin-bottom: 10px;">
+                                                <input type="checkbox" id="hive" name="enabled_catalogs" value="hive" style="width: 20px; height: 20px; vertical-align: middle;" {% if config.catalogs.hive.enabled %}checked{% endif %}>
+                                                <label for="hive" style="vertical-align: middle; margin-left: 5px; font-weight: bold;">Hive</label>
                                             </div>
-                                            <div class="mb-2">
-                                                <input type="checkbox" class="form-check-input" id="iceberg" name="enabled_catalogs" value="iceberg" {% if config.catalogs.iceberg.enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="iceberg">Iceberg</label>
+                                            <div style="margin-bottom: 10px;">
+                                                <input type="checkbox" id="iceberg" name="enabled_catalogs" value="iceberg" style="width: 20px; height: 20px; vertical-align: middle;" {% if config.catalogs.iceberg.enabled %}checked{% endif %}>
+                                                <label for="iceberg" style="vertical-align: middle; margin-left: 5px; font-weight: bold;">Iceberg</label>
                                             </div>
-                                            <div class="mb-2">
-                                                <input type="checkbox" class="form-check-input" id="delta_lake" name="enabled_catalogs" value="delta-lake" {% if config.catalogs['delta-lake'].enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="delta_lake">Delta Lake</label>
+                                            <div style="margin-bottom: 10px;">
+                                                <input type="checkbox" id="delta_lake" name="enabled_catalogs" value="delta-lake" style="width: 20px; height: 20px; vertical-align: middle;" {% if config.catalogs['delta-lake'].enabled %}checked{% endif %}>
+                                                <label for="delta_lake" style="vertical-align: middle; margin-left: 5px; font-weight: bold;">Delta Lake</label>
                                             </div>
-                                            <div class="mb-2">
-                                                <input type="checkbox" class="form-check-input" id="mysql" name="enabled_catalogs" value="mysql" {% if config.catalogs.mysql.enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="mysql">MySQL</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-2">
-                                                <input type="checkbox" class="form-check-input" id="mariadb" name="enabled_catalogs" value="mariadb" {% if config.catalogs.mariadb.enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="mariadb">MariaDB</label>
-                                            </div>
-                                            <div class="mb-2">
-                                                <input type="checkbox" class="form-check-input" id="postgres" name="enabled_catalogs" value="postgres" {% if config.catalogs.postgres.enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="postgres">PostgreSQL</label>
-                                            </div>
-                                            <div class="mb-2">
-                                                <input type="checkbox" class="form-check-input" id="sqlserver" name="enabled_catalogs" value="sqlserver" {% if config.catalogs.sqlserver.enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="sqlserver">SQL Server</label>
-                                            </div>
-                                            <div class="mb-2">
-                                                <input type="checkbox" class="form-check-input" id="db2" name="enabled_catalogs" value="db2" {% if config.catalogs.db2.enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="db2">DB2</label>
+                                            <div style="margin-bottom: 10px;">
+                                                <input type="checkbox" id="mysql" name="enabled_catalogs" value="mysql" style="width: 20px; height: 20px; vertical-align: middle;" {% if config.catalogs.mysql.enabled %}checked{% endif %}>
+                                                <label for="mysql" style="vertical-align: middle; margin-left: 5px; font-weight: bold;">MySQL</label>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
-                                            <div class="mb-2">
-                                                <input type="checkbox" class="form-check-input" id="clickhouse" name="enabled_catalogs" value="clickhouse" {% if config.catalogs.clickhouse.enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="clickhouse">ClickHouse</label>
+                                            <div style="margin-bottom: 10px;">
+                                                <input type="checkbox" id="mariadb" name="enabled_catalogs" value="mariadb" style="width: 20px; height: 20px; vertical-align: middle;" {% if config.catalogs.mariadb.enabled %}checked{% endif %}>
+                                                <label for="mariadb" style="vertical-align: middle; margin-left: 5px; font-weight: bold;">MariaDB</label>
                                             </div>
-                                            <div class="mb-2">
-                                                <input type="checkbox" class="form-check-input" id="pinot" name="enabled_catalogs" value="pinot" {% if config.catalogs.pinot.enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="pinot">Pinot</label>
+                                            <div style="margin-bottom: 10px;">
+                                                <input type="checkbox" id="postgres" name="enabled_catalogs" value="postgres" style="width: 20px; height: 20px; vertical-align: middle;" {% if config.catalogs.postgres.enabled %}checked{% endif %}>
+                                                <label for="postgres" style="vertical-align: middle; margin-left: 5px; font-weight: bold;">PostgreSQL</label>
                                             </div>
-                                            <div class="mb-2">
-                                                <input type="checkbox" class="form-check-input" id="elasticsearch" name="enabled_catalogs" value="elasticsearch" {% if config.catalogs.elasticsearch.enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="elasticsearch">Elasticsearch</label>
+                                            <div style="margin-bottom: 10px;">
+                                                <input type="checkbox" id="sqlserver" name="enabled_catalogs" value="sqlserver" style="width: 20px; height: 20px; vertical-align: middle;" {% if config.catalogs.sqlserver.enabled %}checked{% endif %}>
+                                                <label for="sqlserver" style="vertical-align: middle; margin-left: 5px; font-weight: bold;">SQL Server</label>
+                                            </div>
+                                            <div style="margin-bottom: 10px;">
+                                                <input type="checkbox" id="db2" name="enabled_catalogs" value="db2" style="width: 20px; height: 20px; vertical-align: middle;" {% if config.catalogs.db2.enabled %}checked{% endif %}>
+                                                <label for="db2" style="vertical-align: middle; margin-left: 5px; font-weight: bold;">DB2</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div style="margin-bottom: 10px;">
+                                                <input type="checkbox" id="clickhouse" name="enabled_catalogs" value="clickhouse" style="width: 20px; height: 20px; vertical-align: middle;" {% if config.catalogs.clickhouse.enabled %}checked{% endif %}>
+                                                <label for="clickhouse" style="vertical-align: middle; margin-left: 5px; font-weight: bold;">ClickHouse</label>
+                                            </div>
+                                            <div style="margin-bottom: 10px;">
+                                                <input type="checkbox" id="pinot" name="enabled_catalogs" value="pinot" style="width: 20px; height: 20px; vertical-align: middle;" {% if config.catalogs.pinot.enabled %}checked{% endif %}>
+                                                <label for="pinot" style="vertical-align: middle; margin-left: 5px; font-weight: bold;">Pinot</label>
+                                            </div>
+                                            <div style="margin-bottom: 10px;">
+                                                <input type="checkbox" id="elasticsearch" name="enabled_catalogs" value="elasticsearch" style="width: 20px; height: 20px; vertical-align: middle;" {% if config.catalogs.elasticsearch.enabled %}checked{% endif %}>
+                                                <label for="elasticsearch" style="vertical-align: middle; margin-left: 5px; font-weight: bold;">Elasticsearch</label>
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="mt-3">
+                                    <div style="margin-top: 20px;">
                                         <button type="submit" class="btn btn-primary">
                                             <i class="fas fa-save me-1"></i> Save Catalog Configuration
                                         </button>
