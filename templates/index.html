@@ -84,6 +84,98 @@
                 <!-- Configuration Form -->
                 <div class="row">
                     <div class="col-12">
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5>Enabled Catalogs</h5>
+                            </div>
+                            <div class="card-body">
+                                <form action="{{ url_for('save_configuration') }}" method="post" id="catalogForm">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" value="hive" id="hive_enabled" name="enabled_catalogs" {% if config.catalogs.hive.enabled %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="hive_enabled">
+                                                    Hive
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" value="iceberg" id="iceberg_enabled" name="enabled_catalogs" {% if config.catalogs.iceberg.enabled %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="iceberg_enabled">
+                                                    Iceberg
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" value="delta-lake" id="delta_lake_enabled" name="enabled_catalogs" {% if config.catalogs['delta-lake'].enabled %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="delta_lake_enabled">
+                                                    Delta Lake
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" value="mysql" id="mysql_enabled" name="enabled_catalogs" {% if config.catalogs.mysql.enabled %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="mysql_enabled">
+                                                    MySQL
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" value="mariadb" id="mariadb_enabled" name="enabled_catalogs" {% if config.catalogs.mariadb.enabled %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="mariadb_enabled">
+                                                    MariaDB
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" value="postgres" id="postgres_enabled" name="enabled_catalogs" {% if config.catalogs.postgres.enabled %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="postgres_enabled">
+                                                    PostgreSQL
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" value="sqlserver" id="sqlserver_enabled" name="enabled_catalogs" {% if config.catalogs.sqlserver.enabled %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="sqlserver_enabled">
+                                                    SQL Server
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" value="db2" id="db2_enabled" name="enabled_catalogs" {% if config.catalogs.db2.enabled %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="db2_enabled">
+                                                    DB2
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" value="clickhouse" id="clickhouse_enabled" name="enabled_catalogs" {% if config.catalogs.clickhouse.enabled %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="clickhouse_enabled">
+                                                    ClickHouse
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" value="pinot" id="pinot_enabled" name="enabled_catalogs" {% if config.catalogs.pinot.enabled %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="pinot_enabled">
+                                                    Pinot
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" value="elasticsearch" id="elasticsearch_enabled" name="enabled_catalogs" {% if config.catalogs.elasticsearch.enabled %}checked{% endif %}>
+                                                <label class="form-check-label fw-bold" for="elasticsearch_enabled">
+                                                    Elasticsearch
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-1"></i> Save Catalog Configuration
+                                        </button>
+                                        <a href="{{ url_for('catalog_config_page') }}" class="btn btn-info">
+                                            <i class="fas fa-cogs me-1"></i> Advanced Catalog Config
+                                        </a>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
                         <div class="card">
                             <div class="card-header">
                                 <h5>Cluster Configuration</h5>
@@ -126,90 +218,7 @@
                                         </div>
                                     </div>
                                     
-                                    <hr class="my-4">
-                                    
-                                    <h5 class="mb-3">Enabled Catalogs</h5>
-                                    <div class="card mb-4">
-                                        <div class="card-body">
-                                            <div class="row">
-                                                <div class="col-md-4">
-                                                    <div class="form-check mb-2">
-                                                        <input class="form-check-input" type="checkbox" value="hive" id="hive_enabled" name="enabled_catalogs" {% if config.catalogs.hive.enabled %}checked{% endif %}>
-                                                        <label class="form-check-label fw-bold" for="hive_enabled">
-                                                            Hive
-                                                        </label>
-                                                    </div>
-                                                    <div class="form-check mb-2">
-                                                        <input class="form-check-input" type="checkbox" value="iceberg" id="iceberg_enabled" name="enabled_catalogs" {% if config.catalogs.iceberg.enabled %}checked{% endif %}>
-                                                        <label class="form-check-label fw-bold" for="iceberg_enabled">
-                                                            Iceberg
-                                                        </label>
-                                                    </div>
-                                                    <div class="form-check mb-2">
-                                                        <input class="form-check-input" type="checkbox" value="delta-lake" id="delta_lake_enabled" name="enabled_catalogs" {% if config.catalogs['delta-lake'].enabled %}checked{% endif %}>
-                                                        <label class="form-check-label fw-bold" for="delta_lake_enabled">
-                                                            Delta Lake
-                                                        </label>
-                                                    </div>
-                                                    <div class="form-check mb-2">
-                                                        <input class="form-check-input" type="checkbox" value="mysql" id="mysql_enabled" name="enabled_catalogs" {% if config.catalogs.mysql.enabled %}checked{% endif %}>
-                                                        <label class="form-check-label fw-bold" for="mysql_enabled">
-                                                            MySQL
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <div class="form-check mb-2">
-                                                        <input class="form-check-input" type="checkbox" value="mariadb" id="mariadb_enabled" name="enabled_catalogs" {% if config.catalogs.mariadb.enabled %}checked{% endif %}>
-                                                        <label class="form-check-label fw-bold" for="mariadb_enabled">
-                                                            MariaDB
-                                                        </label>
-                                                    </div>
-                                                    <div class="form-check mb-2">
-                                                        <input class="form-check-input" type="checkbox" value="postgres" id="postgres_enabled" name="enabled_catalogs" {% if config.catalogs.postgres.enabled %}checked{% endif %}>
-                                                        <label class="form-check-label fw-bold" for="postgres_enabled">
-                                                            PostgreSQL
-                                                        </label>
-                                                    </div>
-                                                    <div class="form-check mb-2">
-                                                        <input class="form-check-input" type="checkbox" value="sqlserver" id="sqlserver_enabled" name="enabled_catalogs" {% if config.catalogs.sqlserver.enabled %}checked{% endif %}>
-                                                        <label class="form-check-label fw-bold" for="sqlserver_enabled">
-                                                            SQL Server
-                                                        </label>
-                                                    </div>
-                                                    <div class="form-check mb-2">
-                                                        <input class="form-check-input" type="checkbox" value="db2" id="db2_enabled" name="enabled_catalogs" {% if config.catalogs.db2.enabled %}checked{% endif %}>
-                                                        <label class="form-check-label fw-bold" for="db2_enabled">
-                                                            DB2
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <div class="form-check mb-2">
-                                                        <input class="form-check-input" type="checkbox" value="clickhouse" id="clickhouse_enabled" name="enabled_catalogs" {% if config.catalogs.clickhouse.enabled %}checked{% endif %}>
-                                                        <label class="form-check-label fw-bold" for="clickhouse_enabled">
-                                                            ClickHouse
-                                                        </label>
-                                                    </div>
-                                                    <div class="form-check mb-2">
-                                                        <input class="form-check-input" type="checkbox" value="pinot" id="pinot_enabled" name="enabled_catalogs" {% if config.catalogs.pinot.enabled %}checked{% endif %}>
-                                                        <label class="form-check-label fw-bold" for="pinot_enabled">
-                                                            Pinot
-                                                        </label>
-                                                    </div>
-                                                    <div class="form-check mb-2">
-                                                        <input class="form-check-input" type="checkbox" value="elasticsearch" id="elasticsearch_enabled" name="enabled_catalogs" {% if config.catalogs.elasticsearch.enabled %}checked{% endif %}>
-                                                        <label class="form-check-label fw-bold" for="elasticsearch_enabled">
-                                                            Elasticsearch
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="mt-3">
-                                                <small class="text-muted">For detailed catalog configuration, visit the <a href="{{ url_for('catalog_config_page') }}">Catalog Config</a> page.</small>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <!-- Cluster configuration options only -->
                                     
                                     <div class="d-flex justify-content-between">
                                         <button type="submit" class="btn btn-primary">

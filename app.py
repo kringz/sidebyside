@@ -67,27 +67,41 @@ def save_configuration():
     """Save cluster configuration"""
     try:
         config = load_config()
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         
-        # Update cluster configurations
-        config['cluster1']['version'] = request.form.get('cluster1_version')
-        config['cluster1']['port'] = int(request.form.get('cluster1_port'))
-        config['cluster1']['container_name'] = request.form.get('cluster1_container_name')
+        # Check if this is a catalog-only form submission or full config
+        if 'cluster1_version' in request.form:
+            # Update cluster configurations (full form)
+            config['cluster1']['version'] = request.form.get('cluster1_version')
+            config['cluster1']['port'] = int(request.form.get('cluster1_port'))
+            config['cluster1']['container_name'] = request.form.get('cluster1_container_name')
+            
+            config['cluster2']['version'] = request.form.get('cluster2_version')
+            config['cluster2']['port'] = int(request.form.get('cluster2_port'))
+            config['cluster2']['container_name'] = request.form.get('cluster2_container_name')
         
-        config['cluster2']['version'] = request.form.get('cluster2_version')
-        config['cluster2']['port'] = int(request.form.get('cluster2_port'))
-        config['cluster2']['container_name'] = request.form.get('cluster2_container_name')
-        
-        # Save catalog configurations
+        # Save catalog configurations (both forms include this)
         for catalog in ['hive', 'iceberg', 'delta-lake', 'mysql', 'mariadb', 'postgres', 'sqlserver', 'db2', 'clickhouse', 'pinot', 'elasticsearch']:
             config['catalogs'][catalog]['enabled'] = catalog in request.form.getlist('enabled_catalogs')
         
         save_config(config)
-        flash('Configuration saved successfully!', 'success')
+        
+        if is_ajax:
+            # Return JSON response for AJAX request
+            return jsonify({'success': True, 'message': 'Configuration saved successfully!'})
+        else:
+            # Return regular response with flash message
+            flash('Configuration saved successfully!', 'success')
+            return redirect(url_for('index'))
+            
     except Exception as e:
         logger.error(f"Error saving configuration: {str(e)}")
-        flash(f'Error saving configuration: {str(e)}', 'danger')
-    
-    return redirect(url_for('index'))
+        
+        if is_ajax:
+            return jsonify({'success': False, 'message': f'Error saving configuration: {str(e)}'})
+        else:
+            flash(f'Error saving configuration: {str(e)}', 'danger')
+            return redirect(url_for('index'))
 
 @app.route('/reset_config', methods=['POST'])
 def reset_config():
