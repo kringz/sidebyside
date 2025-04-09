@@ -66,6 +66,44 @@ def index():
                            cluster2_status=cluster2_status,
                            docker_available=docker_available)
 
+@app.route('/pull_images', methods=['POST'])
+def pull_trino_images():
+    """Pull Trino Docker images in advance"""
+    try:
+        if not docker_available:
+            return jsonify({
+                'success': False, 
+                'message': 'Docker is not available in this environment. Image pulling is disabled.'
+            })
+            
+        config = load_config()
+        versions = [config['cluster1']['version'], config['cluster2']['version']]
+        
+        results = {}
+        for version in versions:
+            if version not in results:
+                success = docker_manager.pull_trino_image(version)
+                results[version] = success
+        
+        if all(results.values()):
+            return jsonify({
+                'success': True, 
+                'message': f'Successfully pulled Trino images: {", ".join(versions)}'
+            })
+        else:
+            failed = [v for v, success in results.items() if not success]
+            return jsonify({
+                'success': False, 
+                'message': f'Failed to pull some Trino images: {", ".join(failed)}'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error pulling Trino images: {str(e)}")
+        return jsonify({
+            'success': False, 
+            'message': f'Error pulling Trino images: {str(e)}'
+        })
+
 @app.route('/save_config', methods=['POST'])
 def save_configuration():
     """Save cluster configuration"""
@@ -75,6 +113,12 @@ def save_configuration():
         
         # Check if this is a catalog-only form submission or full config
         if 'cluster1_version' in request.form:
+            # Track if versions changed
+            versions_changed = (
+                config['cluster1']['version'] != request.form.get('cluster1_version') or
+                config['cluster2']['version'] != request.form.get('cluster2_version')
+            )
+            
             # Update cluster configurations (full form)
             config['cluster1']['version'] = request.form.get('cluster1_version')
             config['cluster1']['port'] = int(request.form.get('cluster1_port'))
@@ -83,6 +127,12 @@ def save_configuration():
             config['cluster2']['version'] = request.form.get('cluster2_version')
             config['cluster2']['port'] = int(request.form.get('cluster2_port'))
             config['cluster2']['container_name'] = request.form.get('cluster2_container_name')
+            
+            # Automatically pull images if versions changed and Docker is available
+            if versions_changed and docker_available:
+                logger.info("Versions changed, automatically pulling images...")
+                for version in [config['cluster1']['version'], config['cluster2']['version']]:
+                    docker_manager.pull_trino_image(version)
         
         # Save catalog configurations (both forms include this)
         enabled_catalogs = []
@@ -132,6 +182,27 @@ def start_clusters():
     try:
         config = load_config()
         
+        if not docker_available:
+            flash('Docker is not available in this environment. Cluster startup is disabled.', 'warning')
+            return redirect(url_for('index'))
+            
+        # First, ensure images are pulled to avoid timeouts
+        flash('Preparing Trino images...', 'info')
+        
+        versions = [config['cluster1']['version'], config['cluster2']['version']]
+        image_results = {}
+        
+        # Pre-pull all necessary images
+        for version in versions:
+            if version not in image_results:
+                logger.info(f"Ensuring Trino image {version} is pulled...")
+                success = docker_manager.pull_trino_image(version)
+                image_results[version] = success
+                if success:
+                    flash(f"Trino image version {version} ready", 'info')
+                else:
+                    flash(f"Failed to pull Trino image version {version}", 'warning')
+        
         # Start first cluster
         flash(f"Starting Trino cluster 1 (version {config['cluster1']['version']})...", 'info')
         docker_manager.start_trino_cluster(
@@ -151,6 +222,7 @@ def start_clusters():
         )
         
         # Wait for clusters to initialize
+        flash('Waiting for clusters to initialize...', 'info')
         time.sleep(5)
         
         # Initialize Trino clients

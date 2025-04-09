@@ -1,0 +1,112 @@
+DEBUG:urllib3.connectionpool:http://localhost:None "POST /v1.43/images/create?tag=405&fromImage=trinodb%2Ftrino HTTP/1.1" 200 None
+[2025-04-09 16:34:11 -0600] [72421] [CRITICAL] WORKER TIMEOUT (pid:74484)
+[2025-04-09 16:34:11 -0600] [74484] [ERROR] Error handling request /start_clusters
+Traceback (most recent call last):
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/docker/api/client.py", line 275, in _raise_for_status
+    response.raise_for_status()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/requests/models.py", line 1024, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 404 Client Error: Not Found for url: http+docker://localhost/v1.43/containers/create?name=trino1
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/docker/models/containers.py", line 876, in run
+    container = self.create(image=image, command=command,
+                            detach=detach, **kwargs)
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/docker/models/containers.py", line 935, in create
+    resp = self.client.api.create_container(**create_kwargs)
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/docker/api/container.py", line 440, in create_container
+    return self.create_container_from_config(config, name, platform)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/docker/api/container.py", line 457, in create_container_from_config
+    return self._result(res, True)
+           ~~~~~~~~~~~~^^^^^^^^^^^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/docker/api/client.py", line 281, in _result
+    self._raise_for_status(response)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/docker/api/client.py", line 277, in _raise_for_status
+    raise create_api_error_from_http_exception(e) from e
+          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/docker/errors.py", line 39, in create_api_error_from_http_exception
+    raise cls(e, response=response, explanation=explanation) from e
+docker.errors.ImageNotFound: 404 Client Error for http+docker://localhost/v1.43/containers/create?name=trino1: Not Found ("No such image: trinodb/trino:405")
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/gunicorn/workers/sync.py", line 134, in handle
+    self.handle_request(listener, req, client, addr)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/gunicorn/workers/sync.py", line 177, in handle_request
+    respiter = self.wsgi(environ, resp.start_response)
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/app.py", line 137, in start_clusters
+    docker_manager.start_trino_cluster(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        config['cluster1']['container_name'],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        config['catalogs']
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/docker_manager.py", line 134, in start_trino_cluster
+    container = self.client.containers.run(
+        f"trinodb/trino:{version}",
+    ...<5 lines>...
+        detach=True
+    )
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/docker/models/containers.py", line 879, in run
+    self.client.images.pull(image, platform=platform)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/docker/models/images.py", line 467, in pull
+    for _ in pull_log:
+             ^^^^^^^^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/docker/api/client.py", line 365, in _stream_helper
+    data = reader.read(1)
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/urllib3/response.py", line 955, in read
+    data = self._raw_read(amt)
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/urllib3/response.py", line 879, in _raw_read
+    data = self._fp_read(amt, read1=read1) if not fp_closed else b""
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/urllib3/response.py", line 862, in _fp_read
+    return self._fp.read(amt) if amt is not None else self._fp.read()
+           ~~~~~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.2/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 473, in read
+    return self._read_chunked(amt)
+           ~~~~~~~~~~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.2/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 597, in _read_chunked
+    while (chunk_left := self._get_chunk_left()) is not None:
+                         ~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.2/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 579, in _get_chunk_left
+    chunk_left = self._read_next_chunk_size()
+  File "/opt/homebrew/Cellar/python@3.13/3.13.2/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 539, in _read_next_chunk_size
+    line = self.fp.readline(_MAXLINE + 1)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.2/Frameworks/Python.framework/Versions/3.13/lib/python3.13/socket.py", line 719, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+  File "/Users/stephen.krings/Downloads/TrinoLocalLab/venv/lib/python3.13/site-packages/gunicorn/workers/base.py", line 204, in handle_abort
+    sys.exit(1)
+    ~~~~~~~~^^^
+SystemExit: 1
+[2025-04-09 16:34:11 -0600] [74484] [INFO] Worker exiting (pid: 74484)
+[2025-04-09 16:34:11 -0600] [75762] [INFO] Booting worker with pid: 75762
+INFO:app:Database URL configured: sqlite:///...
+DEBUG:docker.utils.config:Trying paths: ['/Users/stephen.krings/.docker/config.json', '/Users/stephen.krings/.dockercfg']
+DEBUG:docker.utils.config:Found file at path: /Users/stephen.krings/.docker/config.json
+DEBUG:docker.auth:Found 'auths' section
+DEBUG:docker.auth:Found entry (registry='harbor.starburstdata.net', username='starburstcs')
+DEBUG:docker.auth:Found 'credsStore' section
+DEBUG:urllib3.connectionpool:http://localhost:None "GET /version HTTP/1.1" 200 None
+INFO:docker_manager:Docker client initialized successfully

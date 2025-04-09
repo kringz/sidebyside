@@ -49,6 +49,11 @@
                 <!-- Control buttons -->
                 <div class="card-footer">
                     <div class="d-flex justify-content-center">
+                        <form action="{{ url_for('pull_trino_images') }}" method="post" class="me-2" id="pullImagesForm">
+                            <button type="button" class="btn btn-info" id="pullImagesBtn" {% if not docker_available %}disabled{% endif %}>
+                                <i class="fas fa-download me-1"></i> Pull Images
+                            </button>
+                        </form>
                         <form action="{{ url_for('start_clusters') }}" method="post" class="me-2">
                             <button type="submit" class="btn btn-success" {% if not docker_available %}disabled{% endif %}>
                                 <i class="fas fa-play me-1"></i> Start Clusters
@@ -632,4 +637,96 @@
         </div>
     </div>
 </div>
+
+<!-- Pull Images Modal -->
+<div class="modal fade" id="pullImagesModal" tabindex="-1" aria-labelledby="pullImagesModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pullImagesModalLabel">Pull Trino Images</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Pulling Trino Docker images for versions:</p>
+                <ul>
+                    <li>Trino {{ config.cluster1.version }} (Cluster 1)</li>
+                    <li>Trino {{ config.cluster2.version }} (Cluster 2)</li>
+                </ul>
+                <div class="progress mt-3 mb-3" style="height: 25px;">
+                    <div id="pullProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                </div>
+                <div id="pullStatus" class="alert alert-info">
+                    Preparing to pull images...
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelPullBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Handle image pulling
+    $('#pullImagesBtn').click(function() {
+        // Show the modal
+        var pullImagesModal = new bootstrap.Modal(document.getElementById('pullImagesModal'));
+        pullImagesModal.show();
+        
+        // Set progress bar to 10%
+        $('#pullProgressBar').css('width', '10%').attr('aria-valuenow', 10).text('10%');
+        $('#pullStatus').html('<i class="fas fa-spinner fa-spin me-2"></i>Sending request to pull Trino images...');
+        
+        // Send AJAX request to pull images
+        $.ajax({
+            url: '{{ url_for("pull_trino_images") }}',
+            type: 'POST',
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    // Success - show 100% in progress bar
+                    $('#pullProgressBar').removeClass('bg-danger').addClass('bg-success').css('width', '100%').attr('aria-valuenow', 100).text('100%');
+                    $('#pullStatus').removeClass('alert-info alert-danger').addClass('alert-success').html('<i class="fas fa-check-circle me-2"></i>' + response.message);
+                    
+                    // Change cancel button to done
+                    $('#cancelPullBtn').text('Done');
+                } else {
+                    // Error - show error in progress bar
+                    $('#pullProgressBar').removeClass('bg-success').addClass('bg-danger').css('width', '100%').attr('aria-valuenow', 100).text('Failed');
+                    $('#pullStatus').removeClass('alert-info alert-success').addClass('alert-danger').html('<i class="fas fa-exclamation-circle me-2"></i>' + response.message);
+                    
+                    // Change cancel button to close
+                    $('#cancelPullBtn').text('Close');
+                }
+            },
+            error: function(xhr, status, error) {
+                // Network error
+                $('#pullProgressBar').removeClass('bg-success').addClass('bg-danger').css('width', '100%').attr('aria-valuenow', 100).text('Failed');
+                $('#pullStatus').removeClass('alert-info alert-success').addClass('alert-danger').html('<i class="fas fa-exclamation-circle me-2"></i>Error contacting server: ' + error);
+                
+                // Change cancel button to close
+                $('#cancelPullBtn').text('Close');
+            }
+        });
+        
+        // Simulate progress (this is just for UX since we don't have real-time progress updates)
+        var progress = 10;
+        var progressInterval = setInterval(function() {
+            if (progress < 90) {
+                progress += 5;
+                $('#pullProgressBar').css('width', progress + '%').attr('aria-valuenow', progress).text(progress + '%');
+                
+                if (progress === 30) {
+                    $('#pullStatus').html('<i class="fas fa-spinner fa-spin me-2"></i>Downloading Trino images from Docker Hub...');
+                } else if (progress === 60) {
+                    $('#pullStatus').html('<i class="fas fa-spinner fa-spin me-2"></i>Extracting image layers...');
+                }
+            } else {
+                clearInterval(progressInterval);
+            }
+        }, 1000);
+    });
+});
+</script>
 {% endblock %}

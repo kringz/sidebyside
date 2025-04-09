@@ -148,6 +148,21 @@ class DockerManager:
             logger.error(f"Error starting Trino container {container_name}: {str(e)}")
             raise RuntimeError(f"Failed to start Trino container: {str(e)}")
     
+    def pull_trino_image(self, version):
+        """Pull a Trino Docker image in advance"""
+        if not self.docker_available:
+            logger.warning(f"Docker not available, cannot pull Trino image {version}")
+            return False
+            
+        try:
+            logger.info(f"Pulling Trino image version {version}...")
+            image = self.client.images.pull(f"trinodb/trino:{version}")
+            logger.info(f"Successfully pulled Trino image version {version}")
+            return True
+        except Exception as e:
+            logger.error(f"Error pulling Trino image version {version}: {str(e)}")
+            return False
+            
     def stop_trino_cluster(self, container_name):
         """Stop and remove a Trino cluster"""
         if not self.docker_available:
