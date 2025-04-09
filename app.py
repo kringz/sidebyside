@@ -27,10 +27,13 @@ if DATABASE_URL:
         "pool_recycle": 300,
         "pool_pre_ping": True,
     }
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    logger.info(f"Database URL configured: {DATABASE_URL[:15]}...")
+    logger.info(f"Database URL configured: {DATABASE_URL[:10]}...")
 else:
-    logger.warning("No DATABASE_URL environment variable found. Database functionality will be disabled.")
+    # Use SQLite as fallback
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///trino_comparison.db"
+    logger.info("Using SQLite database as fallback")
+
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Initialize the database
 db.init_app(app)
