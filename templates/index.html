@@ -84,7 +84,112 @@
                 <!-- Configuration Form -->
                 <div class="row">
                     <div class="col-12">
-                        {% include 'catalog_panel.html' %}
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5>Enabled Catalogs</h5>
+                                <p class="mb-0 text-white">Catalogs enabled here will be available on both clusters</p>
+                            </div>
+                            <div class="card-body">
+                                <form action="{{ url_for('save_configuration') }}" method="post" id="catalogForm">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 10%">Enable</th>
+                                                <th style="width: 30%">Catalog</th>
+                                                <th style="width: 60%">Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="enabled_catalogs" value="hive" style="width: 20px; height: 20px;" {% if config.catalogs.hive.enabled %}checked{% endif %}>
+                                                </td>
+                                                <td><strong>Hive</strong></td>
+                                                <td>Apache Hive data warehouse connector</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="enabled_catalogs" value="iceberg" style="width: 20px; height: 20px;" {% if config.catalogs.iceberg.enabled %}checked{% endif %}>
+                                                </td>
+                                                <td><strong>Iceberg</strong></td>
+                                                <td>Apache Iceberg table format</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="enabled_catalogs" value="delta-lake" style="width: 20px; height: 20px;" {% if config.catalogs['delta-lake'].enabled %}checked{% endif %}>
+                                                </td>
+                                                <td><strong>Delta Lake</strong></td>
+                                                <td>Delta Lake storage format</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="enabled_catalogs" value="mysql" style="width: 20px; height: 20px;" {% if config.catalogs.mysql.enabled %}checked{% endif %}>
+                                                </td>
+                                                <td><strong>MySQL</strong></td>
+                                                <td>MySQL database connector</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="enabled_catalogs" value="mariadb" style="width: 20px; height: 20px;" {% if config.catalogs.mariadb.enabled %}checked{% endif %}>
+                                                </td>
+                                                <td><strong>MariaDB</strong></td>
+                                                <td>MariaDB database connector</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="enabled_catalogs" value="postgres" style="width: 20px; height: 20px;" {% if config.catalogs.postgres.enabled %}checked{% endif %}>
+                                                </td>
+                                                <td><strong>PostgreSQL</strong></td>
+                                                <td>PostgreSQL database connector</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="enabled_catalogs" value="sqlserver" style="width: 20px; height: 20px;" {% if config.catalogs.sqlserver.enabled %}checked{% endif %}>
+                                                </td>
+                                                <td><strong>SQL Server</strong></td>
+                                                <td>Microsoft SQL Server connector</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="enabled_catalogs" value="db2" style="width: 20px; height: 20px;" {% if config.catalogs.db2.enabled %}checked{% endif %}>
+                                                </td>
+                                                <td><strong>DB2</strong></td>
+                                                <td>IBM DB2 database connector</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="enabled_catalogs" value="clickhouse" style="width: 20px; height: 20px;" {% if config.catalogs.clickhouse.enabled %}checked{% endif %}>
+                                                </td>
+                                                <td><strong>ClickHouse</strong></td>
+                                                <td>ClickHouse OLAP database connector</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="enabled_catalogs" value="pinot" style="width: 20px; height: 20px;" {% if config.catalogs.pinot.enabled %}checked{% endif %}>
+                                                </td>
+                                                <td><strong>Pinot</strong></td>
+                                                <td>Apache Pinot OLAP store connector</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="enabled_catalogs" value="elasticsearch" style="width: 20px; height: 20px;" {% if config.catalogs.elasticsearch.enabled %}checked{% endif %}>
+                                                </td>
+                                                <td><strong>Elasticsearch</strong></td>
+                                                <td>Elasticsearch search engine connector</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <div style="margin-top: 20px;">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-1"></i> Save Catalog Configuration
+                                        </button>
+                                        <a href="{{ url_for('catalog_config_page') }}" class="btn btn-info">
+                                            <i class="fas fa-cogs me-1"></i> Advanced Catalog Config
+                                        </a>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
                         
                         <div class="card">
                             <div class="card-header">
