@@ -34,6 +34,11 @@ def get_default_config():
                         'metastore_host': 'localhost',
                         'metastore_port': '9083'
                     },
+                    'iceberg': {
+                        'enabled': True,
+                        'metastore_host': 'localhost',
+                        'metastore_port': '9083'
+                    },
                     'mysql': {
                         'enabled': True,
                         'host': 'localhost',
@@ -64,6 +69,16 @@ def load_config():
             with open(CONFIG_FILE, 'r') as f:
                 config = yaml.safe_load(f)
                 logger.debug("Loaded configuration from file")
+                
+                # Get default config to check for missing catalogs
+                default_config = get_default_config()
+                
+                # Add any missing catalogs from the default config
+                for catalog_name, catalog_config in default_config['catalogs'].items():
+                    if catalog_name not in config['catalogs']:
+                        logger.info(f"Adding missing catalog '{catalog_name}' from default config")
+                        config['catalogs'][catalog_name] = catalog_config
+                
                 return config
         else:
             config = get_default_config()

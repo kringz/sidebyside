@@ -48,6 +48,38 @@
                         </div>
                     </div>
                     
+                    <!-- Iceberg Catalog -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="iceberg" name="iceberg" {% if config.catalogs.iceberg.enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="iceberg">
+                                    <h5 class="mb-0">Iceberg Catalog</h5>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="iceberg_metastore_host" class="form-label">Metastore Host</label>
+                                        <input type="text" class="form-control" id="iceberg_metastore_host" name="iceberg_metastore_host" value="{{ config.catalogs.iceberg.metastore_host }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="iceberg_metastore_port" class="form-label">Metastore Port</label>
+                                        <input type="text" class="form-control" id="iceberg_metastore_port" name="iceberg_metastore_port" value="{{ config.catalogs.iceberg.metastore_port }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note:</strong> Iceberg uses Hive metastore for catalog storage. Ensure your metastore is compatible with Iceberg tables.
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- MySQL Catalog -->
                     <div class="card mb-4">
                         <div class="card-header">

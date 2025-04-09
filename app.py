@@ -77,7 +77,7 @@ def save_configuration():
         config['cluster2']['container_name'] = request.form.get('cluster2_container_name')
         
         # Save catalog configurations
-        for catalog in ['hive', 'mysql', 'elasticsearch']:
+        for catalog in ['hive', 'iceberg', 'mysql', 'elasticsearch']:
             config['catalogs'][catalog]['enabled'] = catalog in request.form.getlist('enabled_catalogs')
         
         save_config(config)
@@ -302,6 +302,9 @@ def save_catalog_config():
                 
                 # Save catalog-specific configurations
                 if catalog == 'hive':
+                    config['catalogs'][catalog]['metastore_host'] = request.form.get(f'{catalog}_metastore_host', 'localhost')
+                    config['catalogs'][catalog]['metastore_port'] = request.form.get(f'{catalog}_metastore_port', '9083')
+                elif catalog == 'iceberg':
                     config['catalogs'][catalog]['metastore_host'] = request.form.get(f'{catalog}_metastore_host', 'localhost')
                     config['catalogs'][catalog]['metastore_port'] = request.form.get(f'{catalog}_metastore_port', '9083')
                 elif catalog == 'mysql':

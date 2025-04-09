@@ -13,6 +13,10 @@ catalogs:
     enabled: true
     metastore_host: localhost
     metastore_port: '9083'
+  iceberg:
+    enabled: true
+    metastore_host: localhost
+    metastore_port: '9083'
   mysql:
     enabled: true
     host: localhost
