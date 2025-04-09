@@ -8,7 +8,8 @@ import traceback
 from config import load_config, save_config, get_default_config
 from docker_manager import DockerManager
 from trino_client import TrinoClient
-from models import db, QueryHistory
+from models import db, QueryHistory, TrinoVersion, CatalogCompatibility
+from datetime import datetime, date
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -349,6 +350,310 @@ def save_catalog_config():
     
     return redirect(url_for('catalog_config_page'))
 
+@app.route('/version_compatibility')
+def version_compatibility():
+    """Page for displaying Trino version compatibility information"""
+    if not DATABASE_URL:
+        flash('Database functionality is disabled.', 'warning')
+        return redirect(url_for('index'))
+    
+    versions = TrinoVersion.query.order_by(TrinoVersion.version.desc()).all()
+    catalogs = CatalogCompatibility.query.all()
+    
+    # Format versions for display
+    catalog_data = {}
+    for catalog in catalogs:
+        if catalog.catalog_name not in catalog_data:
+            catalog_data[catalog.catalog_name] = {
+                'min_version': catalog.min_version,
+                'max_version': catalog.max_version,
+                'deprecated_in': catalog.deprecated_in,
+                'removed_in': catalog.removed_in,
+                'notes': catalog.notes
+            }
+    
+    return render_template('version_compatibility.html',
+                          versions=versions,
+                          catalogs=catalogs,
+                          catalog_data=catalog_data,
+                          docker_available=docker_available)
+
+@app.route('/add_version', methods=['POST'])
+def add_version():
+    """Add a new Trino version"""
+    if not DATABASE_URL:
+        flash('Database functionality is disabled.', 'warning')
+        return redirect(url_for('index'))
+    
+    try:
+        version = request.form.get('version')
+        release_date_str = request.form.get('release_date')
+        is_lts = 'is_lts' in request.form
+        support_end_date_str = request.form.get('support_end_date')
+        release_notes_url = request.form.get('release_notes_url')
+        
+        # Parse dates
+        release_date = None
+        if release_date_str:
+            release_date = datetime.strptime(release_date_str, '%Y-%m-%d').date()
+        
+        support_end_date = None
+        if support_end_date_str:
+            support_end_date = datetime.strptime(support_end_date_str, '%Y-%m-%d').date()
+        
+        # Check if version already exists
+        existing_version = TrinoVersion.query.filter_by(version=version).first()
+        if existing_version:
+            flash(f'Version {version} already exists.', 'warning')
+            return redirect(url_for('version_compatibility'))
+        
+        # Create new version
+        new_version = TrinoVersion(
+            version=version,
+            release_date=release_date,
+            is_lts=is_lts,
+            support_end_date=support_end_date,
+            release_notes_url=release_notes_url
+        )
+        
+        db.session.add(new_version)
+        db.session.commit()
+        
+        flash(f'Version {version} added successfully!', 'success')
+    except Exception as e:
+        logger.error(f"Error adding version: {str(e)}")
+        flash(f'Error adding version: {str(e)}', 'danger')
+        db.session.rollback()
+    
+    return redirect(url_for('version_compatibility'))
+
+@app.route('/add_catalog_compatibility', methods=['POST'])
+def add_catalog_compatibility():
+    """Add catalog compatibility information"""
+    if not DATABASE_URL:
+        flash('Database functionality is disabled.', 'warning')
+        return redirect(url_for('index'))
+    
+    try:
+        catalog_name = request.form.get('catalog_name')
+        min_version = request.form.get('min_version')
+        max_version = request.form.get('max_version')
+        deprecated_in = request.form.get('deprecated_in')
+        removed_in = request.form.get('removed_in')
+        notes = request.form.get('notes')
+        
+        # Check if entry already exists
+        existing_compat = CatalogCompatibility.query.filter_by(catalog_name=catalog_name).first()
+        if existing_compat:
+            # Update existing entry
+            existing_compat.min_version = min_version
+            existing_compat.max_version = max_version
+            existing_compat.deprecated_in = deprecated_in
+            existing_compat.removed_in = removed_in
+            existing_compat.notes = notes
+            
+            db.session.commit()
+            flash(f'Compatibility information for {catalog_name} updated!', 'success')
+        else:
+            # Create new entry
+            new_compat = CatalogCompatibility(
+                catalog_name=catalog_name,
+                min_version=min_version,
+                max_version=max_version,
+                deprecated_in=deprecated_in,
+                removed_in=removed_in,
+                notes=notes
+            )
+            
+            db.session.add(new_compat)
+            db.session.commit()
+            flash(f'Compatibility information for {catalog_name} added!', 'success')
+    except Exception as e:
+        logger.error(f"Error adding catalog compatibility: {str(e)}")
+        flash(f'Error adding catalog compatibility: {str(e)}', 'danger')
+        db.session.rollback()
+    
+    return redirect(url_for('version_compatibility'))
+
+def seed_version_data():
+    """Seed the database with initial version data if it's empty"""
+    if TrinoVersion.query.count() == 0:
+        # Add some initial version data
+        versions = [
+            {
+                'version': '406',
+                'release_date': date(2023, 6, 2),
+                'is_lts': True,
+                'support_end_date': date(2024, 6, 2),
+                'release_notes_url': 'https://trino.io/docs/current/release/release-406.html'
+            },
+            {
+                'version': '405',
+                'release_date': date(2023, 5, 5),
+                'is_lts': False,
+                'support_end_date': None,
+                'release_notes_url': 'https://trino.io/docs/current/release/release-405.html'
+            },
+            {
+                'version': '404',
+                'release_date': date(2023, 4, 7),
+                'is_lts': False,
+                'support_end_date': None,
+                'release_notes_url': 'https://trino.io/docs/current/release/release-404.html'
+            },
+            {
+                'version': '403',
+                'release_date': date(2023, 3, 10),
+                'is_lts': False,
+                'support_end_date': None,
+                'release_notes_url': 'https://trino.io/docs/current/release/release-403.html'
+            },
+            {
+                'version': '402',
+                'release_date': date(2023, 2, 10),
+                'is_lts': False,
+                'support_end_date': None,
+                'release_notes_url': 'https://trino.io/docs/current/release/release-402.html'
+            },
+            {
+                'version': '401',
+                'release_date': date(2023, 1, 13),
+                'is_lts': False,
+                'support_end_date': None,
+                'release_notes_url': 'https://trino.io/docs/current/release/release-401.html'
+            },
+            {
+                'version': '398',
+                'release_date': date(2022, 11, 24),
+                'is_lts': True,
+                'support_end_date': date(2023, 11, 24),
+                'release_notes_url': 'https://trino.io/docs/current/release/release-398.html'
+            },
+            {
+                'version': '393',
+                'release_date': date(2022, 9, 16),
+                'is_lts': False,
+                'support_end_date': None,
+                'release_notes_url': 'https://trino.io/docs/current/release/release-393.html'
+            },
+            {
+                'version': '389',
+                'release_date': date(2022, 7, 22),
+                'is_lts': False,
+                'support_end_date': None,
+                'release_notes_url': 'https://trino.io/docs/current/release/release-389.html'
+            }
+        ]
+        
+        for version_data in versions:
+            version = TrinoVersion(**version_data)
+            db.session.add(version)
+        
+        db.session.commit()
+        logger.info("Seeded initial version data")
+
+def seed_catalog_compatibility():
+    """Seed the database with initial catalog compatibility data if it's empty"""
+    if CatalogCompatibility.query.count() == 0:
+        # Add some initial catalog compatibility data
+        catalog_data = [
+            {
+                'catalog_name': 'hive',
+                'min_version': '350',
+                'max_version': None,
+                'deprecated_in': None,
+                'removed_in': None,
+                'notes': 'Core connector widely supported across versions.'
+            },
+            {
+                'catalog_name': 'iceberg',
+                'min_version': '351',
+                'max_version': None,
+                'deprecated_in': None,
+                'removed_in': None,
+                'notes': 'Support improved significantly in versions 380+'
+            },
+            {
+                'catalog_name': 'delta-lake',
+                'min_version': '383',
+                'max_version': None,
+                'deprecated_in': None,
+                'removed_in': None,
+                'notes': 'Experimental in early versions, stable in 393+'
+            },
+            {
+                'catalog_name': 'mysql',
+                'min_version': '350',
+                'max_version': None,
+                'deprecated_in': None,
+                'removed_in': None,
+                'notes': 'Well-supported across versions.'
+            },
+            {
+                'catalog_name': 'mariadb',
+                'min_version': '377',
+                'max_version': None,
+                'deprecated_in': None,
+                'removed_in': None,
+                'notes': 'Uses mysql connector prior to dedicated support.'
+            },
+            {
+                'catalog_name': 'postgres',
+                'min_version': '350',
+                'max_version': None,
+                'deprecated_in': None,
+                'removed_in': None,
+                'notes': 'Well-supported across versions.'
+            },
+            {
+                'catalog_name': 'sqlserver',
+                'min_version': '350',
+                'max_version': None,
+                'deprecated_in': None,
+                'removed_in': None,
+                'notes': 'Well-supported across versions.'
+            },
+            {
+                'catalog_name': 'db2',
+                'min_version': '386',
+                'max_version': None,
+                'deprecated_in': None,
+                'removed_in': None,
+                'notes': 'Added in version 386.'
+            },
+            {
+                'catalog_name': 'clickhouse',
+                'min_version': '392',
+                'max_version': None,
+                'deprecated_in': None,
+                'removed_in': None,
+                'notes': 'Added in version 392.'
+            },
+            {
+                'catalog_name': 'pinot',
+                'min_version': '355',
+                'max_version': None,
+                'deprecated_in': None,
+                'removed_in': None,
+                'notes': 'Added in version 355.'
+            },
+            {
+                'catalog_name': 'elasticsearch',
+                'min_version': '350',
+                'max_version': None,
+                'deprecated_in': None,
+                'removed_in': None,
+                'notes': 'Well-supported across versions.'
+            }
+        ]
+        
+        for catalog in catalog_data:
+            compat = CatalogCompatibility(**catalog)
+            db.session.add(compat)
+        
+        db.session.commit()
+        logger.info("Seeded initial catalog compatibility data")
+
 # Initialize application
 # Flask 2.x doesn't have before_first_request anymore
 # Use with app.app_context() instead
@@ -360,3 +665,8 @@ with app.app_context():
     if not os.path.exists('config/config.yaml'):
         default_config = get_default_config()
         save_config(default_config)
+    
+    # Seed initial data if database is available
+    if DATABASE_URL:
+        seed_version_data()
+        seed_catalog_compatibility()

@@ -13,6 +13,9 @@
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    
+    <!-- Page-specific styles -->
+    {% block custom_styles %}{% endblock %}
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
@@ -43,6 +46,11 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == url_for('query_history') %}active{% endif %}" href="{{ url_for('query_history') }}">
                             <i class="fas fa-history me-1"></i> Query History
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == url_for('version_compatibility') %}active{% endif %}" href="{{ url_for('version_compatibility') }}">
+                            <i class="fas fa-chart-bar me-1"></i> Version Compatibility
                         </a>
                     </li>
                 </ul>
@@ -81,5 +89,8 @@
     
     <!-- Additional scripts -->
     {% block scripts %}{% endblock %}
+    
+    <!-- Page-specific scripts -->
+    {% block custom_scripts %}{% endblock %}
 </body>
 </html>

@@ -1,0 +1,403 @@
+{% extends 'layout.html' %}
+
+{% block title %}Trino Version Compatibility{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Trino Version Compatibility</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        This page helps you visualize compatibility between Trino versions and different catalogs.
+                        Use the information below to determine the best Trino version for your specific catalog needs.
+                    </div>
+                    
+                    <!-- Compatibility Matrix -->
+                    <div class="table-responsive mb-4">
+                        <h5>Compatibility Matrix</h5>
+                        <table class="table table-striped table-bordered">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Catalog</th>
+                                    <th>Min Version</th>
+                                    <th>Max Version</th>
+                                    <th>Deprecated In</th>
+                                    <th>Removed In</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for catalog in catalogs %}
+                                <tr>
+                                    <td>{{ catalog.catalog_name }}</td>
+                                    <td>{{ catalog.min_version or 'N/A' }}</td>
+                                    <td>{{ catalog.max_version or 'Latest' }}</td>
+                                    <td>{% if catalog.deprecated_in %}{{ catalog.deprecated_in }}{% else %}<span class="text-success">Not Deprecated</span>{% endif %}</td>
+                                    <td>{% if catalog.removed_in %}{{ catalog.removed_in }}{% else %}<span class="text-success">Not Removed</span>{% endif %}</td>
+                                    <td>{{ catalog.notes or '' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Version Timeline -->
+                    <div class="mb-4">
+                        <h5>Version Timeline</h5>
+                        <div class="version-timeline">
+                            <div class="timeline-container">
+                                {% for version in versions %}
+                                <div class="timeline-item {% if version.is_lts %}lts{% endif %}">
+                                    <div class="timeline-marker {% if version.is_lts %}lts-marker{% endif %}"></div>
+                                    <div class="timeline-content">
+                                        <h6 class="timeline-title">
+                                            {{ version.version }}
+                                            {% if version.is_lts %}<span class="badge bg-success">LTS</span>{% endif %}
+                                        </h6>
+                                        {% if version.release_date %}
+                                        <p class="timeline-date">Released: {{ version.release_date.strftime('%Y-%m-%d') }}</p>
+                                        {% endif %}
+                                        {% if version.release_notes_url %}
+                                        <a href="{{ version.release_notes_url }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                            <i class="fas fa-external-link-alt me-1"></i> Release Notes
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Visual Compatibility Graph -->
+                    <div class="mb-4">
+                        <h5>Visual Compatibility Graph</h5>
+                        <div class="compatibility-graph">
+                            <canvas id="compatibilityChart" width="800" height="400"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Add New Version Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Add New Version</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('add_version') }}" method="post">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="version" class="form-label">Version Number</label>
+                                    <input type="text" class="form-control" id="version" name="version" required>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="release_date" class="form-label">Release Date</label>
+                                    <input type="date" class="form-control" id="release_date" name="release_date">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="support_end_date" class="form-label">Support End Date</label>
+                                    <input type="date" class="form-control" id="support_end_date" name="support_end_date">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="release_notes_url" class="form-label">Release Notes URL</label>
+                                    <input type="url" class="form-control" id="release_notes_url" name="release_notes_url">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_lts" name="is_lts">
+                            <label class="form-check-label" for="is_lts">Is LTS (Long Term Support)</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i> Add Version
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Add Catalog Compatibility Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Add/Update Catalog Compatibility</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('add_catalog_compatibility') }}" method="post">
+                        <div class="row">
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label for="catalog_name" class="form-label">Catalog Name</label>
+                                    <select class="form-select" id="catalog_name" name="catalog_name" required>
+                                        <option value="hive">Hive</option>
+                                        <option value="iceberg">Iceberg</option>
+                                        <option value="delta-lake">Delta Lake</option>
+                                        <option value="mysql">MySQL</option>
+                                        <option value="mariadb">MariaDB</option>
+                                        <option value="postgres">PostgreSQL</option>
+                                        <option value="sqlserver">SQL Server</option>
+                                        <option value="db2">DB2</option>
+                                        <option value="clickhouse">ClickHouse</option>
+                                        <option value="pinot">Pinot</option>
+                                        <option value="elasticsearch">Elasticsearch</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label for="min_version" class="form-label">Min Version</label>
+                                    <input type="text" class="form-control" id="min_version" name="min_version">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label for="max_version" class="form-label">Max Version</label>
+                                    <input type="text" class="form-control" id="max_version" name="max_version">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label for="deprecated_in" class="form-label">Deprecated In</label>
+                                    <input type="text" class="form-control" id="deprecated_in" name="deprecated_in">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label for="removed_in" class="form-label">Removed In</label>
+                                    <input type="text" class="form-control" id="removed_in" name="removed_in">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label for="notes" class="form-label">Notes</label>
+                                    <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Save Compatibility Info
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-1"></i> Back to Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block custom_styles %}
+<style>
+    .version-timeline {
+        margin: 20px 0;
+        overflow-x: auto;
+    }
+    
+    .timeline-container {
+        display: flex;
+        min-width: max-content;
+        padding: 20px 0;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-right: 40px;
+        min-width: 150px;
+    }
+    
+    .timeline-marker {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: #007bff;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+    
+    .lts-marker {
+        background-color: #28a745;
+        width: 24px;
+        height: 24px;
+    }
+    
+    .timeline-content {
+        margin-left: 30px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        border-left: 4px solid #007bff;
+    }
+    
+    .lts .timeline-content {
+        border-left-color: #28a745;
+    }
+    
+    .timeline-title {
+        margin-bottom: 5px;
+    }
+    
+    .timeline-date {
+        margin-bottom: 5px;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
+{% block custom_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the canvas element
+    const ctx = document.getElementById('compatibilityChart').getContext('2d');
+    
+    // Prepare data for the chart
+    const versions = [
+        {% for version in versions %}
+        "{{ version.version }}",
+        {% endfor %}
+    ];
+    
+    const catalogs = [
+        {% for catalog in catalogs %}
+        "{{ catalog.catalog_name }}",
+        {% endfor %}
+    ];
+    
+    // Calculate compatibility for each catalog with each version
+    const datasets = [];
+    const colors = [
+        'rgba(255, 99, 132, 0.7)',
+        'rgba(54, 162, 235, 0.7)',
+        'rgba(255, 206, 86, 0.7)',
+        'rgba(75, 192, 192, 0.7)',
+        'rgba(153, 102, 255, 0.7)',
+        'rgba(255, 159, 64, 0.7)',
+        'rgba(199, 199, 199, 0.7)',
+        'rgba(83, 102, 255, 0.7)',
+        'rgba(40, 167, 69, 0.7)',
+        'rgba(220, 53, 69, 0.7)',
+        'rgba(255, 193, 7, 0.7)'
+    ];
+    
+    // Compatibility data from Jinja
+    const catalogData = {
+        {% for catalog in catalogs %}
+        "{{ catalog.catalog_name }}": {
+            minVersion: "{{ catalog.min_version or '0' }}",
+            maxVersion: "{{ catalog.max_version or '9999' }}",
+            deprecatedIn: "{{ catalog.deprecated_in or '9999' }}",
+            removedIn: "{{ catalog.removed_in or '9999' }}"
+        },
+        {% endfor %}
+    };
+    
+    // Generate compatibility datasets
+    catalogs.forEach((catalog, index) => {
+        const data = [];
+        const catalogInfo = catalogData[catalog];
+        
+        versions.forEach(version => {
+            let value = 0;
+            // Check if version is in supported range
+            if (parseInt(version) >= parseInt(catalogInfo.minVersion) && 
+                (catalogInfo.maxVersion === '9999' || parseInt(version) <= parseInt(catalogInfo.maxVersion))) {
+                // Check if deprecated
+                if (catalogInfo.deprecatedIn !== '9999' && parseInt(version) >= parseInt(catalogInfo.deprecatedIn)) {
+                    value = 0.5; // Deprecated
+                } else {
+                    value = 1; // Fully supported
+                }
+                // Check if removed
+                if (catalogInfo.removedIn !== '9999' && parseInt(version) >= parseInt(catalogInfo.removedIn)) {
+                    value = 0; // Removed
+                }
+            }
+            data.push(value);
+        });
+        
+        datasets.push({
+            label: catalog,
+            data: data,
+            backgroundColor: colors[index % colors.length],
+            borderColor: colors[index % colors.length].replace('0.7', '1'),
+            borderWidth: 1
+        });
+    });
+    
+    // Create the chart
+    const myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: versions,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    stacked: false,
+                    title: {
+                        display: true,
+                        text: 'Trino Version'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    max: 1,
+                    title: {
+                        display: true,
+                        text: 'Compatibility Level'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            if (value === 0) return 'Not Supported';
+                            if (value === 0.5) return 'Deprecated';
+                            if (value === 1) return 'Supported';
+                            return '';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const catalog = context.dataset.label;
+                            const version = context.label;
+                            const value = context.raw;
+                            
+                            let status = 'Not Supported';
+                            if (value === 1) status = 'Fully Supported';
+                            else if (value === 0.5) status = 'Deprecated';
+                            
+                            return `${catalog} in v${version}: ${status}`;
+                        }
+                    }
+                },
+                legend: {
+                    position: 'top',
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

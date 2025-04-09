@@ -63,3 +63,40 @@ class QueryHistory(db.Model):
         if self.cluster2_results:
             return json.loads(self.cluster2_results)
         return None
+
+
+class TrinoVersion(db.Model):
+    """Model for storing Trino version compatibility information"""
+    id = db.Column(db.Integer, primary_key=True)
+    version = db.Column(db.String(20), nullable=False, unique=True)
+    release_date = db.Column(db.Date, nullable=True)
+    is_lts = db.Column(db.Boolean, default=False)
+    support_end_date = db.Column(db.Date, nullable=True)
+    release_notes_url = db.Column(db.String(255), nullable=True)
+    
+    # Store compatibility information as JSON
+    compatibility_info = db.Column(db.Text, nullable=True)
+    
+    def get_compatibility_info(self):
+        """Get the compatibility info as a Python object"""
+        if self.compatibility_info:
+            return json.loads(self.compatibility_info)
+        return {}
+    
+    def set_compatibility_info(self, info):
+        """Set the compatibility info from a Python object"""
+        self.compatibility_info = json.dumps(info)
+
+
+class CatalogCompatibility(db.Model):
+    """Model for storing catalog compatibility with Trino versions"""
+    id = db.Column(db.Integer, primary_key=True)
+    catalog_name = db.Column(db.String(50), nullable=False)
+    min_version = db.Column(db.String(20), nullable=True)
+    max_version = db.Column(db.String(20), nullable=True)
+    deprecated_in = db.Column(db.String(20), nullable=True)
+    removed_in = db.Column(db.String(20), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    
+    def __repr__(self):
+        return f"<CatalogCompatibility {self.catalog_name}>"

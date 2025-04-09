@@ -11,5 +11,6 @@ dependencies = [
     "gunicorn>=23.0.0",
     "psycopg2-binary>=2.9.10",
     "pyyaml>=6.0.2",
+    "trafilatura>=2.0.0",
     "trino>=0.333.0",
 ]
