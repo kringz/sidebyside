@@ -147,7 +147,7 @@ $(document).ready(function() {
                             </div>
                             
                             <div class="d-grid mt-3">
-                                <button type="submit" class="btn btn-primary" id="compare-versions-btn">
+                                <button type="submit" class="btn btn-primary" id="compare-versions-btn" onclick="window.manualSubmission = true;">
                                     <i class="fas fa-sync-alt me-2"></i>
                                     Compare Versions
                                 </button>
@@ -245,13 +245,42 @@ $(document).ready(function() {
 
 {% block custom_scripts %}
 <script>
+// Immediately override the submit method to prevent any automatic submission
+// This runs before any jQuery code or other scripts
+(function() {
+    // Store the original submit function
+    var originalSubmit = HTMLFormElement.prototype.submit;
+    
+    // Override with our version that checks for auto submissions
+    HTMLFormElement.prototype.submit = function() {
+        // Add a console message so we can track this
+        console.log("Form submit intercepted");
+        
+        // We only allow submit after document fully loaded and user clicked a button
+        var allowSubmit = window.manualSubmission === true;
+        
+        if (allowSubmit) {
+            console.log("Manual submission allowed");
+            return originalSubmit.apply(this, arguments);
+        } else {
+            console.log("Automatic submission prevented!");
+            return false;
+        }
+    };
+})();
 $(document).ready(function() {
+    // Set global flag to prevent ANY auto-submissions
+    window.preventAutoSubmit = true;
+    
     // Handle form submission - completely rebuilt without any loading overlay
     $('#version-comparison-form').on('submit', function(e) {
         e.preventDefault();
         
         // Remove initial instructions if present
         $('#initial-instructions').remove();
+        
+        // Create a flag to prevent automatic submissions
+        window.manualSubmission = true;
         
         // Make doubly sure no spinner appears
         $('.spinner-overlay').remove();
