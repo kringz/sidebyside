@@ -149,10 +149,9 @@ $(document).ready(function() {
     $('#version-comparison-form').on('submit', function(e) {
         e.preventDefault();
         
-        // Show loading spinner and debug loading elements
-        console.log("Loading elements count:", $('[id="loading"]').length);
-        console.log("DOM loading elements:", document.querySelectorAll('#loading'));
-        $('[id="loading"]').show();
+        // Show loading spinner
+        console.log("Showing loading spinner");
+        $('#loading').hide().show(); // Force reset any previous state
         $('#results-content').hide();
         $('#error-message').hide();
         $('#version-range-info').hide();
@@ -188,8 +187,10 @@ $(document).ready(function() {
                 clearInterval(progressInterval);
                 $('#loading-progress-bar').css('width', '100%');
                 
-                // Hide loading spinner immediately
+                // Hide loading spinner immediately and ensure all loading elements are hidden
+                console.log("Success: hiding loading spinner");
                 $('#loading').hide();
+                $('.modal-like-overlay').hide();
                 
                 if (!response.success) {
                     $('#error-text').text(response.message || 'An error occurred while comparing versions.');
@@ -393,8 +394,10 @@ $(document).ready(function() {
                 // Stop progress ticker
                 clearInterval(progressInterval);
                 
-                // Hide loading spinner and show error
+                // Hide loading spinner and show error, ensure all loading overlays are gone
+                console.log("Error: hiding all loading spinners");
                 $('#loading').hide();
+                $('.modal-like-overlay').hide();
                 $('#error-text').text('Error loading version comparison data: ' + error);
                 $('#error-message').show();
             }
