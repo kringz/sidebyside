@@ -134,6 +134,105 @@
                     </div>
                 </div>
                 
+                <!-- Explain Plans -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-dark">
+                                <h2 class="card-title text-white"><i class="fas fa-project-diagram me-2"></i>Query Execution Plans</h2>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="card h-100">
+                                            <div class="card-header">
+                                                <h5>Cluster 1 EXPLAIN Plan ({{ config.cluster1.version }})</h5>
+                                                {% if 'cluster1' in explain_timing %}
+                                                    <span class="badge bg-info">{{ "%.3f"|format(explain_timing.cluster1) }} seconds</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="card-body">
+                                                {% if 'cluster1' in explain_errors %}
+                                                    <div class="alert alert-danger">
+                                                        <strong>Error:</strong> {{ explain_errors.cluster1 }}
+                                                    </div>
+                                                {% elif 'cluster1' in explain_results %}
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm">
+                                                            <thead>
+                                                                <tr>
+                                                                    {% for column in explain_results.cluster1.columns %}
+                                                                        <th>{{ column }}</th>
+                                                                    {% endfor %}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {% for row in explain_results.cluster1.rows %}
+                                                                    <tr>
+                                                                        {% for cell in row %}
+                                                                            <td class="text-monospace" style="white-space: pre-wrap;">{{ cell }}</td>
+                                                                        {% endfor %}
+                                                                    </tr>
+                                                                {% endfor %}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                {% else %}
+                                                    <div class="alert alert-warning">
+                                                        No EXPLAIN plan available for Cluster 1.
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card h-100">
+                                            <div class="card-header">
+                                                <h5>Cluster 2 EXPLAIN Plan ({{ config.cluster2.version }})</h5>
+                                                {% if 'cluster2' in explain_timing %}
+                                                    <span class="badge bg-info">{{ "%.3f"|format(explain_timing.cluster2) }} seconds</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="card-body">
+                                                {% if 'cluster2' in explain_errors %}
+                                                    <div class="alert alert-danger">
+                                                        <strong>Error:</strong> {{ explain_errors.cluster2 }}
+                                                    </div>
+                                                {% elif 'cluster2' in explain_results %}
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm">
+                                                            <thead>
+                                                                <tr>
+                                                                    {% for column in explain_results.cluster2.columns %}
+                                                                        <th>{{ column }}</th>
+                                                                    {% endfor %}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {% for row in explain_results.cluster2.rows %}
+                                                                    <tr>
+                                                                        {% for cell in row %}
+                                                                            <td class="text-monospace" style="white-space: pre-wrap;">{{ cell }}</td>
+                                                                        {% endfor %}
+                                                                    </tr>
+                                                                {% endfor %}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                {% else %}
+                                                    <div class="alert alert-warning">
+                                                        No EXPLAIN plan available for Cluster 2.
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Result Comparison Analysis -->
                 {% if 'cluster1' in results and 'cluster2' in results %}
                     <div class="row mt-4">

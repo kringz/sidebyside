@@ -580,7 +580,7 @@ def query_page():
 
 @app.route('/run_query', methods=['POST'])
 def run_query():
-    """Execute a query on both clusters and compare results"""
+    """Execute a query on both clusters and compare results, along with EXPLAIN plan"""
     import threading
     import queue
     import random
@@ -607,14 +607,21 @@ def run_query():
         results = {}
         errors = {}
         timing = {}
+        explain_results = {}
+        explain_timing = {}
+        explain_errors = {}
         
         # Create a new query history record
         query_history = QueryHistory(query_text=query)
         
         # Create thread-safe queues for collecting results from both clusters
         result_queue = queue.Queue()
+        explain_queue = queue.Queue()
         
-        # Define worker function to execute queries
+        # Prepare EXPLAIN query
+        explain_query = f"EXPLAIN {query}"
+        
+        # Define worker function to execute regular queries
         def execute_cluster_query(cluster_name):
             container_name = config[cluster_name]['container_name']
             cluster_result = {}
@@ -740,18 +747,96 @@ def run_query():
             # Put the result in the thread-safe queue
             result_queue.put(cluster_result)
         
+        # Define worker function to execute EXPLAIN queries
+        def execute_explain_query(cluster_name):
+            container_name = config[cluster_name]['container_name']
+            cluster_result = {}
+            
+            # Special handling for demo mode
+            if is_demo_mode:
+                start_time = time.time()
+                time.sleep(0.3)  # Simulate explain execution time
+                end_time = time.time()
+                
+                # Create mock explain results
+                mock_columns = ['Query Plan']
+                mock_rows = [
+                    ["- Output[column1, column2, column3]"],
+                    ["    - RemoteExchange[GATHER] => [column1, column2, column3]"],
+                    ["        - TableScan[tpch:sf1:nation:sf1] => [nationkey:bigint, name:varchar, comment:varchar]"],
+                    ["              Filter: nationkey > BIGINT '3'"]
+                ]
+                
+                # Create simulated explain results
+                explain_result = {
+                    'columns': mock_columns,
+                    'rows': mock_rows,
+                    'stats': {
+                        'cpu_time_ms': 50 + (30 * random.random()),
+                        'planning_time_ms': 10 + (5 * random.random()),
+                        'execution_time_ms': 40 + (25 * random.random()),
+                        'queued_time_ms': 2 + (2 * random.random()),
+                        'peak_memory_bytes': 1024 * 1024 * (2 + random.random())
+                    }
+                }
+                
+                # Save results
+                cluster_result = {
+                    'cluster_name': cluster_name,
+                    'result': explain_result,
+                    'timing': end_time - start_time
+                }
+                
+            elif docker_manager.get_container_status(container_name) == 'running':
+                if trino_clients[cluster_name]:
+                    try:
+                        start_time = time.time()
+                        explain_result = trino_clients[cluster_name].execute_query(explain_query)
+                        end_time = time.time()
+                        
+                        cluster_result = {
+                            'cluster_name': cluster_name,
+                            'result': explain_result,
+                            'timing': end_time - start_time
+                        }
+                    except Exception as e:
+                        logger.error(f"Error executing EXPLAIN query on {cluster_name}: {str(e)}")
+                        cluster_result = {
+                            'cluster_name': cluster_name,
+                            'error': str(e)
+                        }
+                else:
+                    cluster_result = {
+                        'cluster_name': cluster_name,
+                        'error': "Trino client not initialized"
+                    }
+            else:
+                cluster_result = {
+                    'cluster_name': cluster_name,
+                    'error': "Cluster not running"
+                }
+            
+            # Put the result in the thread-safe queue
+            explain_queue.put(cluster_result)
+        
         # Create and start threads for each cluster to execute queries in parallel
         threads = []
         for cluster_name in ['cluster1', 'cluster2']:
-            thread = threading.Thread(target=execute_cluster_query, args=(cluster_name,))
-            thread.start()
-            threads.append(thread)
+            # Thread for regular query
+            query_thread = threading.Thread(target=execute_cluster_query, args=(cluster_name,))
+            query_thread.start()
+            threads.append(query_thread)
+            
+            # Thread for EXPLAIN query
+            explain_thread = threading.Thread(target=execute_explain_query, args=(cluster_name,))
+            explain_thread.start()
+            threads.append(explain_thread)
         
         # Wait for all threads to complete
         for thread in threads:
             thread.join()
         
-        # Collect results from the queue
+        # Collect results from the queue for regular queries
         while not result_queue.empty():
             result = result_queue.get()
             cluster_name = result['cluster_name']
@@ -762,10 +847,21 @@ def run_query():
                 results[cluster_name] = result['result']
                 timing[cluster_name] = result['timing']
         
+        # Collect results from the queue for EXPLAIN queries
+        while not explain_queue.empty():
+            result = explain_queue.get()
+            cluster_name = result['cluster_name']
+            
+            if 'error' in result:
+                explain_errors[cluster_name] = result['error']
+            else:
+                explain_results[cluster_name] = result['result']
+                explain_timing[cluster_name] = result['timing']
+        
         # Save the results to the database if we have DATABASE_URL configured
         if DATABASE_URL:
             try:
-                query_history.save_results(results, timing, errors)
+                query_history.save_results(results, timing, errors, explain_results, explain_timing)
                 db.session.add(query_history)
                 db.session.commit()
                 logger.info(f"Saved query history for query: {query[:50]}...")
@@ -778,6 +874,9 @@ def run_query():
                                results=results,
                                errors=errors,
                                timing=timing,
+                               explain_results=explain_results,
+                               explain_errors=explain_errors,
+                               explain_timing=explain_timing,
                                config=config,
                                docker_available=docker_available)
     
