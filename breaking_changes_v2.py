@@ -18,6 +18,26 @@ except ImportError:
     TrinoVersion = None
 
 def register_breaking_changes_routes(app):
+    # Create a test function to fetch versions 
+    @app.route('/test_fetch_versions')
+    def test_fetch_versions():
+        try:
+            logger.info("TEST: Explicitly fetching all Trino versions")
+            versions = fetch_all_trino_versions()
+            logger.info(f"TEST: Successfully fetched {len(versions)} versions")
+            logger.info(f"TEST: First 10 versions: {versions[:10]}")
+            return jsonify({
+                'success': True,
+                'versions': versions
+            })
+        except Exception as e:
+            logger.error(f"TEST: Error fetching versions: {str(e)}")
+            logger.error(traceback.format_exc())
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            })
+    
     @app.route('/breaking_changes')
     def breaking_changes():
         """Page for displaying changes for all releases between two Trino versions"""

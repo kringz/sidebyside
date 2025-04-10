@@ -186,28 +186,65 @@ def fetch_all_trino_versions():
         # Parse the HTML
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Find all version links in the release notes page
-        version_links = soup.find_all('a', href=re.compile(r'/docs/current/release/release-\d+\.html'))
+        # Add debug information
+        logger.debug(f"Response length: {len(response.text)} bytes")
         
+        # Debug: first 500 chars of the response
+        logger.debug(f"First 500 chars of response: {response.text[:500]}")
+        
+        # Debug: check main content sections
+        sections = soup.find_all('section')
+        logger.debug(f"Found {len(sections)} sections")
+        
+        # Use a simpler approach - extract version numbers from any line with 'Release XXX'
         versions = []
+        lines = response.text.split('\n')
         version_pattern = re.compile(r'Release (\d+)')
         
-        for link in version_links:
-            # Extract version number from link text
-            match = version_pattern.search(link.text)
-            if match:
-                version_number = match.group(1)
-                versions.append({
-                    "version": version_number,
-                    "name": link.text.strip(),
-                    "url": link['href']
-                })
+        for line in lines:
+            if 'Release' in line and 'href' in line:
+                logger.debug(f"Found potential version line: {line}")
+                match = version_pattern.search(line)
+                if match:
+                    version_number = match.group(1)
+                    logger.debug(f"Extracted version number: {version_number}")
+                    versions.append({
+                        "version": version_number,
+                        "name": f"Release {version_number}"
+                    })
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_versions = []
+        for v in versions:
+            if v["version"] not in seen:
+                seen.add(v["version"])
+                unique_versions.append(v)
         
         # Sort versions in descending order
-        versions.sort(key=lambda x: int(x["version"]), reverse=True)
+        unique_versions.sort(key=lambda x: int(x["version"]), reverse=True)
         
-        logger.info(f"Found {len(versions)} Trino versions")
-        return versions
+        logger.info(f"Found {len(unique_versions)} Trino versions")
+        
+        # If we still have no versions, use a fallback approach with manual extraction
+        if not unique_versions:
+            logger.warning("Using fallback approach with hardcoded regex")
+            # Extract all digits following "Release"
+            fallback_pattern = re.compile(r'Release\s+(\d+)')
+            matches = fallback_pattern.findall(response.text)
+            logger.debug(f"Fallback found {len(matches)} matches: {matches[:10]}")
+            
+            for v in matches:
+                unique_versions.append({
+                    "version": v,
+                    "name": f"Release {v}"
+                })
+                
+            # Sort again after fallback
+            unique_versions.sort(key=lambda x: int(x["version"]), reverse=True)
+            logger.info(f"Fallback found {len(unique_versions)} Trino versions")
+        
+        return unique_versions
     
     except Exception as e:
         logger.error(f"Error fetching Trino versions: {str(e)}")
