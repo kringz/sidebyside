@@ -138,8 +138,33 @@ def trino_dashboard():
             'auto_pull_images': True,
             'timeout': 30
         }
-        # Save the updated config
-        save_config(config)
+        
+    # Ensure catalogs configuration exists
+    if 'catalogs' not in config:
+        config['catalogs'] = {}
+        
+    # Ensure TPC-H catalog exists and has proper configuration
+    if 'tpch' not in config['catalogs']:
+        config['catalogs']['tpch'] = {
+            'enabled': True,
+            'column_naming': 'SIMPLIFIED'
+        }
+        logger.info("TPC-H catalog enabled for demo mode")
+    
+    # Ensure PostgreSQL catalog exists
+    if 'postgresql' not in config['catalogs']:
+        config['catalogs']['postgresql'] = {
+            'enabled': True,
+            'host': 'localhost',
+            'port': '5432',
+            'user': 'postgres',
+            'password': 'postgres',
+            'database': 'postgres'
+        }
+        logger.info("PostgreSQL catalog enabled for demo mode")
+    
+    # Save the updated config
+    save_config(config)
         
     cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
     cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
