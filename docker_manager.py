@@ -312,12 +312,17 @@ class DockerManager:
                                 # Configure the REST catalog properties
                                 f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
                                 
-                                # Configure S3 file access through the filesystem connector
-                                f.write(f"fs.s3.endpoint={s3_endpoint}\n")
-                                f.write("fs.s3.aws-access-key=access-key\n")
-                                f.write("fs.s3.aws-secret-key=secret-key\n")
-                                f.write("fs.s3.path-style-access=true\n")
-                                f.write("fs.s3.ssl.enabled=false\n")
+                                # For Trino 474, use the iceberg.s3 properties for the connector itself
+                                # with the exact format required for that version
+                                f.write(f"iceberg.s3.endpoint-url={s3_endpoint}\n")
+                                f.write("iceberg.s3.access-key=access-key\n")
+                                f.write("iceberg.s3.secret-key=secret-key\n")
+                                f.write("iceberg.s3.path-style-access=true\n")
+                                f.write("iceberg.s3.ssl.enabled=false\n")
+                                
+                                # Also include HadoopFS catalog configuration
+                                f.write("iceberg.hadoop.config.resources=/etc/hadoop/core-site.xml,/etc/hadoop/hdfs-site.xml\n")
+                                f.write("hive.config.resources=/etc/hadoop/core-site.xml,/etc/hadoop/hdfs-site.xml\n")
                         
                         # For Trino versions 458-473, use intermediate configuration
                         elif version_num >= 458:
