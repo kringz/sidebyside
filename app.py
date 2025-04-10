@@ -15,7 +15,7 @@ from models import (
     BreakingChange, FeatureChange, BenchmarkQuery, BenchmarkResult
 )
 from datetime import datetime, date
-from breaking_changes import register_breaking_changes_routes
+from breaking_changes_v2 import register_breaking_changes_routes
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
