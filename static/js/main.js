@@ -63,6 +63,207 @@ function setButtonLoading(button, isLoading) {
     }
 }
 
+// Function to handle image pull progress updates
+function setupImagePullTracking() {
+    // Track active pulls
+    const activePulls = new Set();
+    
+    // Create or update a progress bar for a specific version
+    function createOrUpdateProgressBar(version, progress) {
+        const progressBarsContainer = document.getElementById('imagePullProgressBars');
+        let progressBarContainer = document.getElementById(`progress-${version}`);
+        
+        if (!progressBarContainer) {
+            // Create new progress bar if it doesn't exist
+            progressBarContainer = document.createElement('div');
+            progressBarContainer.id = `progress-${version}`;
+            progressBarContainer.className = 'mb-3';
+            
+            const label = document.createElement('div');
+            label.className = 'mb-1';
+            label.innerHTML = `<strong>Trino ${version}:</strong> <span class="progress-percent">0%</span>`;
+            
+            const progressBarWrapper = document.createElement('div');
+            progressBarWrapper.className = 'progress';
+            
+            const progressBar = document.createElement('div');
+            progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+            progressBar.role = 'progressbar';
+            progressBar.style.width = '0%';
+            progressBar.setAttribute('aria-valuenow', '0');
+            progressBar.setAttribute('aria-valuemin', '0');
+            progressBar.setAttribute('aria-valuemax', '100');
+            
+            progressBarWrapper.appendChild(progressBar);
+            progressBarContainer.appendChild(label);
+            progressBarContainer.appendChild(progressBarWrapper);
+            progressBarsContainer.appendChild(progressBarContainer);
+        }
+        
+        // Update progress bar
+        const progressBar = progressBarContainer.querySelector('.progress-bar');
+        const percentText = progressBarContainer.querySelector('.progress-percent');
+        const percentValue = Math.floor(progress * 100);
+        
+        progressBar.style.width = `${percentValue}%`;
+        progressBar.setAttribute('aria-valuenow', percentValue);
+        percentText.textContent = `${percentValue}%`;
+        
+        // If progress is complete, mark it as success after a delay
+        if (progress >= 1) {
+            setTimeout(() => {
+                progressBar.classList.remove('progress-bar-animated');
+                progressBar.classList.add('bg-success');
+                activePulls.delete(version);
+                
+                // If no more active pulls, hide the progress section after a delay
+                if (activePulls.size === 0) {
+                    setTimeout(() => {
+                        document.getElementById('imagePullProgress').classList.add('d-none');
+                    }, 2000);
+                }
+            }, 500);
+        }
+    }
+    
+    // Function to handle image pull requests
+    function pullTrinoImage(version = null) {
+        // Show the progress section
+        document.getElementById('imagePullProgress').classList.remove('d-none');
+        
+        // Create form data
+        const formData = new FormData();
+        if (version) {
+            formData.append('version', version);
+            activePulls.add(version);
+            createOrUpdateProgressBar(version, 0);
+        } else {
+            // If pulling all images, get the configured versions
+            const cluster1Version = document.querySelector('[data-version]')?.getAttribute('data-version');
+            const cluster2Version = document.querySelectorAll('[data-version]')[1]?.getAttribute('data-version');
+            
+            if (cluster1Version) {
+                activePulls.add(cluster1Version);
+                createOrUpdateProgressBar(cluster1Version, 0);
+            }
+            if (cluster2Version && cluster2Version !== cluster1Version) {
+                activePulls.add(cluster2Version);
+                createOrUpdateProgressBar(cluster2Version, 0);
+            }
+        }
+        
+        // Post to the server
+        fetch('/pull_trino_images', {
+            method: 'POST',
+            body: formData,
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Success - progress is already tracked by the progress bars
+                console.log('Pull request successful:', data.message);
+                
+                // Start polling for progress updates
+                startProgressPolling();
+            } else {
+                // Error - show alert
+                console.error('Pull request failed:', data.message);
+                alert(`Error: ${data.message}`);
+                
+                // Hide progress for failed versions
+                if (version) {
+                    const progressBar = document.getElementById(`progress-${version}`);
+                    if (progressBar) {
+                        progressBar.querySelector('.progress-bar').classList.remove('progress-bar-animated');
+                        progressBar.querySelector('.progress-bar').classList.add('bg-danger');
+                        activePulls.delete(version);
+                    }
+                }
+            }
+            
+            // Update progress based on data from response
+            if (data.progress) {
+                Object.entries(data.progress).forEach(([version, progress]) => {
+                    createOrUpdateProgressBar(version, progress);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error pulling Trino images:', error);
+            alert('An error occurred while pulling Trino images. Please check the console for details.');
+        });
+    }
+    
+    // Polling function to check image pull progress
+    let pollInterval = null;
+    function startProgressPolling() {
+        // Clear any existing interval
+        if (pollInterval) {
+            clearInterval(pollInterval);
+        }
+        
+        // Set up new polling interval (every 1 second)
+        pollInterval = setInterval(() => {
+            // If no active pulls, stop polling
+            if (activePulls.size === 0) {
+                clearInterval(pollInterval);
+                return;
+            }
+            
+            // Fetch the current progress
+            fetch('/check_pull_progress')
+                .then(response => response.json())
+                .then(data => {
+                    // Update progress bars with the latest data
+                    if (data.progress) {
+                        let allComplete = true;
+                        
+                        Object.entries(data.progress).forEach(([version, progress]) => {
+                            if (activePulls.has(version)) {
+                                createOrUpdateProgressBar(version, progress);
+                                
+                                // Check if this pull is still in progress
+                                if (progress < 1) {
+                                    allComplete = false;
+                                }
+                            }
+                        });
+                        
+                        // If all pulls are complete, stop polling
+                        if (allComplete && activePulls.size > 0) {
+                            clearInterval(pollInterval);
+                            
+                            // Refresh the page after a delay to show the new images
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 3000);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking pull progress:', error);
+                    clearInterval(pollInterval);
+                });
+        }, 1000);
+    }
+    
+    // Setup event listeners for pull buttons
+    const pullAllImagesBtn = document.getElementById('pullAllImagesBtn');
+    if (pullAllImagesBtn) {
+        pullAllImagesBtn.addEventListener('click', function() {
+            pullTrinoImage();
+        });
+    }
+    
+    const pullVersionBtns = document.querySelectorAll('.pull-version-btn');
+    pullVersionBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const version = this.getAttribute('data-version');
+            pullTrinoImage(version);
+        });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Auto-close alerts after 5 seconds
     const alerts = document.querySelectorAll('.alert');
@@ -110,6 +311,9 @@ document.addEventListener('DOMContentLoaded', function() {
             cardBody.style.display = 'none';
         }
     });
+    
+    // Set up image pull tracking functionality
+    setupImagePullTracking();
     
     // Example query click handler (already implemented in query.html)
     

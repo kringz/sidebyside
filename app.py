@@ -115,14 +115,22 @@ def pull_trino_images():
             versions = [version_to_pull]
             
         # Global variable to track progress of pulling images
+        # Store progress data in a global dictionary
+        # This enables us to check progress later via AJAX
+        global image_pull_progress
+        if 'image_pull_progress' not in globals():
+            image_pull_progress = {}
+        
         progress_data = {}
         for version in versions:
             progress_data[version] = 0.0
+            image_pull_progress[version] = 0.0
             
         # Create a progress tracker callback function
         def update_progress(version):
             def callback(value):
                 progress_data[version] = value
+                image_pull_progress[version] = value
                 logger.debug(f"Pull progress for Trino {version}: {value:.1%}")
                 # We don't actually need to return anything, the progress is stored in the shared dict
             return callback
@@ -134,6 +142,11 @@ def pull_trino_images():
                 progress_callback = update_progress(version)
                 success = docker_manager.pull_trino_image(version, progress_callback)
                 results[version] = success
+                
+                # If success is immediate (image already existed), mark progress as complete
+                if success and progress_data[version] == 0.0:
+                    progress_data[version] = 1.0
+                    image_pull_progress[version] = 1.0
         
         # Include progress information in the response
         response_data = {
@@ -241,6 +254,16 @@ def reset_config():
         flash(f'Error resetting configuration: {str(e)}', 'danger')
     
     return redirect(url_for('index'))
+
+@app.route('/check_pull_progress')
+def check_pull_progress():
+    """API endpoint to check the progress of image pulls"""
+    global image_pull_progress
+    
+    if 'image_pull_progress' not in globals():
+        image_pull_progress = {}
+        
+    return jsonify({'progress': image_pull_progress})
 
 @app.route('/start_clusters', methods=['POST'])
 def start_clusters():

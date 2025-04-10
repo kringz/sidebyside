@@ -46,13 +46,68 @@
                     </div>
                 </div>
                 
+                <!-- Available Trino Images Section -->
+                <div class="card-body border-top">
+                    <h4><i class="fas fa-cube me-2"></i>Available Trino Images</h4>
+                    {% if docker_available %}
+                        {% if available_trino_images %}
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="alert alert-info">
+                                        <p><strong>Preloaded Images:</strong></p>
+                                        <div class="d-flex flex-wrap">
+                                            {% for version in available_trino_images %}
+                                                <span class="badge bg-primary me-2 mb-2 p-2">
+                                                    <i class="fas fa-cube me-1"></i> {{ version }}
+                                                </span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-info-circle me-2"></i> No Trino images found. Use the "Pull Images" button to download the required images.
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i> Docker is not available. Image management is disabled.
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Image Pull Progress -->
+                    <div class="row mb-3 d-none" id="imagePullProgress">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-spinner fa-spin me-2"></i> Pulling Trino Images
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="imagePullProgressBars"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Control buttons -->
                 <div class="card-footer">
                     <div class="d-flex justify-content-center">
                         <form action="{{ url_for('pull_trino_images') }}" method="post" class="me-2" id="pullImagesForm" data-loading-message="Pulling Trino images... This may take several minutes.">
-                            <button type="button" class="btn btn-info" id="pullImagesBtn" {% if not docker_available %}disabled{% endif %}>
-                                <i class="fas fa-download me-1"></i> Pull Images
-                            </button>
+                            <div class="dropdown">
+                                <button type="button" class="btn btn-info dropdown-toggle" id="pullImagesBtn" data-bs-toggle="dropdown" aria-expanded="false" {% if not docker_available %}disabled{% endif %}>
+                                    <i class="fas fa-download me-1"></i> Pull Images
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="pullImagesBtn">
+                                    <li><button type="button" class="dropdown-item" id="pullAllImagesBtn">Pull Both Configured Images</button></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><button type="button" class="dropdown-item pull-version-btn" data-version="{{ config.cluster1.version }}">Pull Cluster 1 ({{ config.cluster1.version }}) Image</button></li>
+                                    <li><button type="button" class="dropdown-item pull-version-btn" data-version="{{ config.cluster2.version }}">Pull Cluster 2 ({{ config.cluster2.version }}) Image</button></li>
+                                </ul>
+                            </div>
                         </form>
                         <form action="{{ url_for('start_clusters') }}" method="post" class="me-2" data-loading-message="Starting Trino clusters... This may take a minute.">
                             <button type="submit" class="btn btn-success" {% if not docker_available %}disabled{% endif %}>
