@@ -538,7 +538,12 @@ def save_catalog_config():
                 config['catalogs'][catalog]['enabled'] = True
                 
                 # Save catalog-specific configurations
-                if catalog == 'hive' or catalog == 'iceberg' or catalog == 'delta-lake':
+                if catalog == 'tpch':
+                    # Save TPC-H specific settings
+                    column_naming = request.form.get('tpch_column_naming', 'SIMPLIFIED')
+                    if column_naming in ['SIMPLIFIED', 'STANDARD']:
+                        config['catalogs'][catalog]['column_naming'] = column_naming
+                elif catalog == 'hive' or catalog == 'iceberg' or catalog == 'delta-lake':
                     config['catalogs'][catalog]['metastore_host'] = request.form.get(f'{catalog}_metastore_host', 'localhost')
                     config['catalogs'][catalog]['metastore_port'] = request.form.get(f'{catalog}_metastore_port', '9083')
                 elif catalog == 'mysql' or catalog == 'mariadb':
