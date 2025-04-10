@@ -1053,46 +1053,7 @@ def seed_benchmark_queries():
     return benchmark_count
 
 
-@app.route('/version_compatibility')
-def version_compatibility():
-    """Page for displaying Trino version compatibility information"""
-    if not DATABASE_URL:
-        flash('Database functionality is disabled.', 'warning')
-        return redirect(url_for('trino_dashboard'))
-    
-    try:
-        versions = db.session.query(TrinoVersion).order_by(TrinoVersion.version.desc()).all()
-    except Exception as e:
-        # Log the error
-        app.logger.error(f"Error querying Trino versions: {str(e)}")
-        # Provide empty results as fallback
-        versions = []
-    
-    try:
-        catalogs = db.session.query(CatalogCompatibility).all()
-    except Exception as e:
-        # Log the error
-        app.logger.error(f"Error querying catalog compatibility: {str(e)}")
-        # Provide empty results as fallback
-        catalogs = []
-    
-    # Format versions for display
-    catalog_data = {}
-    for catalog in catalogs:
-        if catalog.catalog_name not in catalog_data:
-            catalog_data[catalog.catalog_name] = {
-                'min_version': catalog.min_version,
-                'max_version': catalog.max_version,
-                'deprecated_in': catalog.deprecated_in,
-                'removed_in': catalog.removed_in,
-                'notes': catalog.notes
-            }
-    
-    return render_template('version_compatibility.html',
-                          versions=versions,
-                          catalogs=catalogs,
-                          catalog_data=catalog_data,
-                          docker_available=docker_available)
+
 
 @app.route('/add_version', methods=['POST'])
 def add_version():
@@ -1121,7 +1082,7 @@ def add_version():
         existing_version = TrinoVersion.query.filter_by(version=version).first()
         if existing_version:
             flash(f'Version {version} already exists.', 'warning')
-            return redirect(url_for('version_compatibility'))
+            return redirect(url_for('trino_dashboard'))
         
         # Create new version
         new_version = TrinoVersion(
@@ -1141,7 +1102,7 @@ def add_version():
         flash(f'Error adding version: {str(e)}', 'danger')
         db.session.rollback()
     
-    return redirect(url_for('version_compatibility'))
+    return redirect(url_for('trino_dashboard'))
 
 @app.route('/benchmarks')
 def benchmark_playground():
@@ -1605,7 +1566,7 @@ def add_catalog_compatibility():
         flash(f'Error adding catalog compatibility: {str(e)}', 'danger')
         db.session.rollback()
     
-    return redirect(url_for('version_compatibility'))
+    return redirect(url_for('trino_dashboard'))
 
 def seed_version_data():
     """Seed the database with initial version data if it's empty"""
