@@ -48,6 +48,16 @@
                                 <span class="text-muted">No catalogs configured</span>
                             {% endfor %}
                         </div>
+                        {% if 'tpch' in catalogs %}
+                        <div class="alert alert-info mt-2">
+                            <strong>TPC-H Usage:</strong> To query TPC-H data, use the format <code>tpch.tiny.tablename</code>, for example:
+                            <ul class="mb-0">
+                                <li><code>SELECT * FROM tpch.tiny.customer LIMIT 5</code></li>
+                                <li><code>SELECT * FROM tpch.tiny.orders LIMIT 5</code></li>
+                            </ul>
+                            Available tables: customer, orders, lineitem, part, partsupp, supplier, nation, region
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 
@@ -59,13 +69,13 @@
                                 <h5>SQL Query</h5>
                             </div>
                             <div class="card-body">
-                                <form action="{{ url_for('run_query') }}" method="post">
+                                <form action="{{ url_for('run_query') }}" method="post" data-loading-message="Executing query on both clusters... This might take some time for complex queries.">
                                     <div class="mb-3">
                                         <textarea class="form-control" id="query" name="query" rows="8" placeholder="Enter your SQL query here..." required>{{ pre_populated_query }}</textarea>
                                     </div>
                                     <div class="d-flex justify-content-between">
-                                        <button type="submit" class="btn btn-primary" {% if not docker_available %}disabled{% endif %} title="{% if not docker_available %}Docker is not available in this environment{% endif %}">
-                                            <i class="fas fa-play me-1"></i> Run Query
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-play me-1"></i> {% if not docker_available %}Run Demo Query{% else %}Run Query{% endif %}
                                         </button>
                                         <button type="button" class="btn btn-secondary" id="clearQuery">
                                             <i class="fas fa-eraser me-1"></i> Clear
@@ -98,6 +108,17 @@
                                     <button type="button" class="list-group-item list-group-item-action example-query">
                                         SELECT node_id, http_uri, node_version FROM system.runtime.nodes
                                     </button>
+                                    {% if 'tpch' in catalogs %}
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SELECT * FROM tpch.tiny.customer LIMIT 5
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SELECT c.name, o.orderkey, o.orderdate 
+                                        FROM tpch.tiny.customer c 
+                                        JOIN tpch.tiny.orders o ON c.custkey = o.custkey 
+                                        LIMIT 10
+                                    </button>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>

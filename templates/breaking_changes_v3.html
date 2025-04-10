@@ -1,0 +1,603 @@
+{% extends "layout.html" %}
+
+{% block title %}Trino Version Changes Comparison{% endblock %}
+
+{% block scripts %}
+<script>
+// Completely override the global loading functions to prevent any spinner from appearing
+window.showLoading = function() { 
+    console.log("Loading function disabled"); 
+    return false; 
+};
+window.hideLoading = function() { 
+    console.log("Hide loading function disabled"); 
+    return false; 
+};
+// Override the setButtonLoading function to prevent any button spinners
+window.setButtonLoading = function() {
+    console.log("Button loading disabled");
+    return false;
+};
+
+// Remove any existing spinner elements
+$(document).ready(function() {
+    // Immediately remove all spinner elements
+    $('.spinner-overlay').hide();
+    $('.spinner-container').hide();
+    $('.spinner-overlay').remove();
+    $('.spinner-container').remove();
+    
+    // Add custom CSS to hide any spinner that might be dynamically added
+    $('<style>')
+        .prop('type', 'text/css')
+        .html(`
+            .spinner-overlay, .spinner-container { 
+                display: none !important; 
+                visibility: hidden !important;
+                opacity: 0 !important;
+                z-index: -1000 !important;
+            }
+        `)
+        .appendTo('head');
+        
+    // Force remove on any form submission
+    $('form').on('submit', function() {
+        $('.spinner-overlay').remove();
+        $('.spinner-container').remove();
+        return true;
+    });
+});
+</script>
+{% endblock %}
+
+{% block header_css %}
+<style>
+    /* Override any spinning behavior for our button */
+    #compare-versions-btn.btn-loading:before {
+        display: none !important;
+    }
+    
+    #compare-versions-btn {
+        /* Ensure our custom styles always take precedence */
+        position: relative !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    
+    /* Prevent any global button styling from affecting our button */
+    #compare-versions-btn:after,
+    #compare-versions-btn:before {
+        display: none !important;
+    }
+    
+    .version-select-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    #results-content {
+        margin-top: 30px;
+    }
+    .change-item p {
+        white-space: pre-wrap;
+    }
+    .code {
+        font-family: monospace;
+        background-color: #f5f5f5;
+        padding: 2px 4px;
+        border-radius: 3px;
+    }
+    /* Loading styles completely removed */
+</style>
+{% endblock %}
+
+{% block header_scripts %}
+<!-- Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-exchange-alt me-2"></i>
+                        Trino Version Changes Comparison
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="version-select-container">
+                        <form id="version-comparison-form" action="{{ url_for('compare_versions_v2') }}" method="post">
+                            <div class="alert alert-info mb-4">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Compare changes between two Trino versions to see what's new, changed, or removed.
+                            </div>
+                            
+                            <div class="row g-3 align-items-center">
+                                <div class="col-5">
+                                    <div class="form-group">
+                                        <label for="from_version" class="form-label">From Version</label>
+                                        <select class="form-select" id="from_version" name="from_version" required>
+                                            {% for version in available_versions %}
+                                                <option value="{{ version.version }}" 
+                                                    {% if version.version == cluster1_version %}selected{% endif %}>
+                                                    {{ version.version }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-2 text-center" style="padding-top: 30px;">
+                                    <i class="fas fa-arrow-right fa-2x"></i>
+                                </div>
+                                <div class="col-5">
+                                    <div class="form-group">
+                                        <label for="to_version" class="form-label">To Version</label>
+                                        <select class="form-select" id="to_version" name="to_version" required>
+                                            {% for version in available_versions %}
+                                                <option value="{{ version.version }}" 
+                                                    {% if version.version == cluster2_version %}selected{% endif %}>
+                                                    {{ version.version }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid mt-3">
+                                <button type="submit" class="btn btn-primary" id="compare-versions-btn">
+                                    <i class="fas fa-sync-alt me-2"></i>
+                                    Compare Versions
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div class="alert alert-info mt-4" id="version-range-info" style="display: none;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Showing changes for versions <span id="version-range-text"></span>
+                    </div>
+                    
+                    <div id="comparison-results" class="mt-4">                    
+                    <div id="results-content" style="display: none;">
+                        <ul class="nav nav-tabs" id="resultTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="connector-tab" data-bs-toggle="tab" data-bs-target="#connector" type="button" role="tab" aria-controls="connector" aria-selected="true">
+                                    <i class="fas fa-plug me-1"></i> Connector Changes <span id="connector-count" class="badge bg-primary ms-1">0</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button" role="tab" aria-controls="general" aria-selected="false">
+                                    <i class="fas fa-cogs me-1"></i> General Changes <span id="general-count" class="badge bg-secondary ms-1">0</span>
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content p-3 border border-top-0 rounded-bottom" id="resultTabsContent">
+                            <!-- Connector Changes Tab -->
+                            <div class="tab-pane fade show active" id="connector" role="tabpanel" aria-labelledby="connector-tab">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <div>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                            <input type="text" id="connector-search" class="form-control" placeholder="Search connector changes...">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <button id="connector-expand-all" class="btn btn-sm btn-outline-primary me-2">
+                                            <i class="fas fa-expand-alt me-1"></i> Expand All
+                                        </button>
+                                        <button id="connector-collapse-all" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-compress-alt me-1"></i> Collapse All
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-info mb-3" id="no-connector-changes" style="display: none;">
+                                    <i class="fas fa-info-circle me-2"></i> No connector changes found between these versions.
+                                </div>
+                                
+                                <div id="connector-changes-list" class="accordion"></div>
+                            </div>
+                            
+                            <!-- General Changes Tab -->
+                            <div class="tab-pane fade" id="general" role="tabpanel" aria-labelledby="general-tab">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <div>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                            <input type="text" id="general-search" class="form-control" placeholder="Search general changes...">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <button id="general-expand-all" class="btn btn-sm btn-outline-primary me-2">
+                                            <i class="fas fa-expand-alt me-1"></i> Expand All
+                                        </button>
+                                        <button id="general-collapse-all" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-compress-alt me-1"></i> Collapse All
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-info mb-3" id="no-general-changes" style="display: none;">
+                                    <i class="fas fa-info-circle me-2"></i> No general changes found between these versions.
+                                </div>
+                                
+                                <div id="general-changes-list" class="accordion"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="error-message" class="alert alert-danger mt-3" style="display: none;">
+                        <i class="fas fa-exclamation-circle me-2"></i> <span id="error-text"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading modal completely removed -->
+
+{% endblock %}
+
+{% block custom_scripts %}
+<script>
+$(document).ready(function() {
+    // Handle form submission - completely rebuilt without any loading overlay
+    $('#version-comparison-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        // Make doubly sure no spinner appears
+        $('.spinner-overlay').remove();
+        $('.spinner-container').remove();
+        
+        // Get the submit button directly by ID to avoid any global button handling
+        const compareButton = $('#compare-versions-btn');
+        
+        // Just disable without changing the content
+        compareButton.prop('disabled', true);
+        // Ensure button is NEVER in loading state
+        compareButton.removeClass('btn-loading');
+        
+        // Hide content areas
+        $('#results-content').hide();
+        $('#error-message').hide();
+        $('#version-range-info').hide();
+        
+        // Show loading message directly in the UI (not a modal)
+        $('#comparison-results').prepend('<div id="inline-loading" class="alert alert-info"><i class="fas fa-sync fa-spin me-2"></i> Loading comparison results...</div>');
+        
+        // Get selected versions
+        const fromVersion = $('#from_version').val();
+        const toVersion = $('#to_version').val();
+        
+        console.log("Form submitted with versions:", fromVersion, "to", toVersion);
+        
+        // Submit form via AJAX
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function(response) {
+                // Debug info
+                console.log("Response received:", response);
+                
+                // Remove the inline loading message
+                $('#inline-loading').remove();
+                
+                // Restore the submit button to its original state
+                compareButton.html('<i class="fas fa-sync-alt me-2"></i>Compare Versions');
+                compareButton.prop('disabled', false);
+                compareButton.removeClass('btn-loading');
+                
+                if (!response.success) {
+                    $('#error-text').text(response.message || 'An error occurred while comparing versions.');
+                    $('#error-message').show();
+                    return;
+                }
+                
+                // Show success info
+                console.log("Successfully received data:");
+                console.log("- Connector changes:", response.connector_changes ? response.connector_changes.length : 0);
+                console.log("- General changes:", response.general_changes ? response.general_changes.length : 0);
+                
+                // Update version range info with details
+                $('#version-range-text').html(`${response.from_version} to ${response.to_version}`);
+                $('#version-range-info').show();
+                
+                // Reset counters and clear content
+                $('#connector-count').text('0');
+                $('#general-count').text('0');
+                $('#connector-changes-list').empty();
+                $('#general-changes-list').empty();
+                
+                // PROCESS CONNECTOR CHANGES
+                if (response.connector_changes && response.connector_changes.length > 0) {
+                    console.log("Processing connector changes:", response.connector_changes.length);
+                    $('#connector-count').text(response.connector_changes.length);
+                    $('#no-connector-changes').hide();
+                    
+                    // Group changes by connector category
+                    const connectorGroups = {};
+                    for (let i = 0; i < response.connector_changes.length; i++) {
+                        const change = response.connector_changes[i];
+                        const category = change.category || 'Uncategorized';
+                        
+                        if (!connectorGroups[category]) {
+                            connectorGroups[category] = [];
+                        }
+                        connectorGroups[category].push(change);
+                    }
+                    
+                    console.log("Connector groups:", Object.keys(connectorGroups));
+                    
+                    // Sort and render connectors
+                    const sortedConnectors = Object.keys(connectorGroups).sort();
+                    for (let i = 0; i < sortedConnectors.length; i++) {
+                        const connector = sortedConnectors[i];
+                        const changes = connectorGroups[connector];
+                        const connectorId = `connector-${i}`;
+                        
+                        // Create connector accordion item
+                        const html = `
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading-${connectorId}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                            data-bs-target="#collapse-${connectorId}" aria-expanded="false" aria-controls="collapse-${connectorId}">
+                                        <strong>${connector}</strong> <span class="ms-2 badge rounded-pill bg-primary">${changes.length}</span>
+                                    </button>
+                                </h2>
+                                <div id="collapse-${connectorId}" class="accordion-collapse collapse" 
+                                     aria-labelledby="heading-${connectorId}">
+                                    <div class="accordion-body p-0">
+                                        <ul class="list-group list-group-flush" id="${connectorId}-list"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        $('#connector-changes-list').append(html);
+                        
+                        // Sort changes by version (descending)
+                        changes.sort((a, b) => parseInt(b.version) - parseInt(a.version));
+                        
+                        // Add change items
+                        for (let j = 0; j < changes.length; j++) {
+                            const change = changes[j];
+                            const baseUrl = "https://trino.io/docs/current/release";
+                            const releaseUrl = `${baseUrl}/release-${change.version}.html`;
+                            
+                            // Create fragment ID for direct link
+                            let fragmentId = '';
+                            if (connector.toLowerCase() !== 'uncategorized') {
+                                fragmentId = `#${connector.toLowerCase().replace(/\s+/g, '-').replace(/#/g, '')}`;
+                            }
+                            
+                            const changeHtml = `
+                                <li class="list-group-item change-item">
+                                    <div class="d-flex align-items-start">
+                                        <span class="badge bg-secondary me-2 mt-1">v${change.version}</span>
+                                        <div>
+                                            ${change.text}
+                                            <div class="mt-1">
+                                                <a href="${releaseUrl}${fragmentId}" target="_blank" class="small text-muted">
+                                                    <i class="fas fa-external-link-alt me-1"></i>View in release notes
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                            `;
+                            
+                            $(`#${connectorId}-list`).append(changeHtml);
+                        }
+                    }
+                } else {
+                    console.log("No connector changes found");
+                    $('#no-connector-changes').show();
+                }
+                
+                // PROCESS GENERAL CHANGES
+                if (response.general_changes && response.general_changes.length > 0) {
+                    console.log("Processing general changes:", response.general_changes.length);
+                    $('#general-count').text(response.general_changes.length);
+                    $('#no-general-changes').hide();
+                    
+                    // Group changes by version
+                    const versionGroups = {};
+                    for (let i = 0; i < response.general_changes.length; i++) {
+                        const change = response.general_changes[i];
+                        const version = change.version;
+                        
+                        if (!versionGroups[version]) {
+                            versionGroups[version] = [];
+                        }
+                        versionGroups[version].push(change);
+                    }
+                    
+                    // Sort and render versions
+                    const sortedVersions = Object.keys(versionGroups).sort((a, b) => parseInt(b) - parseInt(a));
+                    for (let i = 0; i < sortedVersions.length; i++) {
+                        const version = sortedVersions[i];
+                        const changes = versionGroups[version];
+                        const versionId = `general-v${i}`;
+                        
+                        // Create version accordion item
+                        const html = `
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading-${versionId}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                            data-bs-target="#collapse-${versionId}" aria-expanded="false" aria-controls="collapse-${versionId}">
+                                        <strong>Version ${version}</strong>
+                                        <span class="ms-2 badge rounded-pill bg-secondary">${changes.length} changes</span>
+                                    </button>
+                                </h2>
+                                <div id="collapse-${versionId}" class="accordion-collapse collapse" 
+                                     aria-labelledby="heading-${versionId}">
+                                    <div class="accordion-body">
+                                        <ul class="list-group list-group-flush" id="${versionId}-list"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        $('#general-changes-list').append(html);
+                        
+                        // Add change items
+                        for (let j = 0; j < changes.length; j++) {
+                            const change = changes[j];
+                            const baseUrl = "https://trino.io/docs/current/release";
+                            const releaseUrl = `${baseUrl}/release-${version}.html`;
+                            
+                            // Create fragment ID for direct link
+                            let fragmentId = '';
+                            const category = change.category || 'uncategorized';
+                            if (category.toLowerCase() !== 'uncategorized') {
+                                fragmentId = `#${category.toLowerCase().replace(/\s+/g, '-').replace(/#/g, '')}`;
+                            }
+                            
+                            const changeHtml = `
+                                <li class="list-group-item change-item">
+                                    <div class="d-flex">
+                                        <div class="flex-grow-1">
+                                            <strong>${category}</strong>
+                                            <p class="mb-1">${change.text}</p>
+                                            <div>
+                                                <a href="${releaseUrl}${fragmentId}" target="_blank" class="small text-muted">
+                                                    <i class="fas fa-external-link-alt me-1"></i>View in release notes
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                            `;
+                            
+                            $(`#${versionId}-list`).append(changeHtml);
+                        }
+                    }
+                } else {
+                    console.log("No general changes found");
+                    $('#no-general-changes').show();
+                }
+                
+                // Show results
+                console.log("Showing results section");
+                $('#results-content').show();
+            },
+            error: function(xhr, status, error) {
+                console.error("AJAX error:", error);
+                console.error("Status:", status);
+                console.error("Response:", xhr.responseText);
+                
+                // Remove the inline loading message
+                $('#inline-loading').remove();
+                
+                // Restore the submit button to its original state
+                compareButton.html('<i class="fas fa-sync-alt me-2"></i>Compare Versions');
+                compareButton.prop('disabled', false);
+                compareButton.removeClass('btn-loading');
+                
+                // Show error message
+                $('#error-text').text('Error loading version comparison data: ' + error);
+                $('#error-message').show();
+            }
+        });
+    });
+    
+    // Search functionality for connector changes
+    $('#connector-search').on('keyup', function() {
+        const searchText = $(this).val().toLowerCase();
+        filterChanges('#connector-changes-list', searchText);
+    });
+    
+    // Search functionality for general changes
+    $('#general-search').on('keyup', function() {
+        const searchText = $(this).val().toLowerCase();
+        filterChanges('#general-changes-list', searchText);
+    });
+    
+    // Function to filter changes based on search text
+    function filterChanges(containerSelector, searchText) {
+        if (!searchText) {
+            // If search is empty, show all items and collapse accordions
+            $(`${containerSelector} .change-item`).show();
+            $(`${containerSelector} .accordion-collapse`).removeClass('show');
+            return;
+        }
+        
+        // Process each accordion item
+        $(`${containerSelector} .accordion-item`).each(function() {
+            const $accordionItem = $(this);
+            const $accordionBody = $accordionItem.find('.accordion-collapse');
+            let hasMatch = false;
+            
+            // Check each change item
+            $accordionItem.find('.change-item').each(function() {
+                const $changeItem = $(this);
+                const changeText = $changeItem.text().toLowerCase();
+                
+                if (changeText.includes(searchText)) {
+                    $changeItem.show();
+                    hasMatch = true;
+                } else {
+                    $changeItem.hide();
+                }
+            });
+            
+            // Show/expand accordion if it has matches
+            if (hasMatch) {
+                $accordionBody.addClass('show');
+            } else {
+                $accordionBody.removeClass('show');
+            }
+        });
+    }
+    
+    // Expand/Collapse buttons for connector changes
+    $('#connector-expand-all').click(function() {
+        $('#connector-changes-list .accordion-collapse').addClass('show');
+    });
+    
+    $('#connector-collapse-all').click(function() {
+        $('#connector-changes-list .accordion-collapse').removeClass('show');
+    });
+    
+    // Expand/Collapse buttons for general changes
+    $('#general-expand-all').click(function() {
+        $('#general-changes-list .accordion-collapse').addClass('show');
+    });
+    
+    $('#general-collapse-all').click(function() {
+        $('#general-changes-list .accordion-collapse').removeClass('show');
+    });
+    
+    // Automatically submit the form on page load after a short delay
+    setTimeout(function() {
+        console.log("Auto-submitting form...");
+        $('#version-comparison-form').submit();
+    }, 500);
+    
+    // Create a button state watcher to ensure it's never stuck in loading state
+    setInterval(function() {
+        const $button = $('#compare-versions-btn');
+        // Check if button has .btn-loading class but spinner is no longer visible
+        if ($button.hasClass('btn-loading') && !$button.html().includes('fa-spinner')) {
+            console.log("Button detected in incorrect state - fixing...");
+            $button.removeClass('btn-loading');
+        }
+        
+        // Also check if ajax is done but button is still in loading state
+        if ($button.prop('disabled') && $.active === 0) {
+            console.log("No active AJAX but button still disabled - restoring...");
+            $button.prop('disabled', false);
+            $button.removeClass('btn-loading');
+            $button.html('<i class="fas fa-sync-alt me-2"></i>Compare Versions');
+        }
+    }, 1000);
+});
+</script>
+{% endblock %}

@@ -1,6 +1,11 @@
-from app import app
-import logging
+#!/usr/bin/env python3
+"""
+Script to seed the database with Trino versions
+This can be run independently or included in your application startup
+"""
+from main import app
 from models import db, TrinoVersion
+import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,10 +54,12 @@ def seed_trino_versions():
             logger.info(f"Added {len(missing_versions)} new Trino versions to the database")
         else:
             logger.info("No new versions to add - database already contains all versions")
-
-# Automatically seed Trino versions at startup
-with app.app_context():
-    seed_trino_versions()
+        
+        # Log all versions
+        all_versions_in_db = [v.version for v in TrinoVersion.query.order_by(TrinoVersion.version.desc()).all()]
+        logger.info(f"All versions in database: {all_versions_in_db}")
+        
+        return all_versions_in_db
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    seed_trino_versions()

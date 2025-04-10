@@ -1,0 +1,105 @@
+{% extends "layout.html" %}
+
+{% block custom_styles %}
+<style>
+    .software-card {
+        transition: all 0.3s ease;
+        border: 1px solid #444;
+        height: 100%;
+    }
+    
+    .software-card:hover:not(.disabled) {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    .software-card.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .card-img-top {
+        height: 180px;
+        object-fit: contain;
+        padding: 1.5rem;
+        background-color: #2a2a2a;
+    }
+    
+    .landing-container {
+        min-height: 70vh;
+        padding-top: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="landing-container">
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            <h1 class="display-4">X:SideBySide</h1>
+            <p class="lead">Compare different versions of your favorite software systems side by side</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Select Software to Compare</h3>
+                </div>
+                <div class="card-body">
+                    <p>Choose a software system to compare different versions side by side:</p>
+                    
+                    <form action="{{ url_for('select_software') }}" method="post">
+                        <div class="row row-cols-1 row-cols-md-3 g-4">
+                            {% for option in software_options %}
+                            <div class="col">
+                                <div class="card software-card h-100 {% if option.get('disabled') %}disabled{% endif %}">
+                                    <div class="card-header bg-dark">
+                                        <h5 class="mb-0">{{ option.name }}</h5>
+                                    </div>
+                                    <div class="card-body d-flex flex-column">
+                                        <p class="card-text flex-grow-1">{{ option.description }}</p>
+                                        <div class="mt-auto">
+                                            {% if not option.get('disabled') %}
+                                            <button type="submit" name="software" value="{{ option.id }}" class="btn btn-primary w-100">
+                                                Select
+                                            </button>
+                                            {% else %}
+                                            <button type="button" class="btn btn-secondary w-100" disabled>
+                                                Coming Soon
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0">About X:SideBySide</h4>
+                </div>
+                <div class="card-body">
+                    <p>X:SideBySide is a powerful tool for software developers, administrators, and analysts who need to:</p>
+                    <ul>
+                        <li>Compare the behavior of different software versions</li>
+                        <li>Test queries and operations across multiple versions</li>
+                        <li>Analyze performance differences between versions</li>
+                        <li>Understand breaking changes and compatibility issues</li>
+                    </ul>
+                    <p>Select a software system above to get started with your comparison!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

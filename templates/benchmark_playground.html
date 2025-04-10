@@ -1,0 +1,221 @@
+{% extends 'layout.html' %}
+
+{% block title %}Benchmark Playground{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Performance Benchmark Playground</h1>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Benchmark Queries</h5>
+                </div>
+                <div class="card-body">
+                    {% if benchmarks %}
+                        <form action="{{ url_for('run_benchmark') }}" method="post" data-loading-message="Running benchmark query... Performance tests might take several minutes to complete.">
+                            <div class="mb-3">
+                                <label for="benchmark_id" class="form-label">Select a benchmark query:</label>
+                                <select class="form-select" id="benchmark_id" name="benchmark_id" required>
+                                    <option value="">-- Select a benchmark query --</option>
+                                    {% for category, benchmarks_in_category in benchmark_categories.items() %}
+                                        <optgroup label="{{ category or 'Uncategorized' }}">
+                                            {% for benchmark in benchmarks_in_category %}
+                                                <option value="{{ benchmark.id }}">{{ benchmark.name }} ({{ benchmark.complexity }})</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3 query-preview" style="display: none;">
+                                <label class="form-label">Query preview:</label>
+                                <pre class="bg-dark text-light p-3 rounded"><code id="query_preview"></code></pre>
+                            </div>
+                            
+                            <div class="mb-3 query-details" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <p><strong>Category:</strong> <span id="query_category"></span></p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <p><strong>Complexity:</strong> <span id="query_complexity"></span></p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <p><strong>Expected Runtime:</strong> <span id="query_runtime"></span> seconds</p>
+                                    </div>
+                                </div>
+                                <p id="query_description"></p>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" {% if not docker_available %}disabled{% endif %}>Run Benchmark</button>
+                            
+                            {% if not docker_available %}
+                                <div class="alert alert-warning mt-3">
+                                    <i class="bi bi-exclamation-triangle-fill"></i> Docker is not available in this environment. Benchmark execution is disabled.
+                                </div>
+                            {% endif %}
+                        </form>
+                    {% else %}
+                        <div class="alert alert-info">
+                            No benchmark queries available. Please add some benchmark queries first.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Cluster Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Cluster 1 (v{{ config['cluster1']['version'] }}):</span>
+                        <span class="badge {% if cluster1_status == 'running' %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ cluster1_status or 'Not running' }}
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Cluster 2 (v{{ config['cluster2']['version'] }}):</span>
+                        <span class="badge {% if cluster2_status == 'running' %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ cluster2_status or 'Not running' }}
+                        </span>
+                    </div>
+                    
+                    {% if not cluster1_status == 'running' or not cluster2_status == 'running' %}
+                        <div class="alert alert-warning mt-3">
+                            <i class="bi bi-exclamation-triangle-fill"></i> Both clusters must be running to perform benchmarks.
+                            <a href="{{ url_for('index') }}" class="alert-link">Start clusters</a>.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header bg-dark">
+                    <h5 class="card-title mb-0">Benchmark Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('benchmark_results') }}" class="btn btn-info">View All Results</a>
+                        <a href="{{ url_for('benchmark_comparison') }}" class="btn btn-secondary">Compare Performance</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if recent_results %}
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-dark">
+                        <h5 class="card-title mb-0">Recent Benchmark Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Query</th>
+                                        <th>Date</th>
+                                        <th>Cluster 1 (v{{ config['cluster1']['version'] }})</th>
+                                        <th>Cluster 2 (v{{ config['cluster2']['version'] }})</th>
+                                        <th>Difference</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for result in recent_results %}
+                                        <tr>
+                                            <td>{{ result.query.name }}</td>
+                                            <td>{{ result.execution_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                                            <td>
+                                                {% if result.cluster1_status == 'Success' %}
+                                                    {{ "%.3f"|format(result.cluster1_timing or 0) }} seconds
+                                                {% else %}
+                                                    <span class="text-danger">{{ result.cluster1_status or 'N/A' }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if result.cluster2_status == 'Success' %}
+                                                    {{ "%.3f"|format(result.cluster2_timing or 0) }} seconds
+                                                {% else %}
+                                                    <span class="text-danger">{{ result.cluster2_status or 'N/A' }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if result.cluster1_status == 'Success' and result.cluster2_status == 'Success' %}
+                                                    {% set diff = (result.cluster1_timing or 0) - (result.cluster2_timing or 0) %}
+                                                    {% if diff > 0 %}
+                                                        <span class="text-danger">+{{ "%.3f"|format(diff) }} seconds</span>
+                                                    {% elif diff < 0 %}
+                                                        <span class="text-success">{{ "%.3f"|format(diff) }} seconds</span>
+                                                    {% else %}
+                                                        <span class="text-secondary">0 seconds</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-secondary">N/A</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <a href="{{ url_for('view_benchmark_result', result_id=result.id) }}" class="btn btn-sm btn-primary">View</a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Benchmark query details
+    const benchmarkData = {
+        {% for benchmark in benchmarks %}
+            {{ benchmark.id }}: {
+                query: `{{ benchmark.query_text|replace('\n', ' ')|replace('`', '\\\`')|safe }}`,
+                description: `{{ benchmark.description or '' }}`,
+                category: `{{ benchmark.category or 'Uncategorized' }}`,
+                complexity: `{{ benchmark.complexity or 'Unknown' }}`,
+                expectedRuntime: {{ benchmark.expected_runtime or 0 }}
+            },
+        {% endfor %}
+    };
+    
+    // Update query preview when a benchmark is selected
+    document.getElementById('benchmark_id').addEventListener('change', function() {
+        const benchmarkId = this.value;
+        const queryPreviewDiv = document.querySelector('.query-preview');
+        const queryDetailsDiv = document.querySelector('.query-details');
+        
+        if (benchmarkId && benchmarkData[benchmarkId]) {
+            const benchmark = benchmarkData[benchmarkId];
+            
+            // Show query preview
+            document.getElementById('query_preview').textContent = benchmark.query;
+            queryPreviewDiv.style.display = 'block';
+            
+            // Show query details
+            document.getElementById('query_category').textContent = benchmark.category;
+            document.getElementById('query_complexity').textContent = benchmark.complexity;
+            document.getElementById('query_runtime').textContent = benchmark.expectedRuntime;
+            document.getElementById('query_description').textContent = benchmark.description;
+            queryDetailsDiv.style.display = 'block';
+        } else {
+            queryPreviewDiv.style.display = 'none';
+            queryDetailsDiv.style.display = 'none';
+        }
+    });
+</script>
+{% endblock %}

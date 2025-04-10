@@ -15,7 +15,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
                 {% endif %}
-                <form action="{{ url_for('save_catalog_config') }}" method="post">
+                <form action="{{ url_for('save_catalog_config') }}" method="post" data-loading-message="Saving catalog configurations... This will update the settings for both clusters.">
                     <!-- Hive Catalog -->
                     <div class="card mb-4">
                         <div class="card-header">

@@ -1,0 +1,372 @@
+{% extends 'layout.html' %}
+
+{% block title %}Benchmark Result Detail{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('benchmark_playground') }}">Benchmark Playground</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('benchmark_results') }}">Results</a></li>
+            <li class="breadcrumb-item active">Result Details</li>
+        </ol>
+    </nav>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-dark">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Benchmark Result: {{ benchmark.name }}</h5>
+                <span class="badge bg-info">{{ result.execution_time.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="mb-4">
+                <h6 class="mb-2">Query:</h6>
+                <pre class="bg-dark text-light p-3 rounded"><code>{{ benchmark.query_text }}</code></pre>
+                
+                {% if benchmark.description %}
+                <p class="mt-2"><strong>Description:</strong> {{ benchmark.description }}</p>
+                {% endif %}
+                
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <p><strong>Category:</strong> {{ benchmark.category or 'Uncategorized' }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <p><strong>Complexity:</strong> {{ benchmark.complexity or 'Unknown' }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <p><strong>Expected Runtime:</strong> {{ benchmark.expected_runtime or 'Unknown' }} seconds</p>
+                    </div>
+                </div>
+            </div>
+            
+            <hr>
+            
+            <!-- Detailed Resource Breakdown -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5>Performance Metrics</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-primary text-white">
+                                    Trino v{{ result.cluster1_version }} Metrics
+                                </div>
+                                <div class="card-body">
+                                    {% if result.cluster1_status == 'Success' %}
+                                        <div id="cluster1ResourceChart" style="height: 200px;"></div>
+                                        <div class="mt-3">
+                                            <dl class="row">
+                                                <dt class="col-sm-6">Total Time</dt>
+                                                <dd class="col-sm-6">{{ "%.3f"|format(result.cluster1_timing or 0) }} seconds</dd>
+                                                
+                                                {% if result.cluster1_cpu_time %}
+                                                <dt class="col-sm-6">CPU Time</dt>
+                                                <dd class="col-sm-6">{{ "%.3f"|format(result.cluster1_cpu_time) }} seconds</dd>
+                                                {% endif %}
+                                                
+                                                {% if result.cluster1_memory_usage %}
+                                                <dt class="col-sm-6">Peak Memory</dt>
+                                                <dd class="col-sm-6">{{ "%.2f"|format(result.cluster1_memory_usage) }} MB</dd>
+                                                {% endif %}
+                                                
+                                                {% if result.cluster1_row_count %}
+                                                <dt class="col-sm-6">Rows Returned</dt>
+                                                <dd class="col-sm-6">{{ result.cluster1_row_count }}</dd>
+                                                {% endif %}
+                                            </dl>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-danger">
+                                            <h6>Execution Error</h6>
+                                            <p>{{ result.cluster1_error or 'Unknown error occurred' }}</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-secondary text-white">
+                                    Trino v{{ result.cluster2_version }} Metrics
+                                </div>
+                                <div class="card-body">
+                                    {% if result.cluster2_status == 'Success' %}
+                                        <div id="cluster2ResourceChart" style="height: 200px;"></div>
+                                        <div class="mt-3">
+                                            <dl class="row">
+                                                <dt class="col-sm-6">Total Time</dt>
+                                                <dd class="col-sm-6">{{ "%.3f"|format(result.cluster2_timing or 0) }} seconds</dd>
+                                                
+                                                {% if result.cluster2_cpu_time %}
+                                                <dt class="col-sm-6">CPU Time</dt>
+                                                <dd class="col-sm-6">{{ "%.3f"|format(result.cluster2_cpu_time) }} seconds</dd>
+                                                {% endif %}
+                                                
+                                                {% if result.cluster2_memory_usage %}
+                                                <dt class="col-sm-6">Peak Memory</dt>
+                                                <dd class="col-sm-6">{{ "%.2f"|format(result.cluster2_memory_usage) }} MB</dd>
+                                                {% endif %}
+                                                
+                                                {% if result.cluster2_row_count %}
+                                                <dt class="col-sm-6">Rows Returned</dt>
+                                                <dd class="col-sm-6">{{ result.cluster2_row_count }}</dd>
+                                                {% endif %}
+                                            </dl>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-danger">
+                                            <h6>Execution Error</h6>
+                                            <p>{{ result.cluster2_error or 'Unknown error occurred' }}</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Timing Breakdown -->
+            {% if result.cluster1_timing_details or result.cluster2_timing_details %}
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <h5>Execution Phase Breakdown</h5>
+                        <div id="phasesChart" style="height: 250px;"></div>
+                    </div>
+                </div>
+            {% endif %}
+            
+            {% if result.cluster1_status == 'Success' and result.cluster2_status == 'Success' %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-dark">
+                                <h6 class="card-title mb-0">Performance Summary</h6>
+                            </div>
+                            <div class="card-body">
+                                {% set diff = (result.cluster1_timing or 0) - (result.cluster2_timing or 0) %}
+                                {% set diff_percent = (diff / (result.cluster2_timing or 1)) * 100 %}
+                                
+                                <div class="text-center p-3 mb-3 {% if diff > 0 %}bg-danger{% elif diff < 0 %}bg-success{% else %}bg-secondary{% endif %} text-white rounded">
+                                    <h4 class="mb-0">
+                                        {% if diff > 0 %}
+                                            v{{ result.cluster1_version }} is slower by {{ "%.3f"|format(diff) }} seconds
+                                            ({{ "%.1f"|format(diff_percent|abs) }}%)
+                                        {% elif diff < 0 %}
+                                            v{{ result.cluster1_version }} is faster by {{ "%.3f"|format(diff|abs) }} seconds
+                                            ({{ "%.1f"|format(diff_percent|abs) }}%)
+                                        {% else %}
+                                            Equal performance
+                                        {% endif %}
+                                    </h4>
+                                </div>
+                                
+                                <div class="row">
+                                    <!-- Resource usage comparison -->
+                                    <div class="col-md-6">
+                                        {% if result.cluster1_memory_usage and result.cluster2_memory_usage %}
+                                            {% set memory_diff = (result.cluster1_memory_usage or 0) - (result.cluster2_memory_usage or 0) %}
+                                            {% set memory_diff_percent = (memory_diff / (result.cluster2_memory_usage or 1)) * 100 %}
+                                            
+                                            <div class="card mb-3">
+                                                <div class="card-header">Memory Usage Comparison</div>
+                                                <div class="card-body">
+                                                    <p class="text-center {% if memory_diff > 0 %}text-danger{% elif memory_diff < 0 %}text-success{% else %}text-secondary{% endif %}">
+                                                        {% if memory_diff > 0 %}
+                                                            v{{ result.cluster1_version }} uses more memory: {{ "%.2f"|format(memory_diff) }} MB
+                                                            ({{ "%.1f"|format(memory_diff_percent|abs) }}%)
+                                                        {% elif memory_diff < 0 %}
+                                                            v{{ result.cluster1_version }} uses less memory: {{ "%.2f"|format(memory_diff|abs) }} MB
+                                                            ({{ "%.1f"|format(memory_diff_percent|abs) }}%)
+                                                        {% else %}
+                                                            Equal memory usage
+                                                        {% endif %}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        {% if result.cluster1_cpu_time and result.cluster2_cpu_time %}
+                                            {% set cpu_diff = (result.cluster1_cpu_time or 0) - (result.cluster2_cpu_time or 0) %}
+                                            {% set cpu_diff_percent = (cpu_diff / (result.cluster2_cpu_time or 1)) * 100 %}
+                                            
+                                            <div class="card mb-3">
+                                                <div class="card-header">CPU Time Comparison</div>
+                                                <div class="card-body">
+                                                    <p class="text-center {% if cpu_diff > 0 %}text-danger{% elif cpu_diff < 0 %}text-success{% else %}text-secondary{% endif %}">
+                                                        {% if cpu_diff > 0 %}
+                                                            v{{ result.cluster1_version }} uses more CPU time: {{ "%.3f"|format(cpu_diff) }} seconds
+                                                            ({{ "%.1f"|format(cpu_diff_percent|abs) }}%)
+                                                        {% elif cpu_diff < 0 %}
+                                                            v{{ result.cluster1_version }} uses less CPU time: {{ "%.3f"|format(cpu_diff|abs) }} seconds
+                                                            ({{ "%.1f"|format(cpu_diff_percent|abs) }}%)
+                                                        {% else %}
+                                                            Equal CPU usage
+                                                        {% endif %}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        <div class="card-footer">
+            <a href="{{ url_for('benchmark_playground') }}" class="btn btn-secondary">Back to Playground</a>
+            <a href="{{ url_for('benchmark_results') }}" class="btn btn-info">View All Results</a>
+            <a href="{{ url_for('benchmark_comparison') }}" class="btn btn-primary">Compare Across Versions</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if result.cluster1_status == 'Success' %}
+            // Create resource chart for cluster 1
+            const ctx1 = document.getElementById('cluster1ResourceChart');
+            new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: ['CPU Time', 'Other Processing Time'],
+                    datasets: [{
+                        data: [
+                            {{ result.cluster1_cpu_time or 0 }}, 
+                            {{ (result.cluster1_timing or 0) - (result.cluster1_cpu_time or 0) }}
+                        ],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(54, 162, 235, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Time Distribution'
+                        }
+                    }
+                }
+            });
+        {% endif %}
+        
+        {% if result.cluster2_status == 'Success' %}
+            // Create resource chart for cluster 2
+            const ctx2 = document.getElementById('cluster2ResourceChart');
+            new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['CPU Time', 'Other Processing Time'],
+                    datasets: [{
+                        data: [
+                            {{ result.cluster2_cpu_time or 0 }}, 
+                            {{ (result.cluster2_timing or 0) - (result.cluster2_cpu_time or 0) }}
+                        ],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(54, 162, 235, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Time Distribution'
+                        }
+                    }
+                }
+            });
+        {% endif %}
+        
+        {% if result.cluster1_timing_details and result.cluster2_timing_details %}
+            // Create detailed timing phases chart
+            {% set details1 = result.get_cluster1_timing_details() %}
+            {% set details2 = result.get_cluster2_timing_details() %}
+            
+            const phasesChart = document.getElementById('phasesChart');
+            new Chart(phasesChart, {
+                type: 'bar',
+                data: {
+                    labels: ['Planning Time', 'Execution Time', 'Queued Time'],
+                    datasets: [
+                        {
+                            label: `Trino v{{ result.cluster1_version }}`,
+                            data: [
+                                {{ details1.planning_time or 0 }},
+                                {{ details1.execution_time or 0 }},
+                                {{ details1.queued_time or 0 }}
+                            ],
+                            backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                            borderColor: 'rgba(13, 110, 253, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: `Trino v{{ result.cluster2_version }}`,
+                            data: [
+                                {{ details2.planning_time or 0 }},
+                                {{ details2.execution_time or 0 }},
+                                {{ details2.queued_time or 0 }}
+                            ],
+                            backgroundColor: 'rgba(108, 117, 125, 0.7)',
+                            borderColor: 'rgba(108, 117, 125, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Time (seconds)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Execution Phases Comparison'
+                        }
+                    }
+                }
+            });
+        {% endif %}
+    });
+</script>
+{% endblock %}

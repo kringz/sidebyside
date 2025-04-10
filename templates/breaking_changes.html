@@ -1,0 +1,339 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Breaking Changes Comparison
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="version-comparison-form" method="post" action="{{ url_for('compare_versions') }}" class="mb-4" data-loading-message="Comparing Trino versions... Fetching release notes and analyzing changes.">
+                    <div class="row align-items-end">
+                        <div class="col-md-5 mb-3">
+                            <label for="from_version" class="form-label">From Version:</label>
+                            <select id="from_version" name="from_version" class="form-select">
+                                {% for version in available_versions %}
+                                <option value="{{ version.version }}" {% if version.version == cluster2_version %}selected{% endif %}>
+                                    {{ version.version }} {% if version.is_lts %}(LTS){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-5 mb-3">
+                            <label for="to_version" class="form-label">To Version:</label>
+                            <select id="to_version" name="to_version" class="form-select">
+                                {% for version in available_versions %}
+                                <option value="{{ version.version }}" {% if version.version == cluster1_version %}selected{% endif %}>
+                                    {{ version.version }} {% if version.is_lts %}(LTS){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-1"></i> Compare
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                
+                <div id="comparison-results" class="mt-4">
+                    <div class="text-center py-5" id="loading" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading version differences...</p>
+                    </div>
+                    
+                    <div id="results-content" style="display: none;">
+                        <ul class="nav nav-tabs" id="resultTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="breaking-tab" data-bs-toggle="tab" data-bs-target="#breaking" type="button" role="tab" aria-controls="breaking" aria-selected="true">
+                                    <i class="fas fa-exclamation-triangle me-1"></i> Breaking Changes <span id="breaking-count" class="badge bg-danger ms-1">0</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="new-features-tab" data-bs-toggle="tab" data-bs-target="#new-features" type="button" role="tab" aria-controls="new-features" aria-selected="false">
+                                    <i class="fas fa-plus-circle me-1"></i> New Features <span id="features-count" class="badge bg-success ms-1">0</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="deprecated-tab" data-bs-toggle="tab" data-bs-target="#deprecated" type="button" role="tab" aria-controls="deprecated" aria-selected="false">
+                                    <i class="fas fa-trash-alt me-1"></i> Deprecated/Removed <span id="deprecated-count" class="badge bg-warning ms-1">0</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="other-tab" data-bs-toggle="tab" data-bs-target="#other" type="button" role="tab" aria-controls="other" aria-selected="false">
+                                    <i class="fas fa-tools me-1"></i> Other Changes <span id="other-count" class="badge bg-info ms-1">0</span>
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content p-3 border border-top-0 rounded-bottom" id="resultTabsContent">
+                            <!-- Breaking Changes Tab -->
+                            <div class="tab-pane fade show active" id="breaking" role="tabpanel" aria-labelledby="breaking-tab">
+                                <div class="alert alert-info mb-3" id="no-breaking-changes" style="display: none;">
+                                    <i class="fas fa-info-circle me-2"></i> No breaking changes found between these versions.
+                                </div>
+                                <div id="breaking-changes-list"></div>
+                            </div>
+                            
+                            <!-- New Features Tab -->
+                            <div class="tab-pane fade" id="new-features" role="tabpanel" aria-labelledby="new-features-tab">
+                                <div class="alert alert-info mb-3" id="no-new-features" style="display: none;">
+                                    <i class="fas fa-info-circle me-2"></i> No new features found between these versions.
+                                </div>
+                                <div id="new-features-list"></div>
+                            </div>
+                            
+                            <!-- Deprecated/Removed Tab -->
+                            <div class="tab-pane fade" id="deprecated" role="tabpanel" aria-labelledby="deprecated-tab">
+                                <div class="alert alert-info mb-3" id="no-deprecated" style="display: none;">
+                                    <i class="fas fa-info-circle me-2"></i> No deprecated or removed features found between these versions.
+                                </div>
+                                <div id="deprecated-list"></div>
+                            </div>
+                            
+                            <!-- Other Changes Tab -->
+                            <div class="tab-pane fade" id="other" role="tabpanel" aria-labelledby="other-tab">
+                                <div class="alert alert-info mb-3" id="no-other-changes" style="display: none;">
+                                    <i class="fas fa-info-circle me-2"></i> No other changes found between these versions.
+                                </div>
+                                <div id="other-changes-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="error-message" class="alert alert-danger mt-3" style="display: none;">
+                        <i class="fas fa-exclamation-circle me-2"></i> <span id="error-text"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block custom_scripts %}
+<script>
+$(document).ready(function() {
+    // Handle form submission
+    $('#version-comparison-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        // Show loading spinner
+        $('#loading').show();
+        $('#results-content').hide();
+        $('#error-message').hide();
+        
+        // Get selected versions
+        const fromVersion = $('#from_version').val();
+        const toVersion = $('#to_version').val();
+        
+        // Submit form via AJAX
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(response) {
+                // Hide loading spinner
+                $('#loading').hide();
+                
+                // Reset counters and clear content
+                $('#breaking-count').text('0');
+                $('#features-count').text('0');
+                $('#deprecated-count').text('0');
+                $('#other-count').text('0');
+                
+                $('#breaking-changes-list').empty();
+                $('#new-features-list').empty();
+                $('#deprecated-list').empty();
+                $('#other-changes-list').empty();
+                
+                // Handle the response
+                // Breaking changes
+                if (response.breaking_changes && response.breaking_changes.length > 0) {
+                    $('#breaking-count').text(response.breaking_changes.length);
+                    $('#no-breaking-changes').hide();
+                    
+                    const breakingList = $('#breaking-changes-list');
+                    response.breaking_changes.forEach(function(change) {
+                        const card = $('<div class="card mb-3"></div>');
+                        const cardHeader = $('<div class="card-header bg-danger bg-opacity-25"></div>');
+                        const cardBody = $('<div class="card-body"></div>');
+                        
+                        // Version badge and title
+                        cardHeader.html(`
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">${change.title}</h5>
+                                <span class="badge bg-secondary">Version ${change.version}</span>
+                            </div>
+                        `);
+                        
+                        // Description and workaround
+                        let cardContent = `<p>${change.description}</p>`;
+                        if (change.workaround) {
+                            cardContent += `
+                                <div class="alert alert-success mt-2">
+                                    <strong>Workaround:</strong> ${change.workaround}
+                                </div>
+                            `;
+                        }
+                        
+                        // Additional info like component, impacts
+                        let additionalInfo = [];
+                        if (change.component) additionalInfo.push(`<span class="badge bg-info me-2">Component: ${change.component}</span>`);
+                        if (change.impacts_performance) additionalInfo.push('<span class="badge bg-warning me-2">Impacts Performance</span>');
+                        if (change.impacts_compatibility) additionalInfo.push('<span class="badge bg-danger me-2">Impacts Compatibility</span>');
+                        
+                        if (additionalInfo.length > 0) {
+                            cardContent += `<div class="mt-3">${additionalInfo.join('')}</div>`;
+                        }
+                        
+                        cardBody.html(cardContent);
+                        card.append(cardHeader).append(cardBody);
+                        breakingList.append(card);
+                    });
+                } else {
+                    $('#no-breaking-changes').show();
+                }
+                
+                // New features
+                if (response.new_features && response.new_features.length > 0) {
+                    $('#features-count').text(response.new_features.length);
+                    $('#no-new-features').hide();
+                    
+                    const featuresList = $('#new-features-list');
+                    response.new_features.forEach(function(feature) {
+                        const card = $('<div class="card mb-3"></div>');
+                        const cardHeader = $('<div class="card-header bg-success bg-opacity-25"></div>');
+                        const cardBody = $('<div class="card-body"></div>');
+                        
+                        // Version badge and title
+                        cardHeader.html(`
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">${feature.title}</h5>
+                                <span class="badge bg-secondary">Version ${feature.version}</span>
+                            </div>
+                        `);
+                        
+                        // Description and example
+                        let cardContent = `<p>${feature.description}</p>`;
+                        if (feature.example) {
+                            cardContent += `
+                                <div class="alert alert-secondary mt-2">
+                                    <strong>Example:</strong> <pre>${feature.example}</pre>
+                                </div>
+                            `;
+                        }
+                        
+                        // Component info
+                        if (feature.component) {
+                            cardContent += `<div class="mt-3"><span class="badge bg-info me-2">Component: ${feature.component}</span></div>`;
+                        }
+                        
+                        cardBody.html(cardContent);
+                        card.append(cardHeader).append(cardBody);
+                        featuresList.append(card);
+                    });
+                } else {
+                    $('#no-new-features').show();
+                }
+                
+                // Deprecated/removed features
+                if (response.deprecated_removed && response.deprecated_removed.length > 0) {
+                    $('#deprecated-count').text(response.deprecated_removed.length);
+                    $('#no-deprecated').hide();
+                    
+                    const deprecatedList = $('#deprecated-list');
+                    response.deprecated_removed.forEach(function(item) {
+                        const card = $('<div class="card mb-3"></div>');
+                        const cardHeader = $('<div class="card-header bg-warning bg-opacity-25"></div>');
+                        const cardBody = $('<div class="card-body"></div>');
+                        
+                        // Status badge, name, and version
+                        cardHeader.html(`
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">${item.name}</h5>
+                                <div>
+                                    <span class="badge ${item.status === 'Deprecated' ? 'bg-warning' : 'bg-danger'} me-2">${item.status}</span>
+                                    <span class="badge bg-secondary">Version ${item.version}</span>
+                                </div>
+                            </div>
+                        `);
+                        
+                        // Description and alternative
+                        let cardContent = `<p>${item.description}</p>`;
+                        if (item.alternative) {
+                            cardContent += `
+                                <div class="alert alert-info mt-2">
+                                    <strong>Alternative:</strong> ${item.alternative}
+                                </div>
+                            `;
+                        }
+                        
+                        cardBody.html(cardContent);
+                        card.append(cardHeader).append(cardBody);
+                        deprecatedList.append(card);
+                    });
+                } else {
+                    $('#no-deprecated').show();
+                }
+                
+                // Other changes
+                if (response.other_changes && response.other_changes.length > 0) {
+                    $('#other-count').text(response.other_changes.length);
+                    $('#no-other-changes').hide();
+                    
+                    const otherList = $('#other-changes-list');
+                    response.other_changes.forEach(function(change) {
+                        const card = $('<div class="card mb-3"></div>');
+                        const cardHeader = $('<div class="card-header bg-info bg-opacity-25"></div>');
+                        const cardBody = $('<div class="card-body"></div>');
+                        
+                        // Version badge and title
+                        cardHeader.html(`
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">${change.title}</h5>
+                                <span class="badge bg-secondary">Version ${change.version}</span>
+                            </div>
+                        `);
+                        
+                        // Description and category
+                        let cardContent = `<p>${change.description}</p>`;
+                        
+                        // Category badge
+                        if (change.category) {
+                            cardContent += `<div class="mt-3"><span class="badge bg-secondary me-2">Category: ${change.category}</span></div>`;
+                        }
+                        
+                        cardBody.html(cardContent);
+                        card.append(cardHeader).append(cardBody);
+                        otherList.append(card);
+                    });
+                } else {
+                    $('#no-other-changes').show();
+                }
+                
+                // Show results
+                $('#results-content').show();
+            },
+            error: function(xhr, status, error) {
+                console.error(error);
+                
+                // Hide loading spinner and show error
+                $('#loading').hide();
+                $('#error-text').text('Error loading version comparison data. Please try again.');
+                $('#error-message').show();
+            }
+        });
+    });
+    
+    // Auto-submit on page load to show the initial comparison
+    $('#version-comparison-form').submit();
+});
+</script>
+{% endblock %}

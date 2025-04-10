@@ -58,6 +58,9 @@ catalogs:
     password: ''
     port: '1433'
     user: sa
+  tpch:
+    column_naming: SIMPLIFIED
+    enabled: true
 cluster1:
   container_name: trino1
   port: 8001

@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+import time
 
 from flask_sqlalchemy import SQLAlchemy
 
@@ -100,3 +101,114 @@ class CatalogCompatibility(db.Model):
     
     def __repr__(self):
         return f"<CatalogCompatibility {self.catalog_name}>"
+
+
+class BreakingChange(db.Model):
+    """Model for storing breaking changes between Trino versions"""
+    id = db.Column(db.Integer, primary_key=True)
+    version = db.Column(db.String(20), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    workaround = db.Column(db.Text, nullable=True)
+    component = db.Column(db.String(50), nullable=True)
+    impacts_performance = db.Column(db.Boolean, default=False)
+    impacts_compatibility = db.Column(db.Boolean, default=True)
+    
+    def __repr__(self):
+        return f"<BreakingChange {self.title} in {self.version}>"
+
+
+class FeatureChange(db.Model):
+    """Model for storing feature changes (new, removed, or modified) between Trino versions"""
+    id = db.Column(db.Integer, primary_key=True)
+    version = db.Column(db.String(20), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    change_type = db.Column(db.String(20), nullable=False)  # 'new', 'removed', 'deprecated', 'modified'
+    component = db.Column(db.String(50), nullable=True)
+    example = db.Column(db.Text, nullable=True)
+    alternative = db.Column(db.String(255), nullable=True)  # For removed/deprecated features
+    
+    def __repr__(self):
+        return f"<FeatureChange {self.title} ({self.change_type}) in {self.version}>"
+
+
+class BenchmarkQuery(db.Model):
+    """Model for storing predefined benchmark queries"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    query_text = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(50), nullable=True)  # e.g., 'Joins', 'Aggregations', 'Window Functions'
+    complexity = db.Column(db.String(20), nullable=True)  # e.g., 'Simple', 'Medium', 'Complex'
+    expected_runtime = db.Column(db.Float, nullable=True)  # Expected runtime in seconds for calibration
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    # Relationship with results
+    results = db.relationship('BenchmarkResult', backref='query', lazy=True)
+    
+    def __repr__(self):
+        return f"<BenchmarkQuery {self.name}>"
+
+
+class BenchmarkResult(db.Model):
+    """Model for storing benchmark query results"""
+    id = db.Column(db.Integer, primary_key=True)
+    benchmark_query_id = db.Column(db.Integer, db.ForeignKey('benchmark_query.id'), nullable=False)
+    execution_time = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Cluster versions and configurations
+    cluster1_version = db.Column(db.String(20), nullable=True)
+    cluster2_version = db.Column(db.String(20), nullable=True)
+    cluster1_config = db.Column(db.Text, nullable=True)  # Stored as JSON
+    cluster2_config = db.Column(db.Text, nullable=True)  # Stored as JSON
+    
+    # Performance metrics
+    cluster1_timing = db.Column(db.Float, nullable=True)  # Total query time in seconds
+    cluster2_timing = db.Column(db.Float, nullable=True)  # Total query time in seconds
+    cluster1_cpu_time = db.Column(db.Float, nullable=True)  # CPU time in milliseconds
+    cluster2_cpu_time = db.Column(db.Float, nullable=True)  # CPU time in milliseconds
+    cluster1_memory_usage = db.Column(db.Float, nullable=True)  # Peak memory usage in MB
+    cluster2_memory_usage = db.Column(db.Float, nullable=True)  # Peak memory usage in MB
+    
+    # Detailed timing metrics (stored as JSON)
+    cluster1_timing_details = db.Column(db.Text, nullable=True)  # JSON with planning time, execution time, etc.
+    cluster2_timing_details = db.Column(db.Text, nullable=True)  # JSON with planning time, execution time, etc.
+    
+    # Result metadata
+    cluster1_row_count = db.Column(db.Integer, nullable=True)
+    cluster2_row_count = db.Column(db.Integer, nullable=True)
+    cluster1_status = db.Column(db.String(20), nullable=True)  # 'Success', 'Error', 'Timeout'
+    cluster2_status = db.Column(db.String(20), nullable=True)  # 'Success', 'Error', 'Timeout'
+    
+    # Error information
+    cluster1_error = db.Column(db.Text, nullable=True)
+    cluster2_error = db.Column(db.Text, nullable=True)
+    
+    def get_cluster1_config(self):
+        """Get the cluster1 config as a Python object"""
+        if self.cluster1_config:
+            return json.loads(self.cluster1_config)
+        return {}
+    
+    def get_cluster2_config(self):
+        """Get the cluster2 config as a Python object"""
+        if self.cluster2_config:
+            return json.loads(self.cluster2_config)
+        return {}
+    
+    def get_cluster1_timing_details(self):
+        """Get the cluster1 timing details as a Python object"""
+        if self.cluster1_timing_details:
+            return json.loads(self.cluster1_timing_details)
+        return {}
+    
+    def get_cluster2_timing_details(self):
+        """Get the cluster2 timing details as a Python object"""
+        if self.cluster2_timing_details:
+            return json.loads(self.cluster2_timing_details)
+        return {}
+    
+    def __repr__(self):
+        return f"<BenchmarkResult for query {self.benchmark_query_id} at {self.execution_time}>"

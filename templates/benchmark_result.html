@@ -1,0 +1,311 @@
+{% extends 'layout.html' %}
+
+{% block title %}Benchmark Result{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('benchmark_playground') }}">Benchmark Playground</a></li>
+            <li class="breadcrumb-item active">Result</li>
+        </ol>
+    </nav>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-dark">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Benchmark Result: {{ benchmark.name }}</h5>
+                <span class="badge bg-info">{{ result.execution_time.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="mb-4">
+                <h6 class="mb-2">Query:</h6>
+                <pre class="bg-dark text-light p-3 rounded"><code>{{ benchmark.query_text }}</code></pre>
+                
+                {% if benchmark.description %}
+                <p class="mt-2"><strong>Description:</strong> {{ benchmark.description }}</p>
+                {% endif %}
+                
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <p><strong>Category:</strong> {{ benchmark.category or 'Uncategorized' }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <p><strong>Complexity:</strong> {{ benchmark.complexity or 'Unknown' }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <p><strong>Expected Runtime:</strong> {{ benchmark.expected_runtime or 'Unknown' }} seconds</p>
+                    </div>
+                </div>
+            </div>
+            
+            <hr>
+            
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5>Performance Comparison</h5>
+                    <canvas id="performanceChart" height="100"></canvas>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white">
+                            Cluster 1 (v{{ result.cluster1_version }})
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th scope="row">Status</th>
+                                        <td>
+                                            <span class="badge {% if result.cluster1_status == 'Success' %}bg-success{% else %}bg-danger{% endif %}">
+                                                {{ result.cluster1_status or 'Unknown' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% if result.cluster1_status == 'Success' %}
+                                        <tr>
+                                            <th scope="row">Total Time</th>
+                                            <td>{{ "%.3f"|format(result.cluster1_timing or 0) }} seconds</td>
+                                        </tr>
+                                        {% if result.cluster1_cpu_time %}
+                                        <tr>
+                                            <th scope="row">CPU Time</th>
+                                            <td>{{ "%.3f"|format(result.cluster1_cpu_time) }} seconds</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if result.cluster1_memory_usage %}
+                                        <tr>
+                                            <th scope="row">Peak Memory</th>
+                                            <td>{{ "%.2f"|format(result.cluster1_memory_usage) }} MB</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if result.cluster1_row_count %}
+                                        <tr>
+                                            <th scope="row">Rows Returned</th>
+                                            <td>{{ result.cluster1_row_count }}</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if result.cluster1_timing_details %}
+                                            {% set details = result.get_cluster1_timing_details() %}
+                                            {% if details %}
+                                                <tr>
+                                                    <th scope="row">Planning Time</th>
+                                                    <td>{{ "%.3f"|format(details.planning_time) }} seconds</td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">Execution Time</th>
+                                                    <td>{{ "%.3f"|format(details.execution_time) }} seconds</td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">Queued Time</th>
+                                                    <td>{{ "%.3f"|format(details.queued_time) }} seconds</td>
+                                                </tr>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% else %}
+                                        <tr>
+                                            <th scope="row">Error</th>
+                                            <td class="text-danger">{{ result.cluster1_error or 'Unknown error' }}</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header bg-secondary text-white">
+                            Cluster 2 (v{{ result.cluster2_version }})
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th scope="row">Status</th>
+                                        <td>
+                                            <span class="badge {% if result.cluster2_status == 'Success' %}bg-success{% else %}bg-danger{% endif %}">
+                                                {{ result.cluster2_status or 'Unknown' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% if result.cluster2_status == 'Success' %}
+                                        <tr>
+                                            <th scope="row">Total Time</th>
+                                            <td>{{ "%.3f"|format(result.cluster2_timing or 0) }} seconds</td>
+                                        </tr>
+                                        {% if result.cluster2_cpu_time %}
+                                        <tr>
+                                            <th scope="row">CPU Time</th>
+                                            <td>{{ "%.3f"|format(result.cluster2_cpu_time) }} seconds</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if result.cluster2_memory_usage %}
+                                        <tr>
+                                            <th scope="row">Peak Memory</th>
+                                            <td>{{ "%.2f"|format(result.cluster2_memory_usage) }} MB</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if result.cluster2_row_count %}
+                                        <tr>
+                                            <th scope="row">Rows Returned</th>
+                                            <td>{{ result.cluster2_row_count }}</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if result.cluster2_timing_details %}
+                                            {% set details = result.get_cluster2_timing_details() %}
+                                            {% if details %}
+                                                <tr>
+                                                    <th scope="row">Planning Time</th>
+                                                    <td>{{ "%.3f"|format(details.planning_time) }} seconds</td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">Execution Time</th>
+                                                    <td>{{ "%.3f"|format(details.execution_time) }} seconds</td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">Queued Time</th>
+                                                    <td>{{ "%.3f"|format(details.queued_time) }} seconds</td>
+                                                </tr>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% else %}
+                                        <tr>
+                                            <th scope="row">Error</th>
+                                            <td class="text-danger">{{ result.cluster2_error or 'Unknown error' }}</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {% if result.cluster1_status == 'Success' and result.cluster2_status == 'Success' %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-dark">
+                                <h6 class="card-title mb-0">Performance Difference</h6>
+                            </div>
+                            <div class="card-body">
+                                {% set diff = (result.cluster1_timing or 0) - (result.cluster2_timing or 0) %}
+                                {% set diff_percent = (diff / (result.cluster2_timing or 1)) * 100 %}
+                                
+                                <div class="d-flex justify-content-center">
+                                    <div class="text-center p-3 {% if diff > 0 %}bg-danger{% elif diff < 0 %}bg-success{% else %}bg-secondary{% endif %} text-white rounded">
+                                        <h4 class="mb-0">
+                                            {% if diff > 0 %}
+                                                v{{ result.cluster1_version }} is slower by {{ "%.3f"|format(diff) }} seconds
+                                                ({{ "%.1f"|format(diff_percent|abs) }}%)
+                                            {% elif diff < 0 %}
+                                                v{{ result.cluster1_version }} is faster by {{ "%.3f"|format(diff|abs) }} seconds
+                                                ({{ "%.1f"|format(diff_percent|abs) }}%)
+                                            {% else %}
+                                                Equal performance
+                                            {% endif %}
+                                        </h4>
+                                    </div>
+                                </div>
+                                
+                                {% if result.cluster1_memory_usage and result.cluster2_memory_usage %}
+                                    {% set memory_diff = (result.cluster1_memory_usage or 0) - (result.cluster2_memory_usage or 0) %}
+                                    {% set memory_diff_percent = (memory_diff / (result.cluster2_memory_usage or 1)) * 100 %}
+                                    
+                                    <div class="d-flex justify-content-center mt-3">
+                                        <div class="text-center p-2 {% if memory_diff > 0 %}bg-danger{% elif memory_diff < 0 %}bg-success{% else %}bg-secondary{% endif %} text-white rounded">
+                                            <h6 class="mb-0">
+                                                {% if memory_diff > 0 %}
+                                                    v{{ result.cluster1_version }} uses more memory: {{ "%.2f"|format(memory_diff) }} MB
+                                                    ({{ "%.1f"|format(memory_diff_percent|abs) }}%)
+                                                {% elif memory_diff < 0 %}
+                                                    v{{ result.cluster1_version }} uses less memory: {{ "%.2f"|format(memory_diff|abs) }} MB
+                                                    ({{ "%.1f"|format(memory_diff_percent|abs) }}%)
+                                                {% else %}
+                                                    Equal memory usage
+                                                {% endif %}
+                                            </h6>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        <div class="card-footer">
+            <a href="{{ url_for('benchmark_playground') }}" class="btn btn-secondary">Back to Playground</a>
+            <a href="{{ url_for('benchmark_results') }}" class="btn btn-info">View All Results</a>
+            {% if result.cluster1_status == 'Success' and result.cluster2_status == 'Success' %}
+                <a href="{{ url_for('benchmark_comparison') }}" class="btn btn-primary">Compare Across Versions</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Create performance comparison chart
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    
+    {% if result.cluster1_status == 'Success' or result.cluster2_status == 'Success' %}
+        const cluster1Time = {{ result.cluster1_timing or 0 }};
+        const cluster2Time = {{ result.cluster2_timing or 0 }};
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['v{{ result.cluster1_version }}', 'v{{ result.cluster2_version }}'],
+                datasets: [{
+                    label: 'Execution Time (seconds)',
+                    data: [cluster1Time, cluster2Time],
+                    backgroundColor: ['rgba(13, 110, 253, 0.7)', 'rgba(108, 117, 125, 0.7)'],
+                    borderColor: ['rgba(13, 110, 253, 1)', 'rgba(108, 117, 125, 1)'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Time (seconds)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Trino Version'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Query Execution Time Comparison'
+                    }
+                }
+            }
+        });
+        
+        {% if result.cluster1_cpu_time and result.cluster2_cpu_time %}
+            // Add CPU time chart if available
+            // (code can be expanded if needed)
+        {% endif %}
+    {% endif %}
+</script>
+{% endblock %}

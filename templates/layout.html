@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trino Cluster Comparison Tool</title>
+    <title>X:SideBySide - Software Comparison Tool</title>
     
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
@@ -18,10 +18,20 @@
     {% block custom_styles %}{% endblock %}
 </head>
 <body>
+    <!-- Loading Spinner Overlay (hidden by default) -->
+    <div class="spinner-overlay">
+        <div class="spinner-container">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="spinner-message" id="loading-message">Loading...</div>
+        </div>
+    </div>
+    
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="fas fa-database me-2"></i>Trino Cluster Comparison
+            <a class="navbar-brand" href="{{ url_for('landing') }}">
+                <i class="fas fa-code-compare me-2"></i>X:SideBySide
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
@@ -29,7 +39,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path == url_for('index') %}active{% endif %}" href="{{ url_for('index') }}">
+                        <a class="nav-link {% if request.path == url_for('trino_dashboard') %}active{% endif %}" href="{{ url_for('trino_dashboard') }}">
                             <i class="fas fa-home me-1"></i> Home
                         </a>
                     </li>
@@ -44,10 +54,21 @@
                             <i class="fas fa-history me-1"></i> Query History
                         </a>
                     </li>
+
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path == url_for('version_compatibility') %}active{% endif %}" href="{{ url_for('version_compatibility') }}">
-                            <i class="fas fa-chart-bar me-1"></i> Version Compatibility
+                        <a class="nav-link {% if request.path == url_for('breaking_changes') %}active{% endif %}" href="{{ url_for('breaking_changes') }}">
+                            <i class="fas fa-exclamation-triangle me-1"></i> Release Changes
                         </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {% if 'benchmark' in request.path %}active{% endif %}" href="#" id="benchmarkDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-tachometer-alt me-1"></i> Benchmarks
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="benchmarkDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('benchmark_playground') }}">Benchmark Playground</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('benchmark_results') }}">View Results</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('benchmark_comparison') }}">Compare Versions</a></li>
+                        </ul>
                     </li>
                 </ul>
             </div>
@@ -73,7 +94,7 @@
     
     <footer class="footer mt-5 py-3 bg-dark">
         <div class="container text-center">
-            <span class="text-muted">Trino Cluster Comparison Tool</span>
+            <span class="text-muted">X:SideBySide - Software Comparison Tool</span>
         </div>
     </footer>
     
