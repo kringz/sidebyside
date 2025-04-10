@@ -53,13 +53,37 @@ def register_breaking_changes_routes(app):
         if not versions:
             try:
                 logger.info("Fetching all available Trino versions from official website")
-                versions = fetch_all_trino_versions()
+                
+                # Import web_scraper directly in this function to avoid circular imports
+                import web_scraper
+                versions = web_scraper.fetch_all_trino_versions()
+                
                 logger.info(f"Successfully fetched {len(versions)} versions from Trino website")
                 
                 # Print the first 5 versions to debug
                 logger.info(f"First 5 versions: {versions[:5] if len(versions) >= 5 else versions}")
                 
-                # If versions is empty, raise an exception to fall back to the default
+                # If we didn't get enough versions, try alternate approach
+                if len(versions) < 20:
+                    logger.warning("Not enough versions fetched, trying comprehensive version range")
+                    # Generate a comprehensive range of versions from 0.x to 500
+                    all_versions = []
+                    
+                    # Include older versions (0.x series)
+                    for v in range(52, 300):
+                        all_versions.append({"version": f"0.{v}", "name": f"Release 0.{v}"})
+                    
+                    # Include newer versions (300 to 500)
+                    for v in range(300, 500):
+                        all_versions.append({"version": str(v), "name": f"Release {v}"})
+                    
+                    # Sort versions in descending order
+                    all_versions.sort(key=lambda x: x["version"], reverse=True)
+                    
+                    logger.info(f"Generated {len(all_versions)} comprehensive versions")
+                    versions = all_versions
+                
+                # If versions is still empty, raise an exception to fall back to the default
                 if not versions:
                     raise ValueError("No versions fetched from website")
                     
@@ -67,7 +91,7 @@ def register_breaking_changes_routes(app):
                 logger.error(f"Error fetching Trino versions: {str(e)}")
                 logger.error(traceback.format_exc())
                 # Fallback to default version range if fetch fails
-                default_versions = range(400, 475)
+                default_versions = range(350, 475)
                 versions = [{"version": str(v)} for v in default_versions]
         
         # Create a new template file that directly injects the versions into JavaScript
@@ -221,6 +245,7 @@ def create_breaking_changes_page(versions, app, compare_endpoint):
     // Store versions in JavaScript variable
     const trino_versions = {{ versions_json|safe }};
     console.log("First 10 versions:", trino_versions.slice(0, 10).map(v => v.version));
+    console.log("Total versions available:", trino_versions.length);
     
     // Completely override the global loading functions to prevent any spinner from appearing
     window.showLoading = function() { 
