@@ -228,11 +228,19 @@ class DockerManager:
             
             elif catalog_name == 'postgres':
                 # Special handling for PostgreSQL with our dedicated container
+                # Default fallback values (for when not using Docker)
                 host = catalog_config.get('host', 'localhost')
                 port = catalog_config.get('port', '5432')
                 user = catalog_config.get('user', 'postgres')
                 password = catalog_config.get('password', 'postgres')
                 database = catalog_config.get('database', 'postgres')
+                
+                # If we're using Docker, we need to ensure consistent credentials
+                # across both the PostgreSQL container and the catalog configuration
+                if self.docker_available:
+                    # Ensure that we're always using the secure default if not explicitly configured
+                    # This ensures consistency with the PostgreSQL container setup
+                    password = catalog_config.get('password') if catalog_config.get('password') else 'postgres123'
                 
                 # If we have a dedicated PostgreSQL container for this Trino cluster,
                 # use its container_name and port
@@ -252,8 +260,8 @@ class DockerManager:
                     f.write(f"connection-url=jdbc:postgresql://{host}:{port}/{database}\n")
                     f.write(f"connection-user={user}\n")
                     f.write(f"connection-password={password}\n")
-                
-                logger.info(f"Created PostgreSQL catalog configuration with host {host}")
+                    
+                logger.info(f"Created PostgreSQL catalog configuration with host {host} and user {user}")
                 
             elif catalog_name == 'tpch':
                 with open(catalog_file_path, "w") as f:
