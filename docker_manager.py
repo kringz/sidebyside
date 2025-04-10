@@ -311,14 +311,8 @@ class DockerManager:
                                 f.write(f"iceberg.rest-catalog.uri=http://{iceberg_rest_host}:8181\n")
                                 f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
                                 
-                                # Add AWS region and credentials for 474+ based on minitrino configuration
-                                f.write("iceberg.aws.region=us-east-1\n")
-                                f.write("iceberg.aws.access-key=access-key\n")
-                                f.write("iceberg.aws.secret-key=secret-key\n")
-                                f.write("iceberg.aws.s3.path-style-access=true\n")
-                                
-                                # In 474+, S3 credentials need to be provided differently
-                                # These are now handled by the REST Iceberg catalog service and specific Iceberg AWS properties
+                                # Keep it simple - for 474+ all AWS credentials are handled by the Iceberg REST service
+                                # We don't need any additional properties beyond the catalog type and URI
                         
                         # For Trino versions 458-473, use intermediate configuration
                         elif version_num >= 458:
@@ -706,33 +700,21 @@ class DockerManager:
                     if existing_iceberg is None:
                         logger.info(f"Starting Iceberg REST container {iceberg_rest_container_name}")
                         
+                        # Simple, consistent environment for Iceberg REST catalog across all versions
                         iceberg_env = {
                             "AWS_ACCESS_KEY_ID": "access-key",
                             "AWS_SECRET_ACCESS_KEY": "secret-key",
                             "AWS_REGION": "us-east-1",
-                            "AWS_DEFAULT_REGION": "us-east-1",  # Add explicit default region
+                            "AWS_DEFAULT_REGION": "us-east-1",
                             "CATALOG_URI": "jdbc:sqlite:/home/iceberg/iceberg.db",
                             "CATALOG_WAREHOUSE": "s3://sample-bucket/wh/",
                             "CATALOG_IO__IMPL": "org.apache.iceberg.aws.s3.S3FileIO",
                             "CATALOG_S3_ENDPOINT": "http://s3.us-east-1.minio.com:9000",
-                            "CATALOG_S3_PATH_STYLE_ACCESS": "true",
-                            "CATALOG_S3_SSL_ENABLED": "false"
+                            "CATALOG_S3_PATH_STYLE_ACCESS": "true", 
+                            "CATALOG_S3_SSL_ENABLED": "false",
+                            "AWS_S3_PATH_STYLE_ACCESS": "true",
+                            "S3_USE_PATH_STYLE_ACCESS": "true"
                         }
-                        
-                        # Add additional configurations for version 474+ compatibility
-                        try:
-                            version_num = int(version)
-                            if version_num >= 474:
-                                logger.info(f"Using enhanced REST catalog configuration for Trino {version}")
-                                # These additional settings help with Trino 474+ compatibility
-                                iceberg_env.update({
-                                    "AWS_S3_PATH_STYLE_ACCESS": "true",
-                                    "S3_USE_PATH_STYLE_ACCESS": "true",
-                                    "CATALOG_WAREHOUSE_LOCATION": "s3://sample-bucket/wh/",
-                                    "REST_CATALOG_CONFIG_OVERRIDE_REST_CATALOG_WAREHOUSE": "s3://sample-bucket/wh/"
-                                })
-                        except ValueError:
-                            pass
                         
                         # Determine a suggested port based on the container name
                         suggested_iceberg_port = 8181 if "1" in container_name else 8182
