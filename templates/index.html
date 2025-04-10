@@ -91,6 +91,40 @@
                     </div>
                     {% endif %}
                     <form action="{{ url_for('save_catalog_config') }}" method="post">
+                        <!-- TPC-H Catalog -->
+                        <div class="card mb-4 border-info">
+                            <div class="card-header bg-info text-white">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="tpch" name="tpch" {% if config.catalogs.tpch.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="tpch">
+                                        <h5 class="mb-0">TPC-H Catalog</h5>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="tpch_column_naming" class="form-label">Column Naming Style</label>
+                                            <select class="form-select" id="tpch_column_naming" name="tpch_column_naming">
+                                                <option value="SIMPLIFIED" {% if config.catalogs.tpch.column_naming == 'SIMPLIFIED' %}selected{% endif %}>Simplified</option>
+                                                <option value="STANDARD" {% if config.catalogs.tpch.column_naming == 'STANDARD' %}selected{% endif %}>Standard</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    <strong>Ready to use!</strong> TPC-H is a built-in catalog that doesn't require external services. 
+                                    Available tables: customer, orders, lineitem, part, partsupp, supplier, nation, region.
+                                </div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Usage example:</strong> <code>SELECT * FROM tpch.tiny.customer LIMIT 10</code>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Hive Catalog -->
                         <div class="card mb-4">
                             <div class="card-header">

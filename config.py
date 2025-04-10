@@ -40,12 +40,12 @@ def get_default_config():
                         'column_naming': 'SIMPLIFIED'  # Can be 'SIMPLIFIED' or 'STANDARD'
                     },
                     'hive': {
-                        'enabled': True,
+                        'enabled': False,
                         'metastore_host': 'localhost',
                         'metastore_port': '9083'
                     },
                     'iceberg': {
-                        'enabled': True,
+                        'enabled': False,
                         'metastore_host': 'localhost',
                         'metastore_port': '9083'
                     },
@@ -55,7 +55,7 @@ def get_default_config():
                         'metastore_port': '9083'
                     },
                     'mysql': {
-                        'enabled': True,
+                        'enabled': False,
                         'host': 'localhost',
                         'port': '3306',
                         'user': 'root',
@@ -105,7 +105,7 @@ def get_default_config():
                         'port': '9000'
                     },
                     'elasticsearch': {
-                        'enabled': True,
+                        'enabled': False,
                         'host': 'localhost',
                         'port': '9200'
                     }
