@@ -837,6 +837,7 @@ def run_query():
                 explain_result = {
                     'columns': mock_columns,
                     'rows': mock_rows,
+                    'row_count': len(mock_rows),
                     'stats': {
                         'cpu_time_ms': 50 + (30 * random.random()),
                         'planning_time_ms': 10 + (5 * random.random()),
@@ -859,6 +860,10 @@ def run_query():
                         start_time = time.time()
                         explain_result = trino_clients[cluster_name].execute_query(explain_query)
                         end_time = time.time()
+                        
+                        # Add row_count to the explain result if it's not already included
+                        if 'row_count' not in explain_result:
+                            explain_result['row_count'] = len(explain_result.get('rows', []))
                         
                         cluster_result = {
                             'cluster_name': cluster_name,
