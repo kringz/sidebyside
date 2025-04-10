@@ -304,25 +304,18 @@ class DockerManager:
                             logger.info(f"Trino version {version} >= 474, using new Iceberg catalog configuration")
                             
                             with open(catalog_file_path, "w") as f:
-                                # Write the base properties
+                                # For Trino 474+, use a simpler configuration focusing only on REST catalog
+                                # without any S3 or Hadoop settings directly in the catalog properties
                                 f.write("connector.name=iceberg\n")
                                 f.write("iceberg.catalog.type=rest\n")
                                 f.write(f"iceberg.rest-catalog.uri=http://{iceberg_rest_host}:8181\n")
                                 
-                                # Configure the REST catalog properties
+                                # New in 474 - use catalog-level REST configuration
+                                f.write("iceberg.rest-catalog.impersonation.enabled=false\n")
                                 f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
                                 
-                                # For Trino 474, use the iceberg.s3 properties for the connector itself
-                                # with the exact format required for that version
-                                f.write(f"iceberg.s3.endpoint-url={s3_endpoint}\n")
-                                f.write("iceberg.s3.access-key=access-key\n")
-                                f.write("iceberg.s3.secret-key=secret-key\n")
-                                f.write("iceberg.s3.path-style-access=true\n")
-                                f.write("iceberg.s3.ssl.enabled=false\n")
-                                
-                                # Also include HadoopFS catalog configuration
-                                f.write("iceberg.hadoop.config.resources=/etc/hadoop/core-site.xml,/etc/hadoop/hdfs-site.xml\n")
-                                f.write("hive.config.resources=/etc/hadoop/core-site.xml,/etc/hadoop/hdfs-site.xml\n")
+                                # In 474+, S3 credentials need to be provided differently
+                                # These are now handled by the REST Iceberg catalog service
                         
                         # For Trino versions 458-473, use intermediate configuration
                         elif version_num >= 458:
@@ -698,8 +691,25 @@ class DockerManager:
                             "CATALOG_URI": "jdbc:sqlite:/home/iceberg/iceberg.db",
                             "CATALOG_WAREHOUSE": "s3://sample-bucket/wh/",
                             "CATALOG_IO__IMPL": "org.apache.iceberg.aws.s3.S3FileIO",
-                            "CATALOG_S3_ENDPOINT": f"http://{minio_container_name}:9000"
+                            "CATALOG_S3_ENDPOINT": f"http://{minio_container_name}:9000",
+                            "CATALOG_S3_PATH_STYLE_ACCESS": "true",
+                            "CATALOG_S3_SSL_ENABLED": "false"
                         }
+                        
+                        # Add additional configurations for version 474+ compatibility
+                        try:
+                            version_num = int(version)
+                            if version_num >= 474:
+                                logger.info(f"Using enhanced REST catalog configuration for Trino {version}")
+                                # These additional settings help with Trino 474+ compatibility
+                                iceberg_env.update({
+                                    "AWS_S3_PATH_STYLE_ACCESS": "true",
+                                    "S3_USE_PATH_STYLE_ACCESS": "true",
+                                    "CATALOG_WAREHOUSE_LOCATION": "s3://sample-bucket/wh/",
+                                    "REST_CATALOG_CONFIG_OVERRIDE_REST_CATALOG_WAREHOUSE": "s3://sample-bucket/wh/"
+                                })
+                        except ValueError:
+                            pass
                         
                         # Determine a suggested port based on the container name
                         suggested_iceberg_port = 8181 if "1" in container_name else 8182
@@ -720,8 +730,19 @@ class DockerManager:
                             iceberg_options["network"] = network_name
                         
                         # Start Iceberg REST container
+                        # For Trino 474+, use a newer image compatible with the REST catalog API changes
+                        iceberg_image = "tabulario/iceberg-rest:latest"
+                        try:
+                            version_num = int(version)
+                            if version_num >= 474:
+                                # Use a more compatible image for Trino 474+
+                                iceberg_image = "tabular/iceberg-rest:0.15.0"
+                                logger.info(f"Using updated Iceberg REST image for Trino {version}: {iceberg_image}")
+                        except ValueError:
+                            pass
+                            
                         iceberg_container = self.client.containers.run(
-                            "tabulario/iceberg-rest:latest",
+                            iceberg_image,
                             **iceberg_options
                         )
                         
