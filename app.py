@@ -1759,7 +1759,8 @@ def seed_catalog_compatibility():
         db.session.commit()
         logger.info("Seeded initial catalog compatibility data")
 
-# Register the breaking changes routes
+# Register the breaking changes routes (using v2 version)
+from breaking_changes_v2 import register_breaking_changes_routes
 register_breaking_changes_routes(app)
 
 # Initialize application
