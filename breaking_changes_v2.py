@@ -99,33 +99,45 @@ def register_breaking_changes_routes(app):
     @app.route('/compare_versions', methods=['POST'])
     def compare_versions():
         """API endpoint to compare changes between two Trino versions"""
-        from_version = request.form.get('from_version')
-        to_version = request.form.get('to_version')
-        
-        if not from_version or not to_version:
-            return jsonify({
-                'success': False,
-                'message': 'Both from_version and to_version are required'
-            })
-        
         try:
+            # First get the form data
+            from_version = request.form.get('from_version', '')
+            to_version = request.form.get('to_version', '')
+            
+            logger.debug(f"Received request to compare versions: from={from_version}, to={to_version}")
+            
+            if not from_version or not to_version:
+                logger.warning("Missing version parameters")
+                return jsonify({
+                    'success': False,
+                    'message': 'Both from_version and to_version are required'
+                })
+            
             # Fetch all changes between versions
+            logger.info(f"Fetching changes between {from_version} and {to_version}")
             changes = get_all_changes_between_versions(from_version, to_version)
             
-            return jsonify({
+            # Create a simple response first, to avoid potential serialization issues
+            simple_response = {
                 'success': True,
                 'from_version': changes['from_version'],
                 'to_version': changes['to_version'],
-                'versions_checked': changes['versions_checked'],
                 'total_versions': len(changes['versions_checked']),
-                'connector_changes': changes['connector_changes'],
-                'general_changes': changes['general_changes'],
-                'processed_count': len(set([change.get('version') for change in changes['connector_changes'] + changes['general_changes']]))
-            })
+                'processed_count': len(set([change.get('version', '') for change in changes['connector_changes'] + changes['general_changes']]))
+            }
+            
+            # Add the more complex data
+            simple_response['versions_checked'] = changes['versions_checked']
+            simple_response['connector_changes'] = changes['connector_changes']
+            simple_response['general_changes'] = changes['general_changes']
+            
+            logger.info(f"Successfully processed changes between {from_version} and {to_version}")
+            return jsonify(simple_response)
             
         except Exception as e:
             logger.error(f"Error comparing versions: {str(e)}")
             logger.error(traceback.format_exc())
+            # Return a simplified error response
             return jsonify({
                 'success': False,
                 'message': f"Error comparing versions: {str(e)}"
