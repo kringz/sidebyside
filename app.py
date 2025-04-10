@@ -1261,6 +1261,49 @@ def seed_benchmark_queries():
                 'expected_runtime': 3.0
             },
             {
+                'name': 'Iceberg - Create Table',
+                'description': 'Create a new Iceberg table',
+                'query_text': '''
+                    CREATE TABLE IF NOT EXISTS iceberg.default.customer_data (
+                        id BIGINT,
+                        name VARCHAR,
+                        email VARCHAR,
+                        registration_date DATE,
+                        status VARCHAR
+                    )
+                ''',
+                'category': 'Iceberg',
+                'complexity': 'Simple',
+                'expected_runtime': 1.0
+            },
+            {
+                'name': 'Iceberg - Insert Data',
+                'description': 'Insert sample data into the Iceberg table',
+                'query_text': '''
+                    INSERT INTO iceberg.default.customer_data VALUES
+                    (1, 'John Smith', 'john@example.com', date '2023-01-15', 'active'),
+                    (2, 'Jane Doe', 'jane@example.com', date '2023-02-20', 'active'),
+                    (3, 'Robert Brown', 'robert@example.com', date '2023-03-10', 'inactive'),
+                    (4, 'Maria Garcia', 'maria@example.com', date '2023-04-05', 'active'),
+                    (5, 'James Johnson', 'james@example.com', date '2023-05-12', 'pending')
+                ''',
+                'category': 'Iceberg',
+                'complexity': 'Simple',
+                'expected_runtime': 1.0
+            },
+            {
+                'name': 'Iceberg - Query Data',
+                'description': 'Query data from the Iceberg table',
+                'query_text': '''
+                    SELECT * FROM iceberg.default.customer_data
+                    WHERE status = 'active'
+                    ORDER BY registration_date
+                ''',
+                'category': 'Iceberg',
+                'complexity': 'Simple',
+                'expected_runtime': 0.5
+            },
+            {
                 'name': 'Subquery',
                 'description': 'Query with a subquery in the WHERE clause',
                 'query_text': '''

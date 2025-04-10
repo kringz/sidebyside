@@ -199,6 +199,61 @@
                                     <button type="button" class="list-group-item list-group-item-action example-query">
                                         SHOW TABLES FROM iceberg.default
                                     </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        CREATE TABLE IF NOT EXISTS iceberg.default.customer_data (
+                                            id BIGINT,
+                                            name VARCHAR,
+                                            email VARCHAR,
+                                            registration_date DATE,
+                                            status VARCHAR
+                                        )
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        INSERT INTO iceberg.default.customer_data VALUES
+                                        (1, 'John Smith', 'john@example.com', date '2023-01-15', 'active'),
+                                        (2, 'Jane Doe', 'jane@example.com', date '2023-02-20', 'active'),
+                                        (3, 'Robert Brown', 'robert@example.com', date '2023-03-10', 'inactive'),
+                                        (4, 'Maria Garcia', 'maria@example.com', date '2023-04-05', 'active'),
+                                        (5, 'James Johnson', 'james@example.com', date '2023-05-12', 'pending')
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SELECT * FROM iceberg.default.customer_data
+                                        WHERE status = 'active'
+                                        ORDER BY registration_date
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        CREATE TABLE IF NOT EXISTS iceberg.default.orders (
+                                            order_id BIGINT,
+                                            customer_id BIGINT,
+                                            order_date DATE,
+                                            total_amount DECIMAL(10,2),
+                                            status VARCHAR
+                                        )
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        INSERT INTO iceberg.default.orders VALUES
+                                        (101, 1, date '2023-02-01', 150.75, 'completed'),
+                                        (102, 2, date '2023-02-25', 89.99, 'completed'),
+                                        (103, 1, date '2023-03-15', 45.25, 'shipped'),
+                                        (104, 3, date '2023-03-20', 199.99, 'canceled'),
+                                        (105, 4, date '2023-04-10', 120.50, 'processing')
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SELECT 
+                                            c.name as customer_name, 
+                                            c.email,
+                                            o.order_id, 
+                                            o.order_date, 
+                                            o.total_amount,
+                                            o.status as order_status
+                                        FROM 
+                                            iceberg.default.customer_data c
+                                            JOIN iceberg.default.orders o ON c.id = o.customer_id
+                                        WHERE 
+                                            c.status = 'active' AND o.total_amount > 50
+                                        ORDER BY 
+                                            o.order_date DESC
+                                    </button>
                                     {% endif %}
                                     
                                     {% if 'delta-lake' in catalogs %}
