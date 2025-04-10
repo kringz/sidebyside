@@ -311,12 +311,14 @@ class DockerManager:
                                 f.write(f"iceberg.rest-catalog.uri=http://{iceberg_rest_host}:8181\n")
                                 f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
                                 
-                                # Add AWS region for 474+ based on minitrino configuration
+                                # Add AWS region and credentials for 474+ based on minitrino configuration
                                 f.write("iceberg.aws.region=us-east-1\n")
-                                f.write("hive.s3.region=us-east-1\n")
+                                f.write("iceberg.aws.access-key=access-key\n")
+                                f.write("iceberg.aws.secret-key=secret-key\n")
+                                f.write("iceberg.aws.s3.path-style-access=true\n")
                                 
                                 # In 474+, S3 credentials need to be provided differently
-                                # These are now handled by the REST Iceberg catalog service
+                                # These are now handled by the REST Iceberg catalog service and specific Iceberg AWS properties
                         
                         # For Trino versions 458-473, use intermediate configuration
                         elif version_num >= 458:
@@ -661,7 +663,8 @@ class DockerManager:
                         "mc alias set minio http://%s:9000 access-key secret-key && "
                         "mc mb --region us-east-1 minio/sample-bucket && "
                         "mc mb --region us-east-1 minio/sample-bucket/wh/ && "
-                        "echo \"MinIO buckets created successfully\" && "
+                        "mc policy set public minio/sample-bucket && "
+                        "echo \"MinIO buckets created successfully with region us-east-1\" && "
                         "tail -f /dev/null'"
                     ) % minio_container_name
                     
