@@ -9,7 +9,7 @@ from distutils.version import LooseVersion
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Global flag to track if BeautifulSoup is available
+# Set up BeautifulSoup handling without direct imports
 BEAUTIFULSOUP_AVAILABLE = False
 
 # Define dummy BeautifulSoup class for when the actual package is not available
@@ -29,15 +29,17 @@ class DummyBeautifulSoup:
     def get_text(self, *args, **kwargs):
         return ""
 
-# Try to import BeautifulSoup, but fall back to dummy implementation if not available
+# Check if BeautifulSoup is available without importing it directly
 try:
-    from bs4 import BeautifulSoup
+    # Try to import BeautifulSoup to check if it's available
+    import bs4
     BEAUTIFULSOUP_AVAILABLE = True
     logger.info("BeautifulSoup4 is available for web scraping.")
+    # Immediately remove it from imported modules to prevent conflicts
+    if 'bs4' in sys.modules:
+        del sys.modules['bs4']
 except ImportError:
     logger.warning("BeautifulSoup4 is not installed. Web scraping functionality will be limited.")
-    # Use our dummy implementation instead
-    BeautifulSoup = DummyBeautifulSoup
 
 from models import db, BreakingChange, FeatureChange, TrinoVersion
 
@@ -278,8 +280,13 @@ def fetch_trino_changes(from_version, to_version):
                 response = requests.get(release_url, timeout=10)
                 
                 if response.status_code == 200:
-                    # Parse the HTML content
-                    soup = BeautifulSoup(response.text, 'html.parser')
+                    # Parse the HTML content - import BeautifulSoup only when needed
+                    try:
+                        from bs4 import BeautifulSoup
+                        soup = BeautifulSoup(response.text, 'html.parser')
+                    except ImportError:
+                        # Use dummy implementation if import fails
+                        soup = DummyBeautifulSoup(response.text, 'html.parser')
                     
                     # Find breaking changes section
                     breaking_changes_section = soup.find('h2', string=re.compile('Breaking Changes', re.I))
