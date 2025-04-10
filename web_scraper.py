@@ -166,6 +166,55 @@ def scrape_trino_release_page(version, timeout=5):
         logger.error(f"Traceback: {traceback.format_exc()}")
         return {"connector_changes": [], "general_changes": []}
 
+def fetch_all_trino_versions():
+    """
+    Fetch all available Trino versions from the official release notes page.
+    
+    Returns:
+        list: A list of dictionaries containing version information, ordered by version number (descending)
+    """
+    release_url = "https://trino.io/docs/current/release.html"
+    logger.info(f"Fetching all Trino versions from {release_url}")
+    
+    try:
+        # Fetch the release page
+        response = requests.get(release_url, timeout=10)
+        if response.status_code != 200:
+            logger.warning(f"Failed to fetch release page: {response.status_code}")
+            return []
+        
+        # Parse the HTML
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Find all version links in the release notes page
+        version_links = soup.find_all('a', href=re.compile(r'/docs/current/release/release-\d+\.html'))
+        
+        versions = []
+        version_pattern = re.compile(r'Release (\d+)')
+        
+        for link in version_links:
+            # Extract version number from link text
+            match = version_pattern.search(link.text)
+            if match:
+                version_number = match.group(1)
+                versions.append({
+                    "version": version_number,
+                    "name": link.text.strip(),
+                    "url": link['href']
+                })
+        
+        # Sort versions in descending order
+        versions.sort(key=lambda x: int(x["version"]), reverse=True)
+        
+        logger.info(f"Found {len(versions)} Trino versions")
+        return versions
+    
+    except Exception as e:
+        logger.error(f"Error fetching Trino versions: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return []
+
 def get_all_changes_between_versions(from_version, to_version, max_versions=20):
     """
     Get all changes between two Trino versions, categorized by Connector and General/Other

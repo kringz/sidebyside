@@ -4,7 +4,7 @@ import logging
 import requests
 import re
 import sys
-from web_scraper import scrape_trino_release_page, get_all_changes_between_versions, version_compare
+from web_scraper import scrape_trino_release_page, get_all_changes_between_versions, version_compare, fetch_all_trino_versions
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -29,11 +29,17 @@ def register_breaking_changes_routes(app):
             except Exception as e:
                 logger.error(f"Error querying versions: {str(e)}")
                 
-        # If no versions in database or database not configured, use a default list
+        # If no versions in database or database not configured, fetch all available versions from the Trino website
         if not versions:
-            # Default version range - adjust as needed
-            default_versions = range(400, 475)
-            versions = [{"version": str(v)} for v in default_versions]
+            try:
+                logger.info("Fetching all available Trino versions from official website")
+                versions = fetch_all_trino_versions()
+                logger.info(f"Successfully fetched {len(versions)} versions from Trino website")
+            except Exception as e:
+                logger.error(f"Error fetching Trino versions: {str(e)}")
+                # Fallback to default version range if fetch fails
+                default_versions = range(400, 475)
+                versions = [{"version": str(v)} for v in default_versions]
             
         # Get configured versions from application config
         config = app.config.get('CURRENT_CONFIG', {})
