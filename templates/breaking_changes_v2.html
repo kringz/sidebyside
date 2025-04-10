@@ -46,26 +46,10 @@
                 </div>
                 
                 <div id="comparison-results" class="mt-4">
-                    <!-- Loading overlay with unique ID to avoid conflicts -->
-                    <div class="modal-like-overlay" id="trino-v2-loading-modal" style="display: none; position: fixed; z-index: 1050; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); text-align: center; padding-top: 20%;">
-                        <div class="card shadow mx-auto" style="max-width: 500px; background-color: white;">
-                            <div class="card-body p-4">
-                                <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                                <h5 class="mb-3">Loading changes between versions...</h5>
-                                <p class="text-muted mb-2">Processing release notes from multiple versions (limited to 20 max).</p>
-                                <p class="text-muted small mb-3">For large version ranges, a representative sample will be shown.</p>
-                                <div class="progress" style="height: 15px;">
-                                    <div id="loading-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                                         role="progressbar" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- No static loading modals - we'll create them dynamically in JavaScript -->
                     
-                    <!-- Legacy loading element (hidden, just for backward compatibility) -->
-                    <div id="loading" style="display: none;"></div>
+                    <!-- Container where loading modals will be inserted -->
+                    <div id="dynamic-loading-container"></div>
                     
                     <div id="results-content" style="display: none;">
                         <ul class="nav nav-tabs" id="resultTabs" role="tablist">
@@ -149,39 +133,55 @@
 {% block custom_scripts %}
 <script>
 $(document).ready(function() {
-    // Immediately remove any legacy loaders when page loads
-    {% if use_v2_loading_only %}
-    console.log("Initializing v2 page: removing any existing loading spinners");
+    // Define function to create a new loading spinner
+    function createAndShowLoadingSpinner() {
+        // First, clean up any existing spinners
+        $('.loading-modal').remove();
+        
+        // Create a new loading overlay each time
+        const loadingHTML = `
+            <div class="loading-modal" style="position: fixed; z-index: 1050; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); text-align: center; padding-top: 20%;">
+                <div class="card shadow mx-auto" style="max-width: 500px; background-color: white;">
+                    <div class="card-body p-4">
+                        <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <h5 class="mb-3">Loading changes between versions...</h5>
+                        <p class="text-muted mb-2">Processing release notes from multiple versions (limited to 20 max).</p>
+                        <p class="text-muted small mb-3">For large version ranges, a representative sample will be shown.</p>
+                        <div class="progress" style="height: 15px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated loading-progress-bar" 
+                                 role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Insert the loading overlay
+        $('#dynamic-loading-container').html(loadingHTML);
+        console.log("Created new loading spinner");
+        
+        return $('.loading-progress-bar'); // Return reference to the progress bar
+    }
+    
+    // Cleanup all legacy loading elements
+    console.log("Initializing page: removing any existing spinners");
     $('#loading').remove();
-    $('.modal-like-overlay').not('#trino-v2-loading-modal').remove();
-    $('#trino-v2-loading-modal').hide();
-    {% endif %}
+    $('.modal-like-overlay').remove();
+    $('#trino-v2-loading-modal').remove();
     // Handle form submission
     $('#version-comparison-form').on('submit', function(e) {
         e.preventDefault();
         
-        {% if use_v2_loading_only %}
-        // Use only the v2 loading mechanism - completely remove any other loaders
-        console.log("Showing v2 loading spinner only (conflict fix)");
-        // First, make sure any legacy spinners or overlays are entirely removed
-        $('#loading').remove(); 
-        $('.modal-like-overlay').not('#trino-v2-loading-modal').remove();
-        // Now show our specific modal
-        $('#trino-v2-loading-modal').show();
-        {% else %}
-        // Backward compatibility mode
-        console.log("Showing loading spinner v2");
-        $('#loading').hide(); // Hide legacy spinner
-        $('.modal-like-overlay').hide(); // Hide any other overlays first
-        $('#trino-v2-loading-modal').show(); // Show our specific modal
-        {% endif %}
+        // Create a fresh loading spinner for this specific request
+        console.log("Creating a new loading spinner for this request");
+        const $progressBar = createAndShowLoadingSpinner();
         
+        // Hide content areas
         $('#results-content').hide();
         $('#error-message').hide();
         $('#version-range-info').hide();
-        
-        // Reset progress bar
-        $('#loading-progress-bar').css('width', '5%');
         
         // Get selected versions
         const fromVersion = $('#from_version').val();
@@ -194,7 +194,7 @@ $(document).ready(function() {
         const progressInterval = setInterval(function() {
             progress += 3;
             if (progress > 90) progress = 90; // Cap at 90% until complete
-            $('#loading-progress-bar').css('width', progress + '%');
+            $('.loading-progress-bar').css('width', progress + '%');
         }, 500);
         
         // Submit form via AJAX
@@ -209,20 +209,14 @@ $(document).ready(function() {
                 
                 // Stop progress ticker and set to 100%
                 clearInterval(progressInterval);
-                $('#loading-progress-bar').css('width', '100%');
+                $('.loading-progress-bar').css('width', '100%');
                 
                 // Completely remove all spinners to prevent any hanging overlays
                 console.log("Success: removing all loading spinners");
-                {% if use_v2_loading_only %}
-                // For v2 mode, completely remove all loaders
-                $('#loading').remove();
-                $('.modal-like-overlay').not('#trino-v2-loading-modal').remove();
-                $('#trino-v2-loading-modal').hide();
-                {% else %}
-                // Backward compatibility mode
-                $('#loading').hide();
-                $('.modal-like-overlay').hide();
-                {% endif %}
+                // Completely remove the loading modal from the DOM
+                setTimeout(function() {
+                    $('.loading-modal').remove();
+                }, 500);
                 
                 if (!response.success) {
                     $('#error-text').text(response.message || 'An error occurred while comparing versions.');
@@ -428,16 +422,8 @@ $(document).ready(function() {
                 
                 // Completely remove all spinners to prevent any hanging overlays
                 console.log("Error: removing all loading spinners");
-                {% if use_v2_loading_only %}
-                // For v2 mode, completely remove all loaders
-                $('#loading').remove();
-                $('.modal-like-overlay').not('#trino-v2-loading-modal').remove();
-                $('#trino-v2-loading-modal').hide();
-                {% else %}
-                // Backward compatibility mode
-                $('#loading').hide();
-                $('.modal-like-overlay').hide();
-                {% endif %}
+                // Completely remove the loading modal from the DOM
+                $('.loading-modal').remove();
                 $('#error-text').text('Error loading version comparison data: ' + error);
                 $('#error-message').show();
             }
