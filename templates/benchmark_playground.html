@@ -88,7 +88,7 @@
                     {% if not cluster1_status == 'running' or not cluster2_status == 'running' %}
                         <div class="alert alert-warning mt-3">
                             <i class="bi bi-exclamation-triangle-fill"></i> Both clusters must be running to perform benchmarks.
-                            <a href="{{ url_for('index') }}" class="alert-link">Start clusters</a>.
+                            <a href="{{ url_for('landing') }}" class="alert-link">Start clusters</a>.
                         </div>
                     {% endif %}
                 </div>
