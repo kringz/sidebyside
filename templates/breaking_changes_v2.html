@@ -46,7 +46,8 @@
                 </div>
                 
                 <div id="comparison-results" class="mt-4">
-                    <div class="modal-like-overlay" id="loading" style="display: none; position: fixed; z-index: 1050; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); text-align: center; padding-top: 20%;">
+                    <!-- Loading overlay with unique ID to avoid conflicts -->
+                    <div class="modal-like-overlay" id="trino-v2-loading-modal" style="display: none; position: fixed; z-index: 1050; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); text-align: center; padding-top: 20%;">
                         <div class="card shadow mx-auto" style="max-width: 500px; background-color: white;">
                             <div class="card-body p-4">
                                 <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
@@ -62,6 +63,9 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Legacy loading element (hidden, just for backward compatibility) -->
+                    <div id="loading" style="display: none;"></div>
                     
                     <div id="results-content" style="display: none;">
                         <ul class="nav nav-tabs" id="resultTabs" role="tablist">
@@ -149,9 +153,11 @@ $(document).ready(function() {
     $('#version-comparison-form').on('submit', function(e) {
         e.preventDefault();
         
-        // Show loading spinner
-        console.log("Showing loading spinner");
-        $('#loading').hide().show(); // Force reset any previous state
+        // Clear any existing loading spinners and show our v2 loading spinner
+        console.log("Showing loading spinner v2");
+        $('#loading').hide(); // Hide legacy spinner
+        $('.modal-like-overlay').hide(); // Hide any other overlays first
+        $('#trino-v2-loading-modal').show(); // Show our specific modal
         $('#results-content').hide();
         $('#error-message').hide();
         $('#version-range-info').hide();
