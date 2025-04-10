@@ -967,6 +967,227 @@
 
 <script>
 $(document).ready(function() {
+    // Catalog Properties Management
+    $('#cluster1CatalogSelect').change(function() {
+        const catalogName = $(this).val();
+        if (catalogName) {
+            $('#loadCluster1Properties').prop('disabled', false);
+        } else {
+            $('#loadCluster1Properties').prop('disabled', true);
+            $('#saveCluster1Properties').prop('disabled', true);
+            $('#restartCluster1').prop('disabled', true);
+            $('#cluster1PropertiesEditor').parent().addClass('d-none');
+        }
+    });
+    
+    $('#cluster2CatalogSelect').change(function() {
+        const catalogName = $(this).val();
+        if (catalogName) {
+            $('#loadCluster2Properties').prop('disabled', false);
+        } else {
+            $('#loadCluster2Properties').prop('disabled', true);
+            $('#saveCluster2Properties').prop('disabled', true);
+            $('#restartCluster2').prop('disabled', true);
+            $('#cluster2PropertiesEditor').parent().addClass('d-none');
+        }
+    });
+    
+    $('#loadCluster1Properties').click(function() {
+        const catalogName = $('#cluster1CatalogSelect').val();
+        if (!catalogName) return;
+        
+        $.ajax({
+            url: `/get_catalog_properties/1/${catalogName}`,
+            method: 'GET',
+            beforeSend: function() {
+                $('#cluster1PropertiesStatus').html('<div class="alert alert-info">Loading properties...</div>');
+            },
+            success: function(response) {
+                if (response.content) {
+                    $('#cluster1PropertiesEditor').val(response.content);
+                    $('#cluster1PropertiesEditor').parent().removeClass('d-none');
+                    $('#saveCluster1Properties').prop('disabled', false);
+                    $('#restartCluster1').prop('disabled', false);
+                    $('#cluster1PropertiesStatus').html('<div class="alert alert-success">Properties loaded successfully.</div>');
+                }
+            },
+            error: function(xhr) {
+                let errorMessage = 'Error loading properties';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                }
+                $('#cluster1PropertiesStatus').html(`<div class="alert alert-danger">${errorMessage}</div>`);
+            }
+        });
+    });
+    
+    $('#loadCluster2Properties').click(function() {
+        const catalogName = $('#cluster2CatalogSelect').val();
+        if (!catalogName) return;
+        
+        $.ajax({
+            url: `/get_catalog_properties/2/${catalogName}`,
+            method: 'GET',
+            beforeSend: function() {
+                $('#cluster2PropertiesStatus').html('<div class="alert alert-info">Loading properties...</div>');
+            },
+            success: function(response) {
+                if (response.content) {
+                    $('#cluster2PropertiesEditor').val(response.content);
+                    $('#cluster2PropertiesEditor').parent().removeClass('d-none');
+                    $('#saveCluster2Properties').prop('disabled', false);
+                    $('#restartCluster2').prop('disabled', false);
+                    $('#cluster2PropertiesStatus').html('<div class="alert alert-success">Properties loaded successfully.</div>');
+                }
+            },
+            error: function(xhr) {
+                let errorMessage = 'Error loading properties';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                }
+                $('#cluster2PropertiesStatus').html(`<div class="alert alert-danger">${errorMessage}</div>`);
+            }
+        });
+    });
+    
+    $('#saveCluster1Properties').click(function() {
+        const catalogName = $('#cluster1CatalogSelect').val();
+        const content = $('#cluster1PropertiesEditor').val();
+        if (!catalogName || !content) return;
+        
+        $.ajax({
+            url: `/update_catalog_properties/1/${catalogName}`,
+            method: 'POST',
+            data: JSON.stringify({ content: content }),
+            contentType: 'application/json',
+            beforeSend: function() {
+                $('#cluster1PropertiesStatus').html('<div class="alert alert-info">Saving properties...</div>');
+            },
+            success: function(response) {
+                $('#cluster1PropertiesStatus').html('<div class="alert alert-success">Properties saved successfully.</div>');
+            },
+            error: function(xhr) {
+                let errorMessage = 'Error saving properties';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                }
+                $('#cluster1PropertiesStatus').html(`<div class="alert alert-danger">${errorMessage}</div>`);
+            }
+        });
+    });
+    
+    $('#saveCluster2Properties').click(function() {
+        const catalogName = $('#cluster2CatalogSelect').val();
+        const content = $('#cluster2PropertiesEditor').val();
+        if (!catalogName || !content) return;
+        
+        $.ajax({
+            url: `/update_catalog_properties/2/${catalogName}`,
+            method: 'POST',
+            data: JSON.stringify({ content: content }),
+            contentType: 'application/json',
+            beforeSend: function() {
+                $('#cluster2PropertiesStatus').html('<div class="alert alert-info">Saving properties...</div>');
+            },
+            success: function(response) {
+                $('#cluster2PropertiesStatus').html('<div class="alert alert-success">Properties saved successfully.</div>');
+            },
+            error: function(xhr) {
+                let errorMessage = 'Error saving properties';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                }
+                $('#cluster2PropertiesStatus').html(`<div class="alert alert-danger">${errorMessage}</div>`);
+            }
+        });
+    });
+    
+    $('#restartCluster1').click(function() {
+        const catalogName = $('#cluster1CatalogSelect').val();
+        const content = $('#cluster1PropertiesEditor').val();
+        if (!catalogName || !content) return;
+        
+        // First save the properties
+        $.ajax({
+            url: `/update_catalog_properties/1/${catalogName}`,
+            method: 'POST',
+            data: JSON.stringify({ content: content }),
+            contentType: 'application/json',
+            beforeSend: function() {
+                $('#cluster1PropertiesStatus').html('<div class="alert alert-info">Saving properties...</div>');
+            },
+            success: function(response) {
+                // Then restart the cluster
+                $('#cluster1PropertiesStatus').html('<div class="alert alert-info">Restarting Trino cluster 1...</div>');
+                
+                $.ajax({
+                    url: '/restart_cluster/1',
+                    method: 'POST',
+                    success: function() {
+                        location.reload();
+                    },
+                    error: function(xhr) {
+                        let errorMessage = 'Error restarting cluster';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMessage = xhr.responseJSON.error;
+                        }
+                        $('#cluster1PropertiesStatus').html(`<div class="alert alert-danger">${errorMessage}</div>`);
+                    }
+                });
+            },
+            error: function(xhr) {
+                let errorMessage = 'Error saving properties';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                }
+                $('#cluster1PropertiesStatus').html(`<div class="alert alert-danger">${errorMessage}</div>`);
+            }
+        });
+    });
+    
+    $('#restartCluster2').click(function() {
+        const catalogName = $('#cluster2CatalogSelect').val();
+        const content = $('#cluster2PropertiesEditor').val();
+        if (!catalogName || !content) return;
+        
+        // First save the properties
+        $.ajax({
+            url: `/update_catalog_properties/2/${catalogName}`,
+            method: 'POST',
+            data: JSON.stringify({ content: content }),
+            contentType: 'application/json',
+            beforeSend: function() {
+                $('#cluster2PropertiesStatus').html('<div class="alert alert-info">Saving properties...</div>');
+            },
+            success: function(response) {
+                // Then restart the cluster
+                $('#cluster2PropertiesStatus').html('<div class="alert alert-info">Restarting Trino cluster 2...</div>');
+                
+                $.ajax({
+                    url: '/restart_cluster/2',
+                    method: 'POST',
+                    success: function() {
+                        location.reload();
+                    },
+                    error: function(xhr) {
+                        let errorMessage = 'Error restarting cluster';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMessage = xhr.responseJSON.error;
+                        }
+                        $('#cluster2PropertiesStatus').html(`<div class="alert alert-danger">${errorMessage}</div>`);
+                    }
+                });
+            },
+            error: function(xhr) {
+                let errorMessage = 'Error saving properties';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                }
+                $('#cluster2PropertiesStatus').html(`<div class="alert alert-danger">${errorMessage}</div>`);
+            }
+        });
+    });
+
     // Handle image pulling
     $('#pullImagesBtn').click(function() {
         // Show the modal
