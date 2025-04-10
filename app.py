@@ -618,15 +618,66 @@ def restart_cluster(cluster_id):
 @app.route('/get_catalog_properties/<cluster_id>/<catalog_name>')
 def get_catalog_properties(cluster_id, catalog_name):
     """Get the catalog properties file for a specific cluster and catalog"""
-    if not docker_manager.docker_available:
-        return jsonify({"error": "Docker is not available"}), 400
-    
     config = load_config()
     
     # Validate cluster ID
     if cluster_id not in ['1', '2']:
         return jsonify({"error": "Invalid cluster ID"}), 400
     
+    # Handle demo mode (Docker not available)
+    if not docker_manager.docker_available:
+        # In demo mode, we'll generate and return the properties that would be created
+        # Create a temp directory structure to store config
+        import tempfile
+        import os
+        
+        # Set up temp config directories
+        temp_dir = tempfile.mkdtemp()
+        catalog_dir = os.path.join(temp_dir, "catalog")
+        os.makedirs(catalog_dir, exist_ok=True)
+        
+        # Generate properties file content
+        try:
+            # Use the DockerManager method to create catalog configurations
+            # But instead of directly writing to container, get the content
+            
+            # Create an instance of container_name for the method
+            cluster_key = f'cluster{cluster_id}'
+            container_name = config[cluster_key].get('container_name', f'trino-{cluster_id}')
+            version = config[cluster_key].get('version', 'latest')
+            
+            # Generate catalog file path
+            catalog_file_path = os.path.join(catalog_dir, f"{catalog_name}.properties")
+            
+            # Simplify properties retrieval for demo mode - generate content based on catalog type
+            properties_content = "# Demo mode - generated properties file\n\n"
+            
+            # Handle different catalog types
+            if catalog_name == 'tpch':
+                properties_content += "connector.name=tpch\n"
+                properties_content += "tpch.column-naming=STANDARD\n"
+                
+            elif catalog_name == 'postgres':
+                properties_content += "connector.name=postgresql\n"
+                properties_content += f"connection-url=jdbc:postgresql://postgres-for-{container_name}:5432/postgres\n"
+                properties_content += "connection-user=postgres\n"
+                properties_content += "connection-password=postgres123\n"
+                
+            elif catalog_name == 'iceberg':
+                # Use the same simplified config that we're using in docker_manager.py
+                properties_content += "connector.name=iceberg\n"
+                properties_content += "iceberg.catalog.type=rest\n"
+                properties_content += f"iceberg.rest-catalog.uri=http://iceberg-rest-for-{container_name}:8181\n"
+                properties_content += "iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n"
+            
+            # Return the generated properties
+            return jsonify({"content": properties_content})
+            
+        except Exception as e:
+            logger.error(f"Error generating catalog properties in demo mode: {str(e)}")
+            return jsonify({"error": str(e)}), 500
+    
+    # If Docker is available, proceed with the normal container-based flow
     cluster_key = f'cluster{cluster_id}'
     container_name = config[cluster_key]['container_name']
     
@@ -657,15 +708,46 @@ def get_catalog_properties(cluster_id, catalog_name):
 @app.route('/update_catalog_properties/<cluster_id>/<catalog_name>', methods=['POST'])
 def update_catalog_properties(cluster_id, catalog_name):
     """Update the catalog properties file for a specific cluster and catalog"""
-    if not docker_manager.docker_available:
-        return jsonify({"error": "Docker is not available"}), 400
-    
     config = load_config()
     
     # Validate cluster ID
     if cluster_id not in ['1', '2']:
         return jsonify({"error": "Invalid cluster ID"}), 400
     
+    # Handle demo mode (Docker not available)
+    if not docker_manager.docker_available:
+        # In demo mode, we'll store a simulated success response
+        try:
+            # Get the new content from the request
+            content = request.json.get('content')
+            if not content:
+                return jsonify({"error": "No content provided"}), 400
+            
+            # Store the content in a session variable to persist it between requests
+            # (This won't actually update any container, but will allow the UI to work)
+            import os
+            import tempfile
+            
+            # Create a temp directory to store the demo catalog properties
+            if not hasattr(app, 'demo_catalog_dir'):
+                app.demo_catalog_dir = tempfile.mkdtemp()
+                os.makedirs(os.path.join(app.demo_catalog_dir, 'cluster1'), exist_ok=True)
+                os.makedirs(os.path.join(app.demo_catalog_dir, 'cluster2'), exist_ok=True)
+            
+            # Save the content to a file in the temp directory
+            cluster_dir = os.path.join(app.demo_catalog_dir, f'cluster{cluster_id}')
+            file_path = os.path.join(cluster_dir, f'{catalog_name}.properties')
+            with open(file_path, 'w') as f:
+                f.write(content)
+            
+            logger.info(f"Demo mode: Simulated saving {catalog_name}.properties for cluster {cluster_id}")
+            return jsonify({"success": True, "message": f"Saved {catalog_name}.properties for cluster {cluster_id} (Demo Mode)"})
+        
+        except Exception as e:
+            logger.error(f"Error simulating catalog properties update in demo mode: {str(e)}")
+            return jsonify({"error": str(e)}), 500
+    
+    # If Docker is available, proceed with the normal container-based flow
     cluster_key = f'cluster{cluster_id}'
     container_name = config[cluster_key]['container_name']
     

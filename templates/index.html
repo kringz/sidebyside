@@ -270,11 +270,11 @@
                 </div>
                 <div class="card-body">
                     {% if not docker_available %}
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Docker is not available in this environment. Catalog properties cannot be edited.
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Docker is not available in this environment. Catalog properties will be shown in demo mode.
                     </div>
-                    {% else %}
+                    {% endif %}
                     <div class="row">
                         <!-- Cluster 1 Catalog Properties -->
                         <div class="col-md-6">
@@ -372,7 +372,6 @@
                             </div>
                         </div>
                     </div>
-                    {% endif %}
                 </div>
 
                 <div class="card-header bg-primary">
