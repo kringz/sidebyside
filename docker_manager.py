@@ -309,9 +309,10 @@ class DockerManager:
                                 f.write("connector.name=iceberg\n")
                                 f.write("iceberg.catalog.type=rest\n")
                                 f.write(f"iceberg.rest-catalog.uri=http://{iceberg_rest_host}:8181\n")
-                                
-                                # Only use properties documented/supported for Trino 474+
                                 f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
+                                
+                                # Add AWS region for 474+ based on minitrino configuration
+                                f.write("hive.s3.region=us-east-1\n")
                                 
                                 # In 474+, S3 credentials need to be provided differently
                                 # These are now handled by the REST Iceberg catalog service
@@ -590,7 +591,12 @@ class DockerManager:
                         minio_env = {
                             "MINIO_ROOT_USER": "access-key",
                             "MINIO_ROOT_PASSWORD": "secret-key",
-                            "MINIO_DOMAIN": "s3.us-east-1.minio.com"
+                            "MINIO_DOMAIN": "s3.us-east-1.minio.com",
+                            # Add region settings to match AWS_REGION
+                            "MINIO_REGION_NAME": "us-east-1",
+                            "MINIO_REGION": "us-east-1",
+                            # Allow web browser access for debugging
+                            "MINIO_BROWSER": "on"
                         }
                         
                         # Determine suggested port based on the container name
@@ -647,8 +653,9 @@ class DockerManager:
                     bucket_creator_cmd = (
                         "/bin/sh -c '"
                         "mc alias set minio http://%s:9000 access-key secret-key && "
-                        "mc mb minio/sample-bucket/wh/ && "
-                        "echo \"MinIO bucket created successfully\" && "
+                        "mc mb --region us-east-1 minio/sample-bucket && "
+                        "mc mb --region us-east-1 minio/sample-bucket/wh/ && "
+                        "echo \"MinIO buckets created successfully\" && "
                         "tail -f /dev/null'"
                     ) % minio_container_name
                     
@@ -694,10 +701,11 @@ class DockerManager:
                             "AWS_ACCESS_KEY_ID": "access-key",
                             "AWS_SECRET_ACCESS_KEY": "secret-key",
                             "AWS_REGION": "us-east-1",
+                            "AWS_DEFAULT_REGION": "us-east-1",  # Add explicit default region
                             "CATALOG_URI": "jdbc:sqlite:/home/iceberg/iceberg.db",
                             "CATALOG_WAREHOUSE": "s3://sample-bucket/wh/",
                             "CATALOG_IO__IMPL": "org.apache.iceberg.aws.s3.S3FileIO",
-                            "CATALOG_S3_ENDPOINT": f"http://{minio_container_name}:9000",
+                            "CATALOG_S3_ENDPOINT": "http://s3.us-east-1.minio.com:9000",
                             "CATALOG_S3_PATH_STYLE_ACCESS": "true",
                             "CATALOG_S3_SSL_ENABLED": "false"
                         }
