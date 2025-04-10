@@ -49,22 +49,22 @@
                 <!-- Control buttons -->
                 <div class="card-footer">
                     <div class="d-flex justify-content-center">
-                        <form action="{{ url_for('pull_trino_images') }}" method="post" class="me-2" id="pullImagesForm">
+                        <form action="{{ url_for('pull_trino_images') }}" method="post" class="me-2" id="pullImagesForm" data-loading-message="Pulling Trino images... This may take several minutes.">
                             <button type="button" class="btn btn-info" id="pullImagesBtn" {% if not docker_available %}disabled{% endif %}>
                                 <i class="fas fa-download me-1"></i> Pull Images
                             </button>
                         </form>
-                        <form action="{{ url_for('start_clusters') }}" method="post" class="me-2">
+                        <form action="{{ url_for('start_clusters') }}" method="post" class="me-2" data-loading-message="Starting Trino clusters... This may take a minute.">
                             <button type="submit" class="btn btn-success" {% if not docker_available %}disabled{% endif %}>
                                 <i class="fas fa-play me-1"></i> Start Clusters
                             </button>
                         </form>
-                        <form action="{{ url_for('stop_clusters') }}" method="post" class="me-2">
+                        <form action="{{ url_for('stop_clusters') }}" method="post" class="me-2" data-loading-message="Stopping Trino clusters...">
                             <button type="submit" class="btn btn-danger" {% if not docker_available %}disabled{% endif %}>
                                 <i class="fas fa-stop me-1"></i> Stop Clusters
                             </button>
                         </form>
-                        <form action="{{ url_for('restart_clusters') }}" method="post">
+                        <form action="{{ url_for('restart_clusters') }}" method="post" data-loading-message="Restarting Trino clusters... This may take a minute.">
                             <button type="submit" class="btn btn-warning" {% if not docker_available %}disabled{% endif %}>
                                 <i class="fas fa-redo me-1"></i> Restart Clusters
                             </button>
@@ -90,7 +90,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                     {% endif %}
-                    <form action="{{ url_for('save_catalog_config') }}" method="post">
+                    <form action="{{ url_for('save_catalog_config') }}" method="post" data-loading-message="Saving catalog configuration...">
                         <!-- TPC-H Catalog -->
                         <div class="card mb-4 border-info">
                             <div class="card-header bg-info text-white">
