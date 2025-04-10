@@ -1085,7 +1085,7 @@ def benchmark_playground():
     """Page for performance benchmark playground with real-time comparison charts"""
     if not DATABASE_URL:
         flash('Database functionality is disabled. Benchmarking requires database access.', 'warning')
-        return redirect(url_for('index'))
+        return redirect(url_for('trino_dashboard'))
     
     config = load_config()
     
@@ -1383,7 +1383,7 @@ def benchmark_results():
     """Page for viewing all benchmark results"""
     if not DATABASE_URL:
         flash('Database functionality is disabled. Benchmarking requires database access.', 'warning')
-        return redirect(url_for('index'))
+        return redirect(url_for('trino_dashboard'))
     
     # Get all benchmark results with their queries
     try:
@@ -1412,7 +1412,7 @@ def view_benchmark_result(result_id):
     """View a specific benchmark result"""
     if not DATABASE_URL:
         flash('Database functionality is disabled. Benchmarking requires database access.', 'warning')
-        return redirect(url_for('index'))
+        return redirect(url_for('trino_dashboard'))
     
     try:
         result = db.session.query(BenchmarkResult).get_or_404(result_id)
@@ -1432,7 +1432,7 @@ def benchmark_comparison():
     """Compare benchmark results across versions"""
     if not DATABASE_URL:
         flash('Database functionality is disabled. Benchmarking requires database access.', 'warning')
-        return redirect(url_for('index'))
+        return redirect(url_for('trino_dashboard'))
     
     # Get all benchmarks
     try:
@@ -1497,7 +1497,7 @@ def add_catalog_compatibility():
     """Add catalog compatibility information"""
     if not DATABASE_URL:
         flash('Database functionality is disabled.', 'warning')
-        return redirect(url_for('index'))
+        return redirect(url_for('trino_dashboard'))
     
     try:
         catalog_name = request.form.get('catalog_name')
