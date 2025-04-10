@@ -48,7 +48,7 @@
                 
                 <!-- Cluster Configuration Section -->
                 <div class="card-body border-top">
-                    <h4 class="card-title"><i class="fas fa-server me-2"></i>Cluster Configuration</h4>
+                    <h4 class="card-title text-primary"><i class="fas fa-server me-2"></i>Cluster Configuration</h4>
                     <form action="{{ url_for('save_configuration') }}" method="post" class="mb-4" id="configForm" data-loading-message="Saving configuration...">
                         <!-- Docker Configuration Section -->
                         <div class="card mb-4">
@@ -56,6 +56,11 @@
                                 <h5 class="mb-0"><i class="fab fa-docker me-2"></i>Docker Connection Settings</h5>
                             </div>
                             <div class="card-body">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Mac Users:</strong> If you're using Docker Desktop for Mac, set "Trino Connect Host" to <code>host.docker.internal</code>
+                                </div>
+                                
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="mb-3">
@@ -162,7 +167,7 @@
                     </form>
                 
                     <!-- Available Trino Images Section -->
-                    <h4><i class="fas fa-cube me-2"></i>Available Trino Images</h4>
+                    <h4 class="mt-4 text-primary"><i class="fas fa-cube me-2"></i>Available Trino Images</h4>
                     {% if docker_available %}
                         {% if available_trino_images %}
                             <div class="row">
