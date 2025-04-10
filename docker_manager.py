@@ -2,6 +2,10 @@ import os
 import yaml
 import logging
 import tempfile
+import time
+import json
+import threading
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -261,7 +265,8 @@ class DockerManager:
                         with open(catalog_file_path, "w") as f:
                             f.write("connector.name=postgresql\n")
                             # Note: Inside Docker containers, we need to use the Docker container name as the hostname
-                            f.write(f"connection-url=jdbc:postgresql://{host}:{port}/{database}\n")
+                            # and ensure we're using the internal PostgreSQL port (5432) not the host-mapped port
+                            f.write(f"connection-url=jdbc:postgresql://{host}:5432/{database}\n")
                             f.write(f"connection-user={user}\n")
                             f.write(f"connection-password={password}\n")
                             
@@ -347,15 +352,35 @@ class DockerManager:
                         # But still allow Docker to reassign if these are also in use
                         pg_ports = {'5432/tcp': suggested_pg_port}
                         
-                        # Start PostgreSQL container with improved stability
-                        pg_container = self.client.containers.run(
-                            "postgres:13",  # Standard PostgreSQL image
-                            name=postgres_container_name,
-                            environment=pg_env,
-                            ports=pg_ports,  # Use our cluster-specific suggested port
-                            detach=True,
+                        # Create a network name for this cluster to ensure container connectivity
+                        network_name = f"trino-network-{container_name}"
+                        
+                        # Create a dedicated network for this cluster if it doesn't exist
+                        try:
+                            # Check if the network already exists
+                            try:
+                                existing_network = self.client.networks.get(network_name)
+                                logger.info(f"Using existing Docker network: {network_name}")
+                            except docker.errors.NotFound:
+                                # Create a new network
+                                existing_network = self.client.networks.create(
+                                    name=network_name,
+                                    driver="bridge",
+                                    check_duplicate=True
+                                )
+                                logger.info(f"Created new Docker network: {network_name}")
+                        except Exception as e:
+                            logger.warning(f"Error setting up Docker network: {str(e)}")
+                            network_name = None  # Fall back to default bridge network
+                        
+                        # Prepare container options
+                        container_options = {
+                            "name": postgres_container_name,
+                            "environment": pg_env,
+                            "ports": pg_ports,  # Use our cluster-specific suggested port
+                            "detach": True,
                             # Add health check with retries to ensure container stays running
-                            healthcheck={
+                            "healthcheck": {
                                 "test": ["CMD-SHELL", "pg_isready -U postgres"],
                                 "interval": 2000000000,  # 2 seconds in nanoseconds
                                 "timeout": 1000000000,   # 1 second in nanoseconds
@@ -363,11 +388,21 @@ class DockerManager:
                                 "start_period": 5000000000  # 5 seconds in nanoseconds
                             },
                             # Add host mounts for data persistence
-                            volumes={
+                            "volumes": {
                                 f"{postgres_container_name}-data": {"bind": "/var/lib/postgresql/data", "mode": "rw"}
                             },
                             # Ensure the container is restarted if it fails
-                            restart_policy={"Name": "on-failure", "MaximumRetryCount": 5}
+                            "restart_policy": {"Name": "on-failure", "MaximumRetryCount": 5}
+                        }
+                        
+                        # Only add network specification if we have a valid network
+                        if network_name:
+                            container_options["network"] = network_name
+                        
+                        # Start PostgreSQL container with improved stability
+                        pg_container = self.client.containers.run(
+                            "postgres:13",  # Standard PostgreSQL image
+                            **container_options
                         )
                         
                         logger.info(f"Started PostgreSQL container {postgres_container_name}")
@@ -486,16 +521,63 @@ class DockerManager:
                 except Exception as e:
                     logger.warning(f"Error checking for port conflicts: {str(e)}")
             
+            # Create a network name for this cluster to ensure container connectivity
+            network_name = f"trino-network-{container_name}"
+            
+            # Create a dedicated network for this cluster if it doesn't exist
+            try:
+                # Check if the network already exists
+                try:
+                    existing_network = self.client.networks.get(network_name)
+                    logger.info(f"Using existing Docker network: {network_name}")
+                except docker.errors.NotFound:
+                    # Create a new network
+                    existing_network = self.client.networks.create(
+                        name=network_name,
+                        driver="bridge",
+                        check_duplicate=True
+                    )
+                    logger.info(f"Created new Docker network: {network_name}")
+                
+                # If there's a PostgreSQL container for this Trino cluster, connect it to this network
+                if postgres_container_name:
+                    try:
+                        pg_container = self.client.containers.get(postgres_container_name)
+                        # Connect the PostgreSQL container to our network if it's not already connected
+                        try:
+                            existing_network.connect(pg_container)
+                            logger.info(f"Connected PostgreSQL container {postgres_container_name} to network {network_name}")
+                        except docker.errors.APIError as e:
+                            # Already connected - that's fine
+                            if "already exists" in str(e):
+                                logger.info(f"PostgreSQL container {postgres_container_name} already connected to network {network_name}")
+                            else:
+                                raise
+                    except docker.errors.NotFound:
+                        logger.warning(f"Could not find PostgreSQL container {postgres_container_name} to connect to network")
+            except Exception as e:
+                logger.warning(f"Error setting up Docker network: {str(e)}")
+                network_name = None  # Fall back to default bridge network
+            
             # Always use bridge networking with explicit port mapping for both containers
             # This ensures that Docker shows the port mappings in container list
-            container = self.client.containers.run(
-                f"trinodb/trino:{version}",
-                name=container_name,
-                ports={f'{internal_http_port}/tcp': port},  # Explicit port mapping with our conflict resolution
-                volumes={
+            container_options = {
+                'name': container_name,
+                'ports': {f'{internal_http_port}/tcp': port},  # Explicit port mapping with our conflict resolution
+                'volumes': {
                     config_dir: {'bind': '/etc/trino', 'mode': 'rw'}
                 },
-                detach=True
+                'detach': True
+            }
+            
+            # Only add network specification if we have a valid network
+            if network_name:
+                container_options['network'] = network_name
+                
+            # Start the Trino container with all our options
+            container = self.client.containers.run(
+                f"trinodb/trino:{version}",
+                **container_options
             )
             
             # Log the port mapping for clarity
