@@ -4,7 +4,25 @@ import logging
 import requests
 import re
 import sys
-from distutils.version import LooseVersion
+
+# Simple version comparison function to replace LooseVersion
+def version_compare(v1, v2):
+    """Compare two version strings"""
+    def normalize(v):
+        return [int(x) for x in re.sub(r'[^0-9]', '.', v).split('.') if x]
+    
+    v1_parts = normalize(v1)
+    v2_parts = normalize(v2)
+    
+    for i in range(max(len(v1_parts), len(v2_parts))):
+        v1_part = v1_parts[i] if i < len(v1_parts) else 0
+        v2_part = v2_parts[i] if i < len(v2_parts) else 0
+        if v1_part > v2_part:
+            return 1
+        elif v1_part < v2_part:
+            return -1
+    return 0
+
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -78,11 +96,11 @@ def register_breaking_changes_routes(app):
         
         try:
             # Convert version strings to LooseVersion for proper comparison
-            from_v = LooseVersion(from_version)
-            to_v = LooseVersion(to_version)
+            from_v = from_version
+            to_v = to_version
             
             # Ensure from_version is less than to_version
-            if from_v > to_v:
+            if version_compare(from_version, to_version) > 0:
                 from_version, to_version = to_version, from_version
                 from_v, to_v = to_v, from_v
             
@@ -244,7 +262,7 @@ def fetch_trino_changes(from_version, to_version):
         for major in range(3, 5):  # 300-499
             for minor in range(0, 10):
                 version = f"{major}{minor}0"
-                if LooseVersion(from_version) <= LooseVersion(version) <= LooseVersion(to_version):
+                if version_compare(from_version, version) <= 0 <= LooseVersion(to_version):
                     versions.append(version)
         
         # Add specific versions not captured by the pattern above
@@ -257,12 +275,12 @@ def fetch_trino_changes(from_version, to_version):
                         "410", "411", "412", "413", "414", "415", "416", "417", "418", "419"]
         
         for version in specific_versions:
-            if LooseVersion(from_version) <= LooseVersion(version) <= LooseVersion(to_version):
+            if version_compare(from_version, version) <= 0 <= LooseVersion(to_version):
                 if version not in versions:
                     versions.append(version)
         
         # Sort versions
-        versions.sort(key=lambda x: LooseVersion(x))
+        versions.sort(key=lambda v: [int(x) for x in re.findall(r'\d+', v)])
         
         # Result structure
         result = {
@@ -282,7 +300,7 @@ def fetch_trino_changes(from_version, to_version):
                 if response.status_code == 200:
                     # Parse the HTML content - import BeautifulSoup only when needed
                     try:
-                        from bs4 import BeautifulSoup
+                        
                         soup = BeautifulSoup(response.text, 'html.parser')
                     except ImportError:
                         # Use dummy implementation if import fails
