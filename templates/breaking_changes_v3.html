@@ -250,6 +250,9 @@ $(document).ready(function() {
     $('#version-comparison-form').on('submit', function(e) {
         e.preventDefault();
         
+        // Remove initial instructions if present
+        $('#initial-instructions').remove();
+        
         // Make doubly sure no spinner appears
         $('.spinner-overlay').remove();
         $('.spinner-container').remove();
@@ -575,11 +578,13 @@ $(document).ready(function() {
         $('#general-changes-list .accordion-collapse').removeClass('show');
     });
     
-    // Automatically submit the form on page load after a short delay
-    setTimeout(function() {
-        console.log("Auto-submitting form...");
-        $('#version-comparison-form').submit();
-    }, 500);
+    // Add initial instructions instead of auto-submitting
+    $('#comparison-results').prepend(
+        '<div id="initial-instructions" class="alert alert-info">' +
+        '<i class="fas fa-info-circle me-2"></i>' +
+        'Select Trino versions above and click "Compare Versions" to view changes between versions.' +
+        '</div>'
+    );
     
     // Create a button state watcher to ensure it's never stuck in loading state
     setInterval(function() {
