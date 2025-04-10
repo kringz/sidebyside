@@ -29,12 +29,25 @@ function initQueryPlanComparison() {
     addHighlightStyles();
     
     // Get the query plan text elements for both clusters
-    const cluster1Plan = document.querySelector('.cluster1-explain-plan');
-    const cluster2Plan = document.querySelector('.cluster2-explain-plan');
+    const cluster1Plans = document.querySelectorAll('.cluster1-explain-plan');
+    const cluster2Plans = document.querySelectorAll('.cluster2-explain-plan');
     
-    if (cluster1Plan && cluster2Plan) {
-        console.log("Found both query plans, highlighting differences");
-        highlightPlanDifferences(cluster1Plan, cluster2Plan);
+    if (cluster1Plans.length > 0 && cluster2Plans.length > 0) {
+        console.log("Found query plans, highlighting differences");
+        
+        // If we have explain plans, process them
+        // (typically just one cell for each cluster)
+        if (cluster1Plans.length === cluster2Plans.length) {
+            for (let i = 0; i < cluster1Plans.length; i++) {
+                highlightPlanDifferences(cluster1Plans[i], cluster2Plans[i]);
+            }
+        } else {
+            console.warn("Unequal number of plan elements between clusters");
+            // Still try to highlight the first one of each
+            if (cluster1Plans[0] && cluster2Plans[0]) {
+                highlightPlanDifferences(cluster1Plans[0], cluster2Plans[0]);
+            }
+        }
     } else {
         console.log("Could not find both query plans");
     }
@@ -114,22 +127,30 @@ function highlightPlanDifferences(plan1Element, plan2Element) {
  */
 function determineDifferenceType(line1, line2) {
     // Check for version differences
-    if ((line1.includes('version:') && line2.includes('version:')) ||
-        line1.includes('version:') || line2.includes('version:')) {
+    if (line1.includes('version:') || line2.includes('version:')) {
         return 'versionDiff';
     }
     
     // Check for timing/performance differences
-    if ((line1.includes('seconds') && line2.includes('seconds')) ||
-        line1.includes('seconds') || line2.includes('seconds')) {
+    if (line1.includes('seconds') || line2.includes('seconds') ||
+        line1.includes('ms)') || line2.includes('ms)')) {
         return 'timingDiff';
     }
     
     // Check for estimate differences
-    if ((line1.includes('Estimates:') && line2.includes('Estimates:')) ||
+    if (line1.includes('Estimates:') || line2.includes('Estimates:') ||
         line1.includes('rows:') || line2.includes('rows:') ||
-        line1.includes('memory:') || line2.includes('memory:')) {
+        line1.includes('memory:') || line2.includes('memory:') ||
+        (line1.match(/\(\d+B\)/) || line2.match(/\(\d+B\)/))) {
         return 'estimateDiff';
+    }
+    
+    // Check for plan structure differences related to operators or execution details
+    const structureKeywords = ['Fragment', 'Output', 'Layout:', 'partitioning:', 'distributed', 'join'];
+    for (const keyword of structureKeywords) {
+        if (line1.includes(keyword) || line2.includes(keyword)) {
+            return 'structureDiff';
+        }
     }
     
     // Default to structure differences
@@ -140,6 +161,11 @@ function determineDifferenceType(line1, line2) {
  * Add a legend explaining the highlight colors
  */
 function addHighlightLegend() {
+    // Check if legend already exists
+    if (document.querySelector('.highlight-legend')) {
+        return; // Legend already added
+    }
+    
     const legendDiv = document.createElement('div');
     legendDiv.className = 'highlight-legend card mt-2';
     
@@ -169,9 +195,17 @@ function addHighlightLegend() {
         </div>
     `;
     
-    // Add the legend before the query plan comparison container
-    const planContainer = document.querySelector('.card-header.bg-dark').closest('.card');
-    planContainer.parentNode.insertBefore(legendDiv, planContainer.nextSibling);
+    // Add the legend after the query plan comparison section
+    const planContainer = document.querySelector('.card-header.bg-dark');
+    
+    if (planContainer && planContainer.closest('.card')) {
+        const container = planContainer.closest('.card');
+        container.parentNode.insertBefore(legendDiv, container.nextSibling);
+    } else {
+        // Fallback: Add legend to the end of the content area
+        const contentArea = document.querySelector('.card-body') || document.body;
+        contentArea.appendChild(legendDiv);
+    }
 }
 
 /**
