@@ -419,20 +419,44 @@ class DockerManager:
             internal_http_port = 8081 if "2" in container_name else 8080
             
             # Also use different external ports for each Trino cluster to avoid conflicts
-            # If the user didn't specify a port, or if we're running the second cluster with the same port
-            # as the first one, assign a different port
+            # Ensure Trino never uses ports that might conflict with PostgreSQL (5432/5433)
+            # First cluster starts at 8080, second at 8081 by default
             if "2" in container_name and port <= 8080:
                 # Second cluster should use a higher port if not specifically set otherwise
                 port = 8081
+            else:
+                # Ensure first cluster uses at least 8080 to avoid conflicts with possible 
+                # PostgreSQL ports (5432/5433)
+                if port < 8080:
+                    port = 8080
+            
+            # Explicitly avoid common database ports
+            if port in [5432, 5433]:
+                logger.warning(f"Requested port {port} conflicts with PostgreSQL ports, using port 8080 instead")
+                port = 8080 if "1" in container_name else 8081
             
             # For logging
             logger.info(f"Starting Trino container {container_name} with port mapping {internal_http_port} (internal) -> {port} (external)") 
             
-            # Check if the port is already in use - if so, try to find a free port
+            # IMPORTANT: Additional port conflict detection for Trino containers
             # This helps when multiple instances are being started
             if self.docker_available:
                 try:
-                    # Try to find existing containers using the same port
+                    # First check ALL running containers for port conflicts using Docker API
+                    all_containers = self.client.containers.list()
+                    for c in all_containers:
+                        container_ports = c.attrs.get('NetworkSettings', {}).get('Ports', {})
+                        for container_port, bindings in container_ports.items():
+                            if bindings:
+                                for binding in bindings:
+                                    if binding.get('HostPort') == str(port):
+                                        logger.warning(f"Port {port} is already in use by container {c.name}")
+                                        # Find a free port starting from our default + 10
+                                        port = 8090 if "1" in container_name else 8091
+                                        logger.info(f"Using alternative port {port} to avoid conflicts")
+                                        break
+                    
+                    # Additional check for containers by expose filter (backup method)
                     existing_containers = self.client.containers.list(all=True, filters={'expose': f'{port}/tcp'})
                     if existing_containers:
                         container_names = [c.name for c in existing_containers if c.name != container_name]
