@@ -47,8 +47,10 @@
                 </div>
                 
                 <!-- Cluster Configuration Section -->
-                <div class="card-body border-top">
-                    <h4 class="card-title text-primary"><i class="fas fa-server me-2"></i>Cluster Configuration</h4>
+                <div class="card-header bg-primary">
+                    <h2 class="card-title text-white"><i class="fas fa-server me-2"></i>Cluster Configuration</h2>
+                </div>
+                <div class="card-body">
                     <form action="{{ url_for('save_configuration') }}" method="post" class="mb-4" id="configForm" data-loading-message="Saving configuration...">
                         <!-- Docker Configuration Section -->
                         <div class="card mb-4">
@@ -167,7 +169,9 @@
                     </form>
                 
                     <!-- Available Trino Images Section -->
-                    <h4 class="mt-4 text-primary"><i class="fas fa-cube me-2"></i>Available Trino Images</h4>
+                    <div class="card-header bg-info mt-4">
+                        <h2 class="card-title text-white"><i class="fas fa-cube me-2"></i>Available Trino Images</h2>
+                    </div>
                     {% if docker_available %}
                         {% if available_trino_images %}
                             <div class="row">
