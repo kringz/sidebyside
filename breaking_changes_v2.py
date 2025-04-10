@@ -63,25 +63,24 @@ def register_breaking_changes_routes(app):
                 # Print the first 5 versions to debug
                 logger.info(f"First 5 versions: {versions[:5] if len(versions) >= 5 else versions}")
                 
-                # If we didn't get enough versions, try alternate approach
-                if len(versions) < 20:
-                    logger.warning("Not enough versions fetched, trying comprehensive version range")
-                    # Generate a comprehensive range of versions from 0.x to 500
-                    all_versions = []
-                    
-                    # Include older versions (0.x series)
-                    for v in range(52, 300):
-                        all_versions.append({"version": f"0.{v}", "name": f"Release 0.{v}"})
-                    
-                    # Include newer versions (300 to 500)
-                    for v in range(300, 500):
-                        all_versions.append({"version": str(v), "name": f"Release {v}"})
-                    
-                    # Sort versions in descending order
-                    all_versions.sort(key=lambda x: x["version"], reverse=True)
-                    
-                    logger.info(f"Generated {len(all_versions)} comprehensive versions")
-                    versions = all_versions
+                # Use the comprehensive version list since web scraping might not find all versions
+                logger.warning("Using comprehensive version range to ensure all versions are available")
+                # Generate a comprehensive range of versions from 0.x to 500
+                all_versions = []
+                
+                # Include older versions (0.x series)
+                for v in range(52, 300):
+                    all_versions.append({"version": f"0.{v}", "name": f"Release 0.{v}"})
+                
+                # Include newer versions (300 to 500)
+                for v in range(300, 500):
+                    all_versions.append({"version": str(v), "name": f"Release {v}"})
+                
+                # Sort versions in descending order
+                all_versions.sort(key=lambda x: x["version"], reverse=True)
+                
+                logger.info(f"Generated {len(all_versions)} comprehensive versions")
+                versions = all_versions
                 
                 # If versions is still empty, raise an exception to fall back to the default
                 if not versions:
