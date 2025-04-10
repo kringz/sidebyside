@@ -1300,7 +1300,7 @@ class DockerManager:
             logger.error(f"Error seeding PostgreSQL container {container_name}: {str(e)}")
     
     def stop_trino_cluster(self, container_name):
-        """Stop and remove a Trino cluster and its associated PostgreSQL container if any"""
+        """Stop and remove a Trino cluster and its associated containers (PostgreSQL, Iceberg, etc.)"""
         if not self.docker_available:
             logger.warning(f"Docker not available, cannot stop Trino cluster {container_name}")
             return
@@ -1319,6 +1319,50 @@ class DockerManager:
         except Exception as e:
             # Log but continue - we still want to try stopping the Trino container
             logger.error(f"Error stopping PostgreSQL container {postgres_container_name}: {str(e)}")
+        
+        # Stop and remove Iceberg REST container if it exists
+        iceberg_rest_container_name = f"iceberg-rest-for-{container_name}"
+        try:
+            iceberg_container = self.client.containers.get(iceberg_rest_container_name)
+            logger.info(f"Stopping Iceberg REST container {iceberg_rest_container_name}...")
+            iceberg_container.stop()
+            iceberg_container.remove()
+            logger.info(f"Iceberg REST container {iceberg_rest_container_name} stopped and removed")
+        except docker.errors.NotFound:
+            # No Iceberg REST container found, which is okay
+            logger.debug(f"No Iceberg REST container found for {container_name}")
+        except Exception as e:
+            # Log but continue
+            logger.error(f"Error stopping Iceberg REST container {iceberg_rest_container_name}: {str(e)}")
+            
+        # Stop and remove MinIO container if it exists
+        minio_container_name = f"minio-for-{container_name}"
+        try:
+            minio_container = self.client.containers.get(minio_container_name)
+            logger.info(f"Stopping MinIO container {minio_container_name}...")
+            minio_container.stop()
+            minio_container.remove()
+            logger.info(f"MinIO container {minio_container_name} stopped and removed")
+        except docker.errors.NotFound:
+            # No MinIO container found, which is okay
+            logger.debug(f"No MinIO container found for {container_name}")
+        except Exception as e:
+            # Log but continue
+            logger.error(f"Error stopping MinIO container {minio_container_name}: {str(e)}")
+            
+        # Try to remove bucket creator container if it exists (though it should auto-remove)
+        bucket_creator_name = f"create-buckets-for-{container_name}"
+        try:
+            bucket_creator = self.client.containers.get(bucket_creator_name)
+            logger.info(f"Removing bucket creator container {bucket_creator_name}...")
+            bucket_creator.remove(force=True)
+            logger.info(f"Bucket creator container {bucket_creator_name} removed")
+        except docker.errors.NotFound:
+            # No bucket creator container found, which is okay
+            pass
+        except Exception as e:
+            # Log but continue
+            logger.error(f"Error removing bucket creator container {bucket_creator_name}: {str(e)}")
             
         # Now stop and remove the Trino container
         try:

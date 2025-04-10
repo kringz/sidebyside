@@ -1093,7 +1093,16 @@ def save_catalog_config():
                     # Log message about auto-configuration
                     if postgres_config_changed:
                         flash('PostgreSQL catalog configured using environment variables', 'info')
-                elif catalog == 'hive' or catalog == 'iceberg' or catalog == 'delta-lake':
+                elif catalog == 'iceberg':
+                    # Iceberg uses REST catalog and S3-compatible storage
+                    config['catalogs'][catalog]['rest_host'] = request.form.get(f'{catalog}_rest_host', 'localhost')
+                    config['catalogs'][catalog]['rest_port'] = request.form.get(f'{catalog}_rest_port', '8181')
+                    config['catalogs'][catalog]['s3_endpoint'] = request.form.get(f'{catalog}_s3_endpoint', 'http://localhost:9000')
+                    config['catalogs'][catalog]['s3_region'] = request.form.get(f'{catalog}_s3_region', 'us-east-1')
+                    config['catalogs'][catalog]['s3_access_key'] = request.form.get(f'{catalog}_s3_access_key', 'access-key')
+                    config['catalogs'][catalog]['s3_secret_key'] = request.form.get(f'{catalog}_s3_secret_key', 'secret-key')
+                    logger.info(f"Configured Iceberg catalog with REST host={config['catalogs'][catalog]['rest_host']} and S3 endpoint={config['catalogs'][catalog]['s3_endpoint']}")
+                elif catalog == 'hive' or catalog == 'delta-lake':
                     config['catalogs'][catalog]['metastore_host'] = request.form.get(f'{catalog}_metastore_host', 'localhost')
                     config['catalogs'][catalog]['metastore_port'] = request.form.get(f'{catalog}_metastore_port', '9083')
                 elif catalog == 'mysql' or catalog == 'mariadb':

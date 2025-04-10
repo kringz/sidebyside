@@ -46,8 +46,12 @@ def get_default_config():
                     },
                     'iceberg': {
                         'enabled': False,
-                        'metastore_host': 'localhost',
-                        'metastore_port': '9083'
+                        'rest_host': 'localhost',
+                        'rest_port': '8181',
+                        's3_endpoint': 'http://localhost:9000',
+                        's3_region': 'us-east-1',
+                        's3_access_key': 'access-key',
+                        's3_secret_key': 'secret-key'
                     },
                     'delta-lake': {
                         'enabled': False,
