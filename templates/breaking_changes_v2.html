@@ -172,6 +172,9 @@ $(document).ready(function() {
             type: 'POST',
             data: $(this).serialize(),
             success: function(response) {
+                // Debug info
+                console.log("Response received:", response);
+                
                 // Stop progress ticker and set to 100%
                 clearInterval(progressInterval);
                 $('#loading-progress-bar').css('width', '100%');
@@ -387,8 +390,14 @@ $(document).ready(function() {
                     $('#no-general-changes').show();
                 }
                 
-                // Show results
+                // Show results and debug visibility
+                console.log("Showing results, connector changes count:", response.connector_changes.length, 
+                            "general changes count:", response.general_changes.length);
+                console.log("First connector group:", Object.keys(groupedByConnector).length > 0 ? 
+                            Object.keys(groupedByConnector)[0] : "None");
+                
                 $('#results-content').show();
+                console.log("Results content display:", $('#results-content').css('display'));
             },
             error: function(xhr, status, error) {
                 console.error(error);
