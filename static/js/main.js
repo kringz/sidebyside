@@ -122,25 +122,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Determine loading message based on form action
-            let message = 'Processing...';
+            // Check if the form has a data-loading-message attribute
+            let message = this.getAttribute('data-loading-message');
             
-            if (this.action.includes('save_catalog_config')) {
-                message = 'Saving catalog configuration...';
-            } else if (this.action.includes('save_configuration')) {
-                message = 'Saving cluster configuration...';
-            } else if (this.action.includes('reset_config')) {
-                message = 'Resetting to default configuration...';
-            } else if (this.action.includes('start_clusters')) {
-                message = 'Starting Trino clusters... This may take a moment.';
-            } else if (this.action.includes('stop_clusters')) {
-                message = 'Stopping Trino clusters...';
-            } else if (this.action.includes('restart_clusters')) {
-                message = 'Restarting Trino clusters... This may take a moment.';
-            } else if (this.action.includes('run_query')) {
-                message = 'Executing query...';
-            } else if (this.action.includes('run_benchmark')) {
-                message = 'Running benchmark... This may take several minutes.';
+            // If not, determine message based on form action
+            if (!message) {
+                message = 'Processing...';
+                
+                if (this.action.includes('save_catalog_config')) {
+                    message = 'Saving catalog configuration...';
+                } else if (this.action.includes('save_configuration')) {
+                    message = 'Saving cluster configuration...';
+                } else if (this.action.includes('reset_config')) {
+                    message = 'Resetting to default configuration...';
+                } else if (this.action.includes('start_clusters')) {
+                    message = 'Starting Trino clusters... This may take a moment.';
+                } else if (this.action.includes('stop_clusters')) {
+                    message = 'Stopping Trino clusters...';
+                } else if (this.action.includes('restart_clusters')) {
+                    message = 'Restarting Trino clusters... This may take a moment.';
+                } else if (this.action.includes('run_query')) {
+                    message = 'Executing query...';
+                } else if (this.action.includes('run_benchmark')) {
+                    message = 'Running benchmark... This may take several minutes.';
+                }
             }
             
             // Get the submit button
@@ -170,19 +175,24 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // If this is a link to a different page, show loading
             if (this.tagName === 'A' && this.getAttribute('href') && !this.getAttribute('href').startsWith('#')) {
-                // Determine loading message based on the href
-                let message = 'Loading...';
+                // Check if the button has a data-loading-message attribute
+                let message = this.getAttribute('data-loading-message');
                 
-                if (this.href.includes('query_page')) {
-                    message = 'Loading query interface...';
-                } else if (this.href.includes('history')) {
-                    message = 'Loading query history...';
-                } else if (this.href.includes('benchmarks')) {
-                    message = 'Loading benchmark playground...';
-                } else if (this.href.includes('version_compatibility')) {
-                    message = 'Loading version compatibility information...';
-                } else if (this.href.includes('breaking_changes')) {
-                    message = 'Loading breaking changes information...';
+                // If not, determine loading message based on the href
+                if (!message) {
+                    message = 'Loading...';
+                    
+                    if (this.href.includes('query_page')) {
+                        message = 'Loading query interface...';
+                    } else if (this.href.includes('history')) {
+                        message = 'Loading query history...';
+                    } else if (this.href.includes('benchmarks')) {
+                        message = 'Loading benchmark playground...';
+                    } else if (this.href.includes('version_compatibility')) {
+                        message = 'Loading version compatibility information...';
+                    } else if (this.href.includes('breaking_changes')) {
+                        message = 'Loading breaking changes information...';
+                    }
                 }
                 
                 setButtonLoading(this, true);

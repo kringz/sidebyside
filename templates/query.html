@@ -69,7 +69,7 @@
                                 <h5>SQL Query</h5>
                             </div>
                             <div class="card-body">
-                                <form action="{{ url_for('run_query') }}" method="post">
+                                <form action="{{ url_for('run_query') }}" method="post" data-loading-message="Executing query on both clusters... This might take some time for complex queries.">
                                     <div class="mb-3">
                                         <textarea class="form-control" id="query" name="query" rows="8" placeholder="Enter your SQL query here..." required>{{ pre_populated_query }}</textarea>
                                     </div>
