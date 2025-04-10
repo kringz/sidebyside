@@ -335,6 +335,9 @@ def check_pull_progress():
             # Store these in the session for consistency
             session['pull_details'][version]['current_bytes'] = current_bytes
             session['pull_details'][version]['total_bytes'] = total_bytes
+            
+            # Log the simulation data for debugging
+            app.logger.debug(f"Simulated progress for {version}: {progress:.1%} ({current_bytes/(1024*1024):.1f}MB / {total_bytes/(1024*1024):.1f}MB)")
         else:
             # Get detailed information from the session if available
             current_bytes = session['pull_details'][version].get('current_bytes', 0)
@@ -354,6 +357,10 @@ def check_pull_progress():
             'current_bytes': current_bytes,
             'total_bytes': total_bytes
         }
+    
+    # Add debug logging to see what we're returning
+    app.logger.debug(f"Returning progress data: {progress_with_bytes}")
+    session.modified = True  # Ensure session changes are saved
     
     return jsonify({
         'progress': image_pull_progress,

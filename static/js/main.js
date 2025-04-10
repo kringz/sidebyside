@@ -84,7 +84,8 @@ function setupImagePullTracking() {
             bytesDownloaded !== null && totalBytes !== null && totalBytes > 0) {
             const downloadedMB = (bytesDownloaded / (1024 * 1024)).toFixed(1);
             const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
-            displayText = `${downloadedMB} MB / ${totalMB} MB`;
+            displayText = `${Math.floor(progress * 100)}% (${downloadedMB} MB / ${totalMB} MB)`;
+            console.log(`Progress bar text for ${version}: ${displayText}`);
         } else {
             displayText = `${Math.floor(progress * 100)}%`;
         }
@@ -198,7 +199,18 @@ function setupImagePullTracking() {
             }
             
             // Update progress based on data from response
-            if (data.progress) {
+            if (data.progress_details) {
+                // Use detailed progress information if available
+                Object.entries(data.progress_details).forEach(([version, detail]) => {
+                    createOrUpdateProgressBar(
+                        version,
+                        detail.progress,
+                        detail.current_bytes,
+                        detail.total_bytes
+                    );
+                });
+            } else if (data.progress) {
+                // Fallback to simple progress
                 Object.entries(data.progress).forEach(([version, progress]) => {
                     createOrUpdateProgressBar(version, progress);
                 });
@@ -220,6 +232,53 @@ function setupImagePullTracking() {
         
         console.log("Starting progress polling for versions:", Array.from(activePulls));
         
+        // Make sure the progress container exists and is visible
+        if (!document.getElementById('imagePullProgress')) {
+            console.log('Creating progress container');
+            
+            // Create container if missing
+            const progressContainer = document.createElement('div');
+            progressContainer.id = 'imagePullProgress';
+            progressContainer.className = 'row mb-3';
+            
+            const colDiv = document.createElement('div');
+            colDiv.className = 'col-12';
+            
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'card';
+            
+            const cardHeader = document.createElement('div');
+            cardHeader.className = 'card-header';
+            cardHeader.innerHTML = '<h5 class="mb-0"><i class="fas fa-spinner fa-spin me-2"></i> Pulling Trino Images</h5>';
+            
+            const cardBody = document.createElement('div');
+            cardBody.className = 'card-body';
+            
+            const progressBars = document.createElement('div');
+            progressBars.id = 'imagePullProgressBars';
+            
+            // Assemble the structure
+            cardBody.appendChild(progressBars);
+            cardDiv.appendChild(cardHeader);
+            cardDiv.appendChild(cardBody);
+            colDiv.appendChild(cardDiv);
+            progressContainer.appendChild(colDiv);
+            
+            // Insert into the page
+            document.body.appendChild(progressContainer);
+            
+            // Try to move it to a better position if possible
+            setTimeout(() => {
+                const imageSection = document.querySelector('.card-body.border-top');
+                if (imageSection && imageSection.parentNode) {
+                    imageSection.parentNode.insertBefore(progressContainer, imageSection.nextSibling);
+                }
+            }, 100);
+        }
+        
+        // Ensure progress element is visible
+        document.getElementById('imagePullProgress').classList.remove('d-none');
+        
         // Set up new polling interval (every 1 second)
         pollInterval = setInterval(() => {
             // If no active pulls, stop polling
@@ -233,7 +292,7 @@ function setupImagePullTracking() {
             fetch('/check_pull_progress')
                 .then(response => response.json())
                 .then(data => {
-                    console.log("Received progress data:", data.progress);
+                    console.log("Received progress data:", data);
                     
                     // Update progress bars with the latest data
                     if (data.progress) {
@@ -246,50 +305,11 @@ function setupImagePullTracking() {
                                 console.log(`Progress for ${version}: ${detail.progress * 100}% (${Math.round(detail.current_bytes / (1024 * 1024))} MB / ${Math.round(detail.total_bytes / (1024 * 1024))} MB)`);
                                 
                                 if (activePulls.has(version)) {
-                                    // Debug element existence 
-                                    if (!document.getElementById('imagePullProgress')) {
-                                        console.error('imagePullProgress container not found, creating it');
-                                        
-                                        // Create container if missing
-                                        const progressContainer = document.createElement('div');
-                                        progressContainer.id = 'imagePullProgress';
-                                        progressContainer.className = 'row mb-3';
-                                        
-                                        const colDiv = document.createElement('div');
-                                        colDiv.className = 'col-12';
-                                        
-                                        const cardDiv = document.createElement('div');
-                                        cardDiv.className = 'card';
-                                        
-                                        const cardHeader = document.createElement('div');
-                                        cardHeader.className = 'card-header';
-                                        cardHeader.innerHTML = '<h5 class="mb-0"><i class="fas fa-spinner fa-spin me-2"></i> Pulling Trino Images</h5>';
-                                        
-                                        const cardBody = document.createElement('div');
-                                        cardBody.className = 'card-body';
-                                        
-                                        const progressBars = document.createElement('div');
-                                        progressBars.id = 'imagePullProgressBars';
-                                        
-                                        // Assemble the structure
-                                        cardBody.appendChild(progressBars);
-                                        cardDiv.appendChild(cardHeader);
-                                        cardDiv.appendChild(cardBody);
-                                        colDiv.appendChild(cardDiv);
-                                        progressContainer.appendChild(colDiv);
-                                        
-                                        // Insert after the "Available Trino Images" section
-                                        const imageSection = document.querySelector('.card-body.border-top');
-                                        if (imageSection) {
-                                            imageSection.parentNode.insertBefore(progressContainer, imageSection.nextSibling);
-                                        } else {
-                                            // Fallback - add to body
-                                            document.body.appendChild(progressContainer);
-                                        }
-                                    }
-                                    
                                     // Ensure progress element is visible
-                                    document.getElementById('imagePullProgress').classList.remove('d-none');
+                                    const progressContainer = document.getElementById('imagePullProgress');
+                                    if (progressContainer) {
+                                        progressContainer.classList.remove('d-none');
+                                    }
                                     
                                     // Update the progress bar with byte information
                                     createOrUpdateProgressBar(
