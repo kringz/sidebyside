@@ -313,11 +313,20 @@ class DockerManager:
                             if version_num >= 458:
                                 logger.info(f"Trino version {version} >= 458, using native S3 filesystem properties")
                                 # Update S3 filesystem properties to use native properties
+                                # Remove the hive.s3.* properties since they're not used in newer versions
+                                # Add iceberg.s3.* properties that are necessary for the Iceberg connector
                                 f.write(f"s3.endpoint={s3_endpoint}\n")
                                 f.write("s3.region=us-east-1\n")
                                 f.write("s3.aws-access-key=access-key\n")
                                 f.write("s3.aws-secret-key=secret-key\n")
+                                f.write("s3.path-style-access=true\n")
                                 f.write("fs.native-s3.enabled=true\n")
+                                # Add Iceberg-specific properties for S3
+                                f.write(f"iceberg.s3.endpoint={s3_endpoint}\n")
+                                f.write("iceberg.s3.region=us-east-1\n")
+                                f.write("iceberg.s3.aws-access-key=access-key\n")
+                                f.write("iceberg.s3.aws-secret-key=secret-key\n")
+                                f.write("iceberg.s3.path-style-access=true\n")
                                 
                         logger.info(f"Created Iceberg catalog configuration at {catalog_file_path}")
                     
