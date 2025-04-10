@@ -170,7 +170,7 @@
                                                                 {% for row in explain_results.cluster1.rows %}
                                                                     <tr>
                                                                         {% for cell in row %}
-                                                                            <td class="text-monospace" style="white-space: pre-wrap;">{{ cell }}</td>
+                                                                            <td class="text-monospace cluster1-explain-plan" style="white-space: pre-wrap;">{{ cell }}</td>
                                                                         {% endfor %}
                                                                     </tr>
                                                                 {% endfor %}
@@ -212,7 +212,7 @@
                                                                 {% for row in explain_results.cluster2.rows %}
                                                                     <tr>
                                                                         {% for cell in row %}
-                                                                            <td class="text-monospace" style="white-space: pre-wrap;">{{ cell }}</td>
+                                                                            <td class="text-monospace cluster2-explain-plan" style="white-space: pre-wrap;">{{ cell }}</td>
                                                                         {% endfor %}
                                                                     </tr>
                                                                 {% endfor %}
@@ -293,4 +293,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block custom_scripts %}
+<script src="{{ url_for('static', filename='js/query-comparison.js') }}"></script>
 {% endblock %}
