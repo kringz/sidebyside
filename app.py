@@ -665,7 +665,14 @@ def version_compatibility():
         flash('Database functionality is disabled.', 'warning')
         return redirect(url_for('index'))
     
-    versions = TrinoVersion.query.order_by(TrinoVersion.version.desc()).all()
+    try:
+        versions = TrinoVersion.query.order_by(TrinoVersion.version.desc()).all()
+    except AttributeError:
+        # Fix for SQLAlchemy ordering issue
+        versions = TrinoVersion.query.all()
+        # Sort manually 
+        versions = sorted(versions, key=lambda x: x.version, reverse=True) if versions else []
+    
     catalogs = CatalogCompatibility.query.all()
     
     # Format versions for display
@@ -757,7 +764,13 @@ def benchmark_playground():
         benchmark_categories[benchmark.category].append(benchmark)
     
     # Get recent benchmark results (last 10)
-    recent_results = BenchmarkResult.query.order_by(BenchmarkResult.execution_time.desc()).limit(10).all()
+    try:
+        recent_results = BenchmarkResult.query.order_by(BenchmarkResult.execution_time.desc()).limit(10).all()
+    except AttributeError:
+        # Fix for SQLAlchemy ordering issue
+        recent_results = BenchmarkResult.query.all()
+        # Sort manually if needed
+        recent_results = sorted(recent_results, key=lambda x: x.execution_time, reverse=True)[:10] if recent_results else []
     
     return render_template('benchmark_playground.html',
                            benchmarks=benchmarks,
@@ -924,7 +937,13 @@ def benchmark_results():
         return redirect(url_for('index'))
     
     # Get all benchmark results with their queries
-    results = BenchmarkResult.query.order_by(BenchmarkResult.execution_time.desc()).all()
+    try:
+        results = BenchmarkResult.query.order_by(BenchmarkResult.execution_time.desc()).all()
+    except AttributeError:
+        # Fix for SQLAlchemy ordering issue
+        results = BenchmarkResult.query.all()
+        # Sort manually if needed
+        results = sorted(results, key=lambda x: x.execution_time, reverse=True) if results else []
     
     # Group by query for easier analysis
     results_by_query = {}
@@ -965,7 +984,13 @@ def benchmark_comparison():
     benchmarks = BenchmarkQuery.query.all()
     
     # Get version info
-    versions = TrinoVersion.query.order_by(TrinoVersion.version.desc()).all()
+    try:
+        versions = TrinoVersion.query.order_by(TrinoVersion.version.desc()).all()
+    except AttributeError:
+        # Fix for SQLAlchemy ordering issue
+        versions = TrinoVersion.query.all()
+        # Sort manually 
+        versions = sorted(versions, key=lambda x: x.version, reverse=True) if versions else []
     
     # For each benchmark, get performance across versions
     comparison_data = {}
@@ -982,7 +1007,13 @@ def benchmark_comparison():
         }
         
         # Get results for this benchmark
-        results = BenchmarkResult.query.filter_by(benchmark_query_id=benchmark.id).order_by(BenchmarkResult.execution_time).all()
+        try:
+            results = BenchmarkResult.query.filter_by(benchmark_query_id=benchmark.id).order_by(BenchmarkResult.execution_time).all()
+        except AttributeError:
+            # Fix for SQLAlchemy ordering issue 
+            results = BenchmarkResult.query.filter_by(benchmark_query_id=benchmark.id).all()
+            # Sort manually if needed
+            results = sorted(results, key=lambda x: x.execution_time) if results else []
         
         for result in results:
             version_pair = f"{result.cluster1_version}-{result.cluster2_version}"
