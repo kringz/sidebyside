@@ -618,17 +618,9 @@ def run_query():
         result_queue = queue.Queue()
         explain_queue = queue.Queue()
         
-        # Prepare EXPLAIN query
-        # Some queries like SHOW CATALOGS can't be explained, so we need to handle this
-        query_lower = query.lower().strip()
-        if (query_lower.startswith('select ') or 
-            query_lower.startswith('with ') or
-            '(' in query_lower and ')' in query_lower and 'select' in query_lower):
-            # These are SQL queries that can be explained
-            explain_query = f"EXPLAIN {query}"
-        else:
-            # For non-SELECT statements like SHOW CATALOGS, we can't use EXPLAIN
-            explain_query = None
+        # Prepare EXPLAIN query - always try to explain any query
+        # Trino will handle this and return an error in the UI if the query can't be explained
+        explain_query = f"EXPLAIN {query}"
         
         # Define worker function to execute regular queries
         def execute_cluster_query(cluster_name):
@@ -761,31 +753,8 @@ def run_query():
             container_name = config[cluster_name]['container_name']
             cluster_result = {}
             
-            # If explain_query is None (for commands that can't be explained), provide placeholder
-            if explain_query is None:
-                # Create a placeholder explanation for commands that can't be explained
-                mock_columns = ['Query Plan']
-                mock_rows = [
-                    ["Query type cannot be explained"],
-                    ["Commands like SHOW, DESCRIBE, USE, and HELP cannot be explained."],
-                    ["Try a SELECT query to see an actual query plan."]
-                ]
-                
-                explain_result = {
-                    'columns': mock_columns,
-                    'rows': mock_rows,
-                    'stats': {
-                        'info': 'No execution metrics available for this query type'
-                    }
-                }
-                
-                cluster_result = {
-                    'cluster_name': cluster_name,
-                    'result': explain_result,
-                    'timing': 0.0
-                }
             # Special handling for demo mode
-            elif is_demo_mode:
+            if is_demo_mode:
                 start_time = time.time()
                 time.sleep(0.3)  # Simulate explain execution time
                 end_time = time.time()
@@ -793,44 +762,67 @@ def run_query():
                 # Create more realistic mock explain results
                 query_lower = query.lower().strip()
                 
-                # Different explain format based on if it's a SELECT or complex query
-                if 'tpch' in query_lower and 'select' in query_lower:
-                    # Create a more specific explain plan for TPC-H queries
-                    if 'customer' in query_lower:
-                        table_name = 'customer'
-                        columns = ['custkey', 'name', 'address', 'nationkey', 'phone', 'acctbal', 'mktsegment', 'comment']
-                    elif 'orders' in query_lower:
-                        table_name = 'orders'
-                        columns = ['orderkey', 'custkey', 'orderstatus', 'totalprice', 'orderdate', 'orderpriority', 'clerk', 'shippriority', 'comment']
-                    elif 'nation' in query_lower:
-                        table_name = 'nation'
-                        columns = ['nationkey', 'name', 'regionkey', 'comment']
+                # Different explain format based on the query type
+                if 'select' in query_lower:
+                    # SELECT query - create a realistic query plan
+                    if 'tpch' in query_lower:
+                        # Create a more specific explain plan for TPC-H queries
+                        if 'customer' in query_lower:
+                            table_name = 'customer'
+                            columns = ['custkey', 'name', 'address', 'nationkey', 'phone', 'acctbal', 'mktsegment', 'comment']
+                        elif 'orders' in query_lower:
+                            table_name = 'orders'
+                            columns = ['orderkey', 'custkey', 'orderstatus', 'totalprice', 'orderdate', 'orderpriority', 'clerk', 'shippriority', 'comment']
+                        elif 'nation' in query_lower:
+                            table_name = 'nation'
+                            columns = ['nationkey', 'name', 'regionkey', 'comment']
+                        else:
+                            table_name = 'some_table'
+                            columns = ['column1', 'column2', 'column3']
+                        
+                        column_list = ', '.join(columns)
+                        filter_condition = ""
+                        
+                        # Extract filter condition if present
+                        if 'where' in query_lower:
+                            filter_parts = query_lower.split('where')
+                            if len(filter_parts) > 1:
+                                filter_condition = f"\n        Filter: {filter_parts[1].strip()}"
+                        
+                        mock_columns = ['Query Plan']
+                        mock_rows = [
+                            [f"- Output[{column_list}]"],
+                            [f"    - RemoteExchange[GATHER] => [{column_list}]"],
+                            [f"        - TableScan[tpch:tiny:{table_name}:tiny] => [{column_list}]{filter_condition}"]
+                        ]
                     else:
-                        table_name = 'some_table'
-                        columns = ['column1', 'column2', 'column3']
-                    
-                    column_list = ', '.join(columns)
-                    filter_condition = ""
-                    
-                    # Extract filter condition if present
-                    if 'where' in query_lower:
-                        filter_parts = query_lower.split('where')
-                        if len(filter_parts) > 1:
-                            filter_condition = f"\n        Filter: {filter_parts[1].strip()}"
-                    
+                        # Default explain plan for other SELECT queries
+                        mock_columns = ['Query Plan']
+                        mock_rows = [
+                            ["- Output[column1, column2, column3]"],
+                            ["    - RemoteExchange[GATHER] => [column1, column2, column3]"],
+                            ["        - TableScan[tpch:tiny:some_table:tiny] => [column1:varchar, column2:bigint, column3:varchar]"]
+                        ]
+                elif 'show' in query_lower or 'describe' in query_lower or 'use' in query_lower:
+                    # For non-SELECT statements like SHOW CATALOGS, provide a special explanation
                     mock_columns = ['Query Plan']
                     mock_rows = [
-                        [f"- Output[{column_list}]"],
-                        [f"    - RemoteExchange[GATHER] => [{column_list}]"],
-                        [f"        - TableScan[tpch:tiny:{table_name}:tiny] => [{column_list}]{filter_condition}"]
+                        ["- StatementRewrite"],
+                        ["    - Statement: EXPLAIN " + query]
                     ]
+                    if 'show' in query_lower:
+                        mock_rows.append(["    - Metadata query for displaying available objects"])
+                    elif 'describe' in query_lower:
+                        mock_rows.append(["    - Metadata query for describing object structure"])
+                    else:
+                        mock_rows.append(["    - Command statement that changes the execution context"])
                 else:
-                    # Default explain plan for non-specific queries
+                    # Generic plan for other statement types
                     mock_columns = ['Query Plan']
                     mock_rows = [
-                        ["- Output[column1, column2, column3]"],
-                        ["    - RemoteExchange[GATHER] => [column1, column2, column3]"],
-                        ["        - TableScan[tpch:tiny:some_table:tiny] => [column1:varchar, column2:bigint, column3:varchar]"]
+                        ["- StatementRewrite"],
+                        ["    - Statement: EXPLAIN " + query],
+                        ["    - Command statement with no detailed execution plan available"]
                     ]
                 
                 # Create simulated explain results
