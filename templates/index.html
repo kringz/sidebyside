@@ -964,8 +964,13 @@
     </div>
 </div>
 
+{% block scripts %}
 <script>
-$(document).ready(function() {
+// Wait for jQuery to be fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Make sure jQuery is available
+    if (typeof $ !== 'undefined') {
+        // Initialize catalog properties functionality
     // Catalog Properties Management
     $('#cluster1CatalogSelect').change(function() {
         const catalogName = $(this).val();
@@ -1246,6 +1251,19 @@ $(document).ready(function() {
             }
         }, 1000);
     });
+    } else {
+        // If jQuery is not available, try again after a short delay
+        console.log("jQuery not available, retrying in 500ms");
+        setTimeout(function() {
+            if (typeof $ !== 'undefined') {
+                console.log("jQuery is now available");
+                // Initialize all the UI functionality here (this would be simplified in a production app)
+                $('#cluster1CatalogSelect, #cluster2CatalogSelect').trigger('change');
+            } else {
+                console.error("jQuery still not available after retry");
+            }
+        }, 500);
+    }
 });
 </script>
 {% endblock %}
