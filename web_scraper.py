@@ -324,3 +324,15 @@ def get_all_changes_between_versions(from_version, to_version, max_versions=20):
         logger.info(f"Sample general change: {result['general_changes'][0]}")
         
     return result
+    
+def fetch_changes_for_version(version):
+    """Fetch changes for a specific Trino version
+    
+    Args:
+        version (str): The version to fetch changes for
+        
+    Returns:
+        dict: A dictionary with connector_changes and general_changes
+    """
+    logger.info(f"Fetching changes for Trino version {version}")
+    return scrape_trino_release_page(version)

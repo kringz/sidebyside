@@ -150,6 +150,21 @@ def register_breaking_changes_routes(app):
             'general_changes': general_changes,
         }
 
+def fetch_trino_version_changes(version):
+    """Fetch connector and general changes for a specific Trino version"""
+    try:
+        import web_scraper
+        logger.info(f"Using web_scraper to fetch changes for version {version}")
+        # Use the web_scraper module to fetch changes for this version
+        return web_scraper.fetch_changes_for_version(version)
+    except Exception as e:
+        logger.error(f"Error in fetch_trino_version_changes for version {version}: {str(e)}")
+        logger.error(traceback.format_exc())
+        return {
+            'connector_changes': [],
+            'general_changes': [],
+        }
+
 def create_breaking_changes_page(versions, app, compare_endpoint):
     """Create a custom HTML page with versions directly injected into JavaScript"""
     # Get configured versions from application config
