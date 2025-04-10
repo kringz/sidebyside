@@ -211,6 +211,16 @@ class DockerManager:
                             # Output debug information about the TPC-H catalog creation
                             logger.info(f"Created TPC-H catalog configuration with column naming: {catalog_config.get('column_naming', 'DEFAULT')}")
                     
+                    elif catalog_name == 'postgres':
+                        with open(catalog_file_path, "w") as f:
+                            f.write("connector.name=postgresql\n")
+                            connection_url = f"jdbc:postgresql://{catalog_config.get('host', 'localhost')}:{catalog_config.get('port', '5432')}/{catalog_config.get('database', 'postgres')}"
+                            f.write(f"connection-url={connection_url}\n")
+                            f.write(f"connection-user={catalog_config.get('user', 'postgres')}\n")
+                            if catalog_config.get('password'):
+                                f.write(f"connection-password={catalog_config.get('password')}\n")
+                            logger.info(f"Created PostgreSQL catalog configuration with connection URL: {connection_url}")
+
                     logger.info(f"Created catalog config for {catalog_name}")
             
             # Start Trino container

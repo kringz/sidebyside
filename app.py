@@ -796,6 +796,10 @@ def save_catalog_config():
         cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
         clusters_running = (cluster1_status == 'running' or cluster2_status == 'running')
         
+        # Track if Postgres was enabled
+        postgres_enabled_before = config['catalogs']['postgres']['enabled']
+        postgres_config_changed = False
+        
         # Always enable TPC-H in demo mode or when clusters are running
         if not docker_available or clusters_running:
             config['catalogs']['tpch']['enabled'] = True
@@ -812,6 +816,41 @@ def save_catalog_config():
                     column_naming = request.form.get('tpch_column_naming', 'SIMPLIFIED')
                     if column_naming in ['SIMPLIFIED', 'STANDARD']:
                         config['catalogs'][catalog]['column_naming'] = column_naming
+                        
+                # Configure PostgreSQL catalog with environment variables if it was just enabled
+                elif catalog == 'postgres':
+                    import os
+                    
+                    # Check if postgres was newly enabled or configuration changed
+                    postgres_config_changed = (not postgres_enabled_before)
+                    
+                    # Get settings from environment or default to form values
+                    host = os.environ.get('PGHOST', request.form.get(f'{catalog}_host', 'localhost'))
+                    port = os.environ.get('PGPORT', request.form.get(f'{catalog}_port', '5432'))
+                    database = os.environ.get('PGDATABASE', request.form.get(f'{catalog}_database', 'postgres'))
+                    user = os.environ.get('PGUSER', request.form.get(f'{catalog}_user', 'postgres'))
+                    password = os.environ.get('PGPASSWORD', request.form.get(f'{catalog}_password', ''))
+                    
+                    # Check if any configuration changed
+                    if (host != config['catalogs'][catalog].get('host') or
+                        port != config['catalogs'][catalog].get('port') or
+                        database != config['catalogs'][catalog].get('database') or
+                        user != config['catalogs'][catalog].get('user') or
+                        password != config['catalogs'][catalog].get('password')):
+                        postgres_config_changed = True
+                    
+                    # Set PostgreSQL configuration from environment variables
+                    config['catalogs'][catalog]['host'] = host
+                    config['catalogs'][catalog]['port'] = port
+                    config['catalogs'][catalog]['database'] = database
+                    config['catalogs'][catalog]['user'] = user
+                    config['catalogs'][catalog]['password'] = password
+                    
+                    logger.info(f"Configured PostgreSQL catalog with host={host}, port={port}, database={database}, user={user}")
+                    
+                    # Log message about auto-configuration
+                    if postgres_config_changed:
+                        flash('PostgreSQL catalog configured using environment variables', 'info')
                 elif catalog == 'hive' or catalog == 'iceberg' or catalog == 'delta-lake':
                     config['catalogs'][catalog]['metastore_host'] = request.form.get(f'{catalog}_metastore_host', 'localhost')
                     config['catalogs'][catalog]['metastore_port'] = request.form.get(f'{catalog}_metastore_port', '9083')
