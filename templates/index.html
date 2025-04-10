@@ -79,6 +79,57 @@
                         </form>
                     </div>
                 </div>
+
+                <!-- Available Trino Images Section -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info">
+                        <h2 class="card-title text-white"><i class="fas fa-cube me-2"></i>Available Trino Images</h2>
+                    </div>
+                    <div class="card-body">
+                        {% if docker_available %}
+                            {% if available_trino_images %}
+                                <div class="row">
+                                    <div class="col-12">
+                                        <div class="alert alert-info">
+                                            <p><strong>Preloaded Images:</strong></p>
+                                            <div class="d-flex flex-wrap">
+                                                {% for version in available_trino_images %}
+                                                    <span class="badge bg-primary me-2 mb-2 p-2">
+                                                        <i class="fas fa-cube me-1"></i> {{ version }}
+                                                    </span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-info-circle me-2"></i> No Trino images found. Use the "Pull Images" button to download the required images.
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i> Docker is not available. Image management is disabled.
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Image Pull Progress -->
+                        <div class="row mb-3 d-none" id="imagePullProgress">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">
+                                            <i class="fas fa-spinner fa-spin me-2"></i> Pulling Trino Images
+                                        </h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="imagePullProgressBars"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- Cluster Configuration Section -->
                 <div class="card-header bg-primary">
@@ -201,53 +252,7 @@
                             </button>
                         </div>
                     </form>
-                
-                    <!-- Available Trino Images Section -->
-                    <div class="card-header bg-info mt-4">
-                        <h2 class="card-title text-white"><i class="fas fa-cube me-2"></i>Available Trino Images</h2>
-                    </div>
-                    {% if docker_available %}
-                        {% if available_trino_images %}
-                            <div class="row">
-                                <div class="col-12">
-                                    <div class="alert alert-info">
-                                        <p><strong>Preloaded Images:</strong></p>
-                                        <div class="d-flex flex-wrap">
-                                            {% for version in available_trino_images %}
-                                                <span class="badge bg-primary me-2 mb-2 p-2">
-                                                    <i class="fas fa-cube me-1"></i> {{ version }}
-                                                </span>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        {% else %}
-                            <div class="alert alert-warning">
-                                <i class="fas fa-info-circle me-2"></i> No Trino images found. Use the "Pull Images" button to download the required images.
-                            </div>
-                        {% endif %}
-                    {% else %}
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle me-2"></i> Docker is not available. Image management is disabled.
-                        </div>
-                    {% endif %}
-                    
-                    <!-- Image Pull Progress -->
-                    <div class="row mb-3 d-none" id="imagePullProgress">
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="mb-0">
-                                        <i class="fas fa-spinner fa-spin me-2"></i> Pulling Trino Images
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <div id="imagePullProgressBars"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+
                 </div>
             </div>
         </div>
