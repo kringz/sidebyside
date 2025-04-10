@@ -118,8 +118,11 @@
 {% endblock %}
 
 {% block custom_scripts %}
+<!-- Explicitly include jQuery first to ensure it's loaded -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-$(document).ready(function() {
+// Only execute this code when jQuery is fully loaded
+jQuery(document).ready(function($) {
     // Handle form submission
     $('#version-comparison-form').on('submit', function(e) {
         e.preventDefault();
