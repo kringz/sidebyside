@@ -129,6 +129,18 @@ def select_software():
 def trino_dashboard():
     """Main page with Trino cluster status and management and catalog configuration"""
     config = load_config()
+    
+    # Ensure Docker configuration exists
+    if 'docker' not in config:
+        config['docker'] = {
+            'trino_connect_host': 'localhost',
+            'socket_path': '',
+            'auto_pull_images': True,
+            'timeout': 30
+        }
+        # Save the updated config
+        save_config(config)
+        
     cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
     cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
     
