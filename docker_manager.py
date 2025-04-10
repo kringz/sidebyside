@@ -308,11 +308,21 @@ class DockerManager:
                         logger.info(f"Starting PostgreSQL container {postgres_container_name}")
                         
                         # Environment variables for the PostgreSQL container
+                        # Ensure the password is definitely not empty
+                        pg_password = postgres_config.get('password') if postgres_config and postgres_config.get('password') else 'postgres123'
+                        pg_user = postgres_config.get('user', 'postgres') if postgres_config else 'postgres'
+                        pg_db = postgres_config.get('database', 'postgres') if postgres_config else 'postgres'
+                        
+                        # Set environment variables with guaranteed non-empty password
                         pg_env = {
-                            "POSTGRES_PASSWORD": postgres_config.get('password', 'postgres'),
-                            "POSTGRES_USER": postgres_config.get('user', 'postgres'),
-                            "POSTGRES_DB": postgres_config.get('database', 'postgres')
+                            "POSTGRES_PASSWORD": pg_password,  # Using a strong default if none provided
+                            "POSTGRES_USER": pg_user,
+                            "POSTGRES_DB": pg_db,
+                            # Add this for easier debugging - allow connections via password auth for all
+                            "POSTGRES_HOST_AUTH_METHOD": "md5"
                         }
+                        
+                        logger.info(f"Initializing PostgreSQL container {postgres_container_name} with user {pg_user} and database {pg_db}")
                         
                         # Determine a suggested port based on container name to avoid conflicts
                         # This helps distinguish between PostgreSQL containers for different Trino instances
@@ -387,10 +397,11 @@ class DockerManager:
                         self._wait_for_postgres_ready(pg_container, postgres_container_name, max_attempts=15)
                         
                         # Seed the PostgreSQL container with sample data
+                        # Use the same credentials we used for setting up the container
                         self._seed_postgres_container(pg_container, postgres_container_name, 
-                                                     postgres_config.get('user', 'postgres'),
-                                                     postgres_config.get('password', 'postgres'),
-                                                     postgres_config.get('database', 'postgres'))
+                                                     pg_user,
+                                                     pg_password,
+                                                     pg_db)
                         
                 except Exception as e:
                     logger.error(f"Error starting PostgreSQL container: {str(e)}")
