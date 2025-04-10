@@ -313,7 +313,7 @@ class DockerManager:
                             if version_num >= 458:
                                 logger.info(f"Trino version {version} >= 458, using native S3 filesystem properties")
                                 # Update S3 filesystem properties to use native properties
-                                f.write("s3.endpoint={s3_endpoint}\n")
+                                f.write(f"s3.endpoint={s3_endpoint}\n")
                                 f.write("s3.region=us-east-1\n")
                                 f.write("s3.aws-access-key=access-key\n")
                                 f.write("s3.aws-secret-key=secret-key\n")

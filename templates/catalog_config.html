@@ -59,23 +59,57 @@
                             </div>
                         </div>
                         <div class="card-body">
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>Auto-configured:</strong> This catalog uses REST API and S3-compatible storage. When enabled, it will automatically create MinIO and Iceberg REST service containers for each cluster.
+                            </div>
+                            <h6 class="mb-3">REST Catalog Configuration</h6>
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label for="iceberg_metastore_host" class="form-label">Metastore Host</label>
-                                        <input type="text" class="form-control" id="iceberg_metastore_host" name="iceberg_metastore_host" value="{{ config.catalogs.iceberg.metastore_host }}">
+                                        <label for="iceberg_rest_host" class="form-label">REST Host</label>
+                                        <input type="text" class="form-control" id="iceberg_rest_host" name="iceberg_rest_host" value="{{ config.catalogs.iceberg.rest_host }}">
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label for="iceberg_metastore_port" class="form-label">Metastore Port</label>
-                                        <input type="text" class="form-control" id="iceberg_metastore_port" name="iceberg_metastore_port" value="{{ config.catalogs.iceberg.metastore_port }}">
+                                        <label for="iceberg_rest_port" class="form-label">REST Port</label>
+                                        <input type="text" class="form-control" id="iceberg_rest_port" name="iceberg_rest_port" value="{{ config.catalogs.iceberg.rest_port }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <h6 class="mb-3">S3 Storage Configuration</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="iceberg_s3_endpoint" class="form-label">S3 Endpoint</label>
+                                        <input type="text" class="form-control" id="iceberg_s3_endpoint" name="iceberg_s3_endpoint" value="{{ config.catalogs.iceberg.s3_endpoint }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="iceberg_s3_region" class="form-label">S3 Region</label>
+                                        <input type="text" class="form-control" id="iceberg_s3_region" name="iceberg_s3_region" value="{{ config.catalogs.iceberg.s3_region }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="iceberg_s3_access_key" class="form-label">S3 Access Key</label>
+                                        <input type="text" class="form-control" id="iceberg_s3_access_key" name="iceberg_s3_access_key" value="{{ config.catalogs.iceberg.s3_access_key }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="iceberg_s3_secret_key" class="form-label">S3 Secret Key</label>
+                                        <input type="password" class="form-control" id="iceberg_s3_secret_key" name="iceberg_s3_secret_key" value="{{ config.catalogs.iceberg.s3_secret_key }}">
                                     </div>
                                 </div>
                             </div>
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
-                                <strong>Note:</strong> Iceberg uses Hive metastore for catalog storage. Ensure your metastore is compatible with Iceberg tables.
+                                <strong>Note:</strong> Iceberg uses REST catalog and S3-compatible storage. When enabled, MinIO and Iceberg REST service containers will be automatically created.
                             </div>
                         </div>
                     </div>
