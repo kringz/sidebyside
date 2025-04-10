@@ -147,7 +147,7 @@ $(document).ready(function() {
                             </div>
                             
                             <div class="d-grid mt-3">
-                                <button type="submit" class="btn btn-primary" data-no-loading="true" id="compare-versions-btn">
+                                <button type="submit" class="btn btn-primary" id="compare-versions-btn">
                                     <i class="fas fa-sync-alt me-2"></i>
                                     Compare Versions
                                 </button>
@@ -257,10 +257,9 @@ $(document).ready(function() {
         // Get the submit button directly by ID to avoid any global button handling
         const compareButton = $('#compare-versions-btn');
         
-        // Store original content and disable
-        compareButton.html('<i class="fas fa-spinner fa-spin"></i> Loading...');
+        // Just disable without changing the content
         compareButton.prop('disabled', true);
-        // Remove any spinning classes that might get applied by global handlers
+        // Ensure button is NEVER in loading state
         compareButton.removeClass('btn-loading');
         
         // Hide content areas
