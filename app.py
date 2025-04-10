@@ -152,8 +152,8 @@ def trino_dashboard():
         logger.info("TPC-H catalog enabled for demo mode")
     
     # Ensure PostgreSQL catalog exists
-    if 'postgresql' not in config['catalogs']:
-        config['catalogs']['postgresql'] = {
+    if 'postgres' not in config['catalogs']:
+        config['catalogs']['postgres'] = {
             'enabled': True,
             'host': 'localhost',
             'port': '5432',
