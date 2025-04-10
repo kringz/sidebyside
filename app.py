@@ -387,6 +387,13 @@ def run_query():
             if is_demo_mode and 'tpch' in query.lower():
                 # Simulate a successful TPC-H query in demo mode
                 query_lower = query.lower()
+                
+                # Check for common TPC-H query mistakes and show better error messages
+                if ('system.runtime.tpch' in query_lower or 
+                    'system.tpch' in query_lower or 
+                    'runtime.tpch' in query_lower):
+                    errors[cluster_name] = "Table not found. Please use 'tpch.tiny.customer' format instead of 'system.runtime.tpch'."
+                    continue
                 start_time = time.time()
                 time.sleep(0.5)  # Simulate query execution time
                 end_time = time.time()
@@ -448,6 +455,14 @@ def run_query():
             elif docker_manager.get_container_status(container_name) == 'running':
                 if trino_clients[cluster_name]:
                     try:
+                        # Check for common TPC-H query mistakes before sending to Trino
+                        query_lower = query.lower()
+                        if ('system.runtime.tpch' in query_lower or 
+                            'system.tpch' in query_lower or 
+                            'runtime.tpch' in query_lower):
+                            errors[cluster_name] = "Table not found. Please use 'tpch.tiny.customer' format instead of 'system.runtime.tpch'."
+                            continue
+                        
                         start_time = time.time()
                         query_results = trino_clients[cluster_name].execute_query(query)
                         end_time = time.time()
