@@ -312,6 +312,7 @@ class DockerManager:
                                 f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
                                 
                                 # Add AWS region for 474+ based on minitrino configuration
+                                f.write("iceberg.aws.region=us-east-1\n")
                                 f.write("hive.s3.region=us-east-1\n")
                                 
                                 # In 474+, S3 credentials need to be provided differently
@@ -328,10 +329,11 @@ class DockerManager:
                                 f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
                                 
                                 # Native S3 filesystem properties for Trino versions 458-473
-                                f.write(f"s3.endpoint={s3_endpoint}\n")
+                                f.write("s3.endpoint=http://s3.us-east-1.minio.com:9000\n")
                                 f.write("s3.aws-access-key=access-key\n")
                                 f.write("s3.aws-secret-key=secret-key\n")
                                 f.write("s3.path-style-access=true\n")
+                                f.write("s3.region=us-east-1\n")
                                 # Version 473 specifically doesn't support s3.ssl.enabled
                                 try:
                                     # Only include this property for versions below 473
@@ -351,10 +353,11 @@ class DockerManager:
                                 f.write("iceberg.catalog.type=rest\n")
                                 f.write(f"iceberg.rest-catalog.uri=http://{iceberg_rest_host}:8181\n")
                                 f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
-                                f.write(f"hive.s3.endpoint={s3_endpoint}\n")
+                                f.write("hive.s3.endpoint=http://s3.us-east-1.minio.com:9000\n")
                                 f.write("hive.s3.region=us-east-1\n")
                                 f.write("hive.s3.aws-access-key=access-key\n")
                                 f.write("hive.s3.aws-secret-key=secret-key\n")
+                                f.write("hive.s3.path-style-access=true\n")
 
                                 
                         logger.info(f"Created Iceberg catalog configuration at {catalog_file_path}")
@@ -611,7 +614,10 @@ class DockerManager:
                         if network_name:
                             network_config = {
                                 network_name: {
-                                    "aliases": ["sample-bucket.s3.us-east-1.minio.com"]
+                                    "aliases": [
+                                        "s3.us-east-1.minio.com",
+                                        "sample-bucket.s3.us-east-1.minio.com"
+                                    ]
                                 }
                             }
                         
