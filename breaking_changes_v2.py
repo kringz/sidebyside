@@ -42,12 +42,11 @@ def register_breaking_changes_routes(app):
         cluster1_version = config.get('cluster1', {}).get('version', '406')
         cluster2_version = config.get('cluster2', {}).get('version', '405')
         
-        # Ensure no conflicting loading mechanisms from v1 are used by setting a flag
-        return render_template('breaking_changes_v2.html',
+        # Use completely new template with entirely different loading approach
+        return render_template('breaking_changes_v3.html',
                            available_versions=versions,
                            cluster1_version=cluster1_version,
-                           cluster2_version=cluster2_version,
-                           use_v2_loading_only=True)
+                           cluster2_version=cluster2_version)
 
 
     @app.route('/compare_versions_v2', methods=['POST'])
