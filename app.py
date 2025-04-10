@@ -351,6 +351,10 @@ def query_page():
 @app.route('/run_query', methods=['POST'])
 def run_query():
     """Execute a query on both clusters and compare results"""
+    import threading
+    import queue
+    import random
+    
     query = request.form.get('query')
     config = load_config()
     
@@ -377,11 +381,13 @@ def run_query():
         # Create a new query history record
         query_history = QueryHistory(query_text=query)
         
-        import random
+        # Create thread-safe queues for collecting results from both clusters
+        result_queue = queue.Queue()
         
-        # Only run query against clusters that are running, or simulate in demo mode
-        for cluster_name in ['cluster1', 'cluster2']:
+        # Define worker function to execute queries
+        def execute_cluster_query(cluster_name):
             container_name = config[cluster_name]['container_name']
+            cluster_result = {}
             
             # Special handling for demo mode
             if is_demo_mode and 'tpch' in query.lower():
@@ -392,8 +398,13 @@ def run_query():
                 if ('system.runtime.tpch' in query_lower or 
                     'system.tpch' in query_lower or 
                     'runtime.tpch' in query_lower):
-                    errors[cluster_name] = "Table not found. Please use 'tpch.tiny.customer' format instead of 'system.runtime.tpch'."
-                    continue
+                    cluster_result = {
+                        'cluster_name': cluster_name,
+                        'error': "Table not found. Please use 'tpch.tiny.customer' format instead of 'system.runtime.tpch'."
+                    }
+                    result_queue.put(cluster_result)
+                    return
+                
                 start_time = time.time()
                 time.sleep(0.5)  # Simulate query execution time
                 end_time = time.time()
@@ -449,8 +460,11 @@ def run_query():
                     }
                 
                 # Save results
-                results[cluster_name] = query_results
-                timing[cluster_name] = end_time - start_time
+                cluster_result = {
+                    'cluster_name': cluster_name,
+                    'result': query_results,
+                    'timing': end_time - start_time
+                }
                 
             elif docker_manager.get_container_status(container_name) == 'running':
                 if trino_clients[cluster_name]:
@@ -460,22 +474,63 @@ def run_query():
                         if ('system.runtime.tpch' in query_lower or 
                             'system.tpch' in query_lower or 
                             'runtime.tpch' in query_lower):
-                            errors[cluster_name] = "Table not found. Please use 'tpch.tiny.customer' format instead of 'system.runtime.tpch'."
-                            continue
+                            cluster_result = {
+                                'cluster_name': cluster_name,
+                                'error': "Table not found. Please use 'tpch.tiny.customer' format instead of 'system.runtime.tpch'."
+                            }
+                            result_queue.put(cluster_result)
+                            return
                         
                         start_time = time.time()
                         query_results = trino_clients[cluster_name].execute_query(query)
                         end_time = time.time()
                         
-                        results[cluster_name] = query_results
-                        timing[cluster_name] = end_time - start_time
+                        cluster_result = {
+                            'cluster_name': cluster_name,
+                            'result': query_results,
+                            'timing': end_time - start_time
+                        }
                     except Exception as e:
                         logger.error(f"Error executing query on {cluster_name}: {str(e)}")
-                        errors[cluster_name] = str(e)
+                        cluster_result = {
+                            'cluster_name': cluster_name,
+                            'error': str(e)
+                        }
                 else:
-                    errors[cluster_name] = "Trino client not initialized"
+                    cluster_result = {
+                        'cluster_name': cluster_name,
+                        'error': "Trino client not initialized"
+                    }
             else:
-                errors[cluster_name] = "Cluster not running"
+                cluster_result = {
+                    'cluster_name': cluster_name,
+                    'error': "Cluster not running"
+                }
+            
+            # Put the result in the thread-safe queue
+            result_queue.put(cluster_result)
+        
+        # Create and start threads for each cluster to execute queries in parallel
+        threads = []
+        for cluster_name in ['cluster1', 'cluster2']:
+            thread = threading.Thread(target=execute_cluster_query, args=(cluster_name,))
+            thread.start()
+            threads.append(thread)
+        
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
+        
+        # Collect results from the queue
+        while not result_queue.empty():
+            result = result_queue.get()
+            cluster_name = result['cluster_name']
+            
+            if 'error' in result:
+                errors[cluster_name] = result['error']
+            else:
+                results[cluster_name] = result['result']
+                timing[cluster_name] = result['timing']
         
         # Save the results to the database if we have DATABASE_URL configured
         if DATABASE_URL:
