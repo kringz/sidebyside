@@ -1,0 +1,363 @@
+{% extends 'layout.html' %}
+
+{% block title %}Benchmark Comparison{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('benchmark_playground') }}">Benchmark Playground</a></li>
+            <li class="breadcrumb-item active">Version Comparison</li>
+        </ol>
+    </nav>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-dark">
+            <h5 class="card-title mb-0">Version Performance Comparison</h5>
+        </div>
+        <div class="card-body">
+            {% if benchmarks %}
+                <div class="mb-4">
+                    <h5>Select a benchmark to view version comparison:</h5>
+                    <select id="benchmarkSelector" class="form-select">
+                        <option value="">-- Select a benchmark --</option>
+                        {% for benchmark in benchmarks %}
+                            {% if benchmark.id in comparison_data and comparison_data[benchmark.id].versions %}
+                                <option value="{{ benchmark.id }}">{{ benchmark.name }} ({{ benchmark.category or 'Uncategorized' }})</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div id="comparisonChartContainer" class="mb-4" style="display: none;">
+                    <canvas id="comparisonChart" height="200"></canvas>
+                </div>
+                
+                <div id="noDataAlert" class="alert alert-info" style="display: none;">
+                    <i class="bi bi-info-circle-fill"></i> No comparison data available for this benchmark.
+                </div>
+                
+                <div id="benchmarkDetailsContainer" style="display: none;">
+                    <h5 class="mt-4" id="benchmarkName"></h5>
+                    <div class="mb-3">
+                        <pre class="bg-dark text-light p-2 rounded"><code id="benchmarkQuery"></code></pre>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Version Pair</th>
+                                    <th>Date</th>
+                                    <th>Cluster 1 Time</th>
+                                    <th>Cluster 2 Time</th>
+                                    <th>Diff</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsTableBody">
+                                <!-- Results will be populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Version comparison summary -->
+                <div id="versionSummaryContainer" class="mt-4" style="display: none;">
+                    <h5>Version Performance Summary</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Version</th>
+                                    <th>Average Runtime</th>
+                                    <th>Fastest Query</th>
+                                    <th>Slowest Query</th>
+                                    <th>Total Queries</th>
+                                </tr>
+                            </thead>
+                            <tbody id="versionSummaryBody">
+                                <!-- Summary will be populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill"></i> No benchmark results available yet.
+                    <a href="{{ url_for('benchmark_playground') }}">Run a benchmark</a> to get started.
+                </div>
+            {% endif %}
+        </div>
+        <div class="card-footer">
+            <a href="{{ url_for('benchmark_playground') }}" class="btn btn-primary">Back to Playground</a>
+            <a href="{{ url_for('benchmark_results') }}" class="btn btn-secondary">View All Results</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Data from the server
+    const benchmarkData = {
+        {% for benchmark in benchmarks %}
+            {% if benchmark.id in comparison_data %}
+                {{ benchmark.id }}: {
+                    name: "{{ benchmark.name }}",
+                    category: "{{ benchmark.category or 'Uncategorized' }}",
+                    query: `{{ benchmark.query_text|replace('\n', ' ')|replace('`', '\\\`')|safe }}`,
+                    chartData: {
+                        labels: {{ comparison_data[benchmark.id].chart_data.labels|tojson }},
+                        cluster1: {{ comparison_data[benchmark.id].chart_data.cluster1|tojson }},
+                        cluster2: {{ comparison_data[benchmark.id].chart_data.cluster2|tojson }}
+                    },
+                    versions: {}
+                },
+            {% endif %}
+        {% endfor %}
+    };
+    
+    // Store version data
+    {% for benchmark_id, data in comparison_data.items() %}
+        {% for version_pair, results in data.versions.items() %}
+            {% if not benchmarkData[benchmark_id].versions[version_pair] %}
+            benchmarkData[{{ benchmark_id }}].versions['{{ version_pair }}'] = [];
+            {% endif %}
+            
+            {% for result in results %}
+                benchmarkData[{{ benchmark_id }}].versions['{{ version_pair }}'].push({
+                    id: {{ result.id }},
+                    execution_time: "{{ result.execution_time.strftime('%Y-%m-%d %H:%M') }}",
+                    cluster1_timing: {{ result.cluster1_timing or 0 }},
+                    cluster2_timing: {{ result.cluster2_timing or 0 }},
+                    cluster1_status: "{{ result.cluster1_status or 'Unknown' }}",
+                    cluster2_status: "{{ result.cluster2_status or 'Unknown' }}"
+                });
+            {% endfor %}
+        {% endfor %}
+    {% endfor %}
+    
+    // Chart instance
+    let comparisonChart = null;
+    
+    // Create comparison chart
+    function createComparisonChart(benchmarkId) {
+        const chartContainer = document.getElementById('comparisonChartContainer');
+        const noDataAlert = document.getElementById('noDataAlert');
+        const benchmark = benchmarkData[benchmarkId];
+        
+        // Clear previous chart
+        if (comparisonChart) {
+            comparisonChart.destroy();
+        }
+        
+        if (!benchmark || !benchmark.chartData || benchmark.chartData.labels.length === 0) {
+            chartContainer.style.display = 'none';
+            noDataAlert.style.display = 'block';
+            return;
+        }
+        
+        chartContainer.style.display = 'block';
+        noDataAlert.style.display = 'none';
+        
+        const ctx = document.getElementById('comparisonChart').getContext('2d');
+        comparisonChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: benchmark.chartData.labels,
+                datasets: [
+                    {
+                        label: 'Cluster 1',
+                        data: benchmark.chartData.cluster1,
+                        backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                        borderColor: 'rgba(13, 110, 253, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Cluster 2',
+                        data: benchmark.chartData.cluster2,
+                        backgroundColor: 'rgba(108, 117, 125, 0.7)',
+                        borderColor: 'rgba(108, 117, 125, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Time (seconds)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Trino Version Pair'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: `Performance Comparison: ${benchmark.name}`
+                    }
+                }
+            }
+        });
+    }
+    
+    // Populate the benchmark details and results table
+    function populateBenchmarkDetails(benchmarkId) {
+        const benchmark = benchmarkData[benchmarkId];
+        const detailsContainer = document.getElementById('benchmarkDetailsContainer');
+        const nameElement = document.getElementById('benchmarkName');
+        const queryElement = document.getElementById('benchmarkQuery');
+        const tableBody = document.getElementById('resultsTableBody');
+        
+        // Display the details container
+        detailsContainer.style.display = 'block';
+        
+        // Set the benchmark name and query
+        nameElement.textContent = `${benchmark.name} (${benchmark.category})`;
+        queryElement.textContent = benchmark.query;
+        
+        // Clear the table
+        tableBody.innerHTML = '';
+        
+        // Populate the table with results
+        for (const [versionPair, results] of Object.entries(benchmark.versions)) {
+            for (const result of results) {
+                const diff = result.cluster1_timing - result.cluster2_timing;
+                const diffTextClass = diff > 0 ? 'text-danger' : (diff < 0 ? 'text-success' : 'text-secondary');
+                const diffText = diff > 0 ? `+${diff.toFixed(3)}` : diff.toFixed(3);
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${versionPair}</td>
+                    <td>${result.execution_time}</td>
+                    <td>${result.cluster1_status === 'Success' ? result.cluster1_timing.toFixed(3) + ' seconds' : `<span class="text-danger">${result.cluster1_status}</span>`}</td>
+                    <td>${result.cluster2_status === 'Success' ? result.cluster2_timing.toFixed(3) + ' seconds' : `<span class="text-danger">${result.cluster2_status}</span>`}</td>
+                    <td class="${diffTextClass}">${result.cluster1_status === 'Success' && result.cluster2_status === 'Success' ? `${diffText} seconds` : 'N/A'}</td>
+                    <td><a href="/benchmark_result/${result.id}" class="btn btn-sm btn-primary">View</a></td>
+                `;
+                tableBody.appendChild(row);
+            }
+        }
+        
+        createVersionSummary(benchmarkId);
+    }
+    
+    // Create a version performance summary
+    function createVersionSummary(benchmarkId) {
+        const benchmark = benchmarkData[benchmarkId];
+        const summaryContainer = document.getElementById('versionSummaryContainer');
+        const summaryBody = document.getElementById('versionSummaryBody');
+        
+        // Clear the summary table
+        summaryBody.innerHTML = '';
+        
+        // Check if we have enough data
+        if (!benchmark || Object.keys(benchmark.versions).length === 0) {
+            summaryContainer.style.display = 'none';
+            return;
+        }
+        
+        // Display the summary container
+        summaryContainer.style.display = 'block';
+        
+        // Extract performance data by version
+        const versionPerformance = {};
+        
+        for (const [versionPair, results] of Object.entries(benchmark.versions)) {
+            const [cluster1Version, cluster2Version] = versionPair.split('-');
+            
+            // Initialize version data if not exists
+            if (!versionPerformance[cluster1Version]) {
+                versionPerformance[cluster1Version] = {
+                    totalTime: 0,
+                    totalQueries: 0,
+                    successfulQueries: 0,
+                    fastest: Infinity,
+                    slowest: 0
+                };
+            }
+            
+            if (!versionPerformance[cluster2Version]) {
+                versionPerformance[cluster2Version] = {
+                    totalTime: 0,
+                    totalQueries: 0,
+                    successfulQueries: 0,
+                    fastest: Infinity,
+                    slowest: 0
+                };
+            }
+            
+            // Process results
+            for (const result of results) {
+                // Cluster 1
+                if (result.cluster1_status === 'Success') {
+                    const time = result.cluster1_timing;
+                    versionPerformance[cluster1Version].totalTime += time;
+                    versionPerformance[cluster1Version].successfulQueries++;
+                    versionPerformance[cluster1Version].fastest = Math.min(versionPerformance[cluster1Version].fastest, time);
+                    versionPerformance[cluster1Version].slowest = Math.max(versionPerformance[cluster1Version].slowest, time);
+                }
+                versionPerformance[cluster1Version].totalQueries++;
+                
+                // Cluster 2
+                if (result.cluster2_status === 'Success') {
+                    const time = result.cluster2_timing;
+                    versionPerformance[cluster2Version].totalTime += time;
+                    versionPerformance[cluster2Version].successfulQueries++;
+                    versionPerformance[cluster2Version].fastest = Math.min(versionPerformance[cluster2Version].fastest, time);
+                    versionPerformance[cluster2Version].slowest = Math.max(versionPerformance[cluster2Version].slowest, time);
+                }
+                versionPerformance[cluster2Version].totalQueries++;
+            }
+        }
+        
+        // Populate the summary table
+        for (const [version, data] of Object.entries(versionPerformance)) {
+            if (data.successfulQueries === 0) continue;
+            
+            const avgRuntime = data.totalTime / data.successfulQueries;
+            const fastestTime = data.fastest === Infinity ? 'N/A' : data.fastest.toFixed(3);
+            const slowestTime = data.slowest === 0 ? 'N/A' : data.slowest.toFixed(3);
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>v${version}</td>
+                <td>${avgRuntime.toFixed(3)} seconds</td>
+                <td>${fastestTime} seconds</td>
+                <td>${slowestTime} seconds</td>
+                <td>${data.successfulQueries} / ${data.totalQueries}</td>
+            `;
+            summaryBody.appendChild(row);
+        }
+    }
+    
+    // Handle benchmark selection
+    document.getElementById('benchmarkSelector').addEventListener('change', function() {
+        const benchmarkId = this.value;
+        
+        // Reset the UI
+        document.getElementById('comparisonChartContainer').style.display = 'none';
+        document.getElementById('noDataAlert').style.display = 'none';
+        document.getElementById('benchmarkDetailsContainer').style.display = 'none';
+        document.getElementById('versionSummaryContainer').style.display = 'none';
+        
+        if (benchmarkId) {
+            createComparisonChart(benchmarkId);
+            populateBenchmarkDetails(benchmarkId);
+        }
+    });
+</script>
+{% endblock %}

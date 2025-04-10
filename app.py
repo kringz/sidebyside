@@ -735,6 +735,274 @@ def add_version():
     
     return redirect(url_for('version_compatibility'))
 
+@app.route('/benchmarks')
+def benchmark_playground():
+    """Page for performance benchmark playground with real-time comparison charts"""
+    if not DATABASE_URL:
+        flash('Database functionality is disabled. Benchmarking requires database access.', 'warning')
+        return redirect(url_for('index'))
+    
+    config = load_config()
+    cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
+    cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
+    
+    # Get all benchmark queries
+    benchmarks = BenchmarkQuery.query.filter_by(is_active=True).order_by(BenchmarkQuery.category, BenchmarkQuery.name).all()
+    
+    # Group benchmarks by category for easier display
+    benchmark_categories = {}
+    for benchmark in benchmarks:
+        if benchmark.category not in benchmark_categories:
+            benchmark_categories[benchmark.category] = []
+        benchmark_categories[benchmark.category].append(benchmark)
+    
+    # Get recent benchmark results (last 10)
+    recent_results = BenchmarkResult.query.order_by(BenchmarkResult.execution_time.desc()).limit(10).all()
+    
+    return render_template('benchmark_playground.html',
+                           benchmarks=benchmarks,
+                           benchmark_categories=benchmark_categories,
+                           recent_results=recent_results,
+                           config=config,
+                           cluster1_status=cluster1_status,
+                           cluster2_status=cluster2_status,
+                           docker_available=docker_available)
+
+@app.route('/run_benchmark', methods=['POST'])
+def run_benchmark():
+    """Run a benchmark query and record results"""
+    if not DATABASE_URL:
+        flash('Database functionality is disabled. Benchmarking requires database access.', 'warning')
+        return redirect(url_for('benchmarks'))
+    
+    benchmark_id = request.form.get('benchmark_id')
+    
+    if not benchmark_id:
+        flash('No benchmark selected', 'warning')
+        return redirect(url_for('benchmark_playground'))
+    
+    if not docker_available:
+        flash('Docker is not available in this environment. Benchmark execution is disabled.', 'warning')
+        return redirect(url_for('benchmark_playground'))
+    
+    try:
+        # Load the benchmark query
+        benchmark = BenchmarkQuery.query.get(benchmark_id)
+        if not benchmark:
+            flash('Benchmark not found', 'warning')
+            return redirect(url_for('benchmark_playground'))
+        
+        config = load_config()
+        results = {}
+        errors = {}
+        timing = {}
+        cpu_time = {}
+        memory_usage = {}
+        row_counts = {}
+        timing_details = {}
+        
+        # Create a new benchmark result record
+        benchmark_result = BenchmarkResult(
+            benchmark_query_id=benchmark.id,
+            cluster1_version=config['cluster1']['version'],
+            cluster2_version=config['cluster2']['version'],
+            cluster1_config=json.dumps(config['cluster1']),
+            cluster2_config=json.dumps(config['cluster2'])
+        )
+        
+        # Run the query on both clusters (if running)
+        for cluster_name in ['cluster1', 'cluster2']:
+            container_name = config[cluster_name]['container_name']
+            if docker_manager.get_container_status(container_name) == 'running':
+                if trino_clients[cluster_name]:
+                    try:
+                        # Execute the query with timing
+                        start_time = time.time()
+                        query_results = trino_clients[cluster_name].execute_query(benchmark.query_text)
+                        end_time = time.time()
+                        
+                        # Save results
+                        results[cluster_name] = query_results
+                        timing[cluster_name] = end_time - start_time
+                        
+                        # Extract row count
+                        row_counts[cluster_name] = len(query_results.get('rows', []))
+                        
+                        # Try to extract CPU time and memory usage from query stats if available
+                        if 'stats' in query_results:
+                            stats = query_results['stats']
+                            cpu_time[cluster_name] = stats.get('cpu_time_ms', 0) / 1000.0  # Convert to seconds
+                            memory_usage[cluster_name] = stats.get('peak_memory_bytes', 0) / (1024 * 1024)  # Convert to MB
+                            
+                            # Capture detailed timing for planning vs execution
+                            timing_details[cluster_name] = {
+                                'planning_time': stats.get('planning_time_ms', 0) / 1000.0,
+                                'execution_time': stats.get('execution_time_ms', 0) / 1000.0,
+                                'queued_time': stats.get('queued_time_ms', 0) / 1000.0
+                            }
+                        
+                        # Set status to success
+                        if cluster_name == 'cluster1':
+                            benchmark_result.cluster1_status = 'Success'
+                        else:
+                            benchmark_result.cluster2_status = 'Success'
+                            
+                    except Exception as e:
+                        logger.error(f"Error executing benchmark on {cluster_name}: {str(e)}")
+                        errors[cluster_name] = str(e)
+                        
+                        # Set status to error
+                        if cluster_name == 'cluster1':
+                            benchmark_result.cluster1_status = 'Error'
+                            benchmark_result.cluster1_error = str(e)
+                        else:
+                            benchmark_result.cluster2_status = 'Error'
+                            benchmark_result.cluster2_error = str(e)
+                else:
+                    errors[cluster_name] = "Trino client not initialized"
+                    if cluster_name == 'cluster1':
+                        benchmark_result.cluster1_status = 'Error'
+                        benchmark_result.cluster1_error = "Trino client not initialized"
+                    else:
+                        benchmark_result.cluster2_status = 'Error'
+                        benchmark_result.cluster2_error = "Trino client not initialized"
+            else:
+                errors[cluster_name] = "Cluster not running"
+                if cluster_name == 'cluster1':
+                    benchmark_result.cluster1_status = 'Error'
+                    benchmark_result.cluster1_error = "Cluster not running"
+                else:
+                    benchmark_result.cluster2_status = 'Error'
+                    benchmark_result.cluster2_error = "Cluster not running"
+        
+        # Save timing and resource usage metrics
+        if 'cluster1' in timing:
+            benchmark_result.cluster1_timing = timing['cluster1']
+        if 'cluster2' in timing:
+            benchmark_result.cluster2_timing = timing['cluster2']
+        if 'cluster1' in cpu_time:
+            benchmark_result.cluster1_cpu_time = cpu_time['cluster1']
+        if 'cluster2' in cpu_time:
+            benchmark_result.cluster2_cpu_time = cpu_time['cluster2']
+        if 'cluster1' in memory_usage:
+            benchmark_result.cluster1_memory_usage = memory_usage['cluster1']
+        if 'cluster2' in memory_usage:
+            benchmark_result.cluster2_memory_usage = memory_usage['cluster2']
+        if 'cluster1' in row_counts:
+            benchmark_result.cluster1_row_count = row_counts['cluster1']
+        if 'cluster2' in row_counts:
+            benchmark_result.cluster2_row_count = row_counts['cluster2']
+        if 'cluster1' in timing_details:
+            benchmark_result.cluster1_timing_details = json.dumps(timing_details['cluster1'])
+        if 'cluster2' in timing_details:
+            benchmark_result.cluster2_timing_details = json.dumps(timing_details['cluster2'])
+        
+        # Save results to the database
+        db.session.add(benchmark_result)
+        db.session.commit()
+        logger.info(f"Saved benchmark result for query: {benchmark.name}")
+        
+        return render_template('benchmark_result.html',
+                               benchmark=benchmark,
+                               result=benchmark_result,
+                               results=results,
+                               errors=errors,
+                               config=config,
+                               docker_available=docker_available)
+                               
+    except Exception as e:
+        logger.error(f"Error during benchmark execution: {str(e)}")
+        logger.error(traceback.format_exc())
+        flash(f'Error during benchmark execution: {str(e)}', 'danger')
+        return redirect(url_for('benchmark_playground'))
+
+@app.route('/benchmark_results')
+def benchmark_results():
+    """Page for viewing all benchmark results"""
+    if not DATABASE_URL:
+        flash('Database functionality is disabled. Benchmarking requires database access.', 'warning')
+        return redirect(url_for('index'))
+    
+    # Get all benchmark results with their queries
+    results = BenchmarkResult.query.order_by(BenchmarkResult.execution_time.desc()).all()
+    
+    # Group by query for easier analysis
+    results_by_query = {}
+    for result in results:
+        query_id = result.benchmark_query_id
+        if query_id not in results_by_query:
+            results_by_query[query_id] = []
+        results_by_query[query_id].append(result)
+    
+    return render_template('benchmark_results.html',
+                           results=results,
+                           results_by_query=results_by_query,
+                           docker_available=docker_available)
+
+@app.route('/benchmark_result/<int:result_id>')
+def view_benchmark_result(result_id):
+    """View a specific benchmark result"""
+    if not DATABASE_URL:
+        flash('Database functionality is disabled. Benchmarking requires database access.', 'warning')
+        return redirect(url_for('index'))
+    
+    result = BenchmarkResult.query.get_or_404(result_id)
+    benchmark = BenchmarkQuery.query.get(result.benchmark_query_id)
+    
+    return render_template('benchmark_result_detail.html',
+                           result=result,
+                           benchmark=benchmark,
+                           docker_available=docker_available)
+
+@app.route('/benchmark_comparison')
+def benchmark_comparison():
+    """Compare benchmark results across versions"""
+    if not DATABASE_URL:
+        flash('Database functionality is disabled. Benchmarking requires database access.', 'warning')
+        return redirect(url_for('index'))
+    
+    # Get all benchmarks
+    benchmarks = BenchmarkQuery.query.all()
+    
+    # Get version info
+    versions = TrinoVersion.query.order_by(TrinoVersion.version.desc()).all()
+    
+    # For each benchmark, get performance across versions
+    comparison_data = {}
+    for benchmark in benchmarks:
+        comparison_data[benchmark.id] = {
+            'name': benchmark.name,
+            'category': benchmark.category,
+            'versions': {},
+            'chart_data': {
+                'labels': [],
+                'cluster1': [],
+                'cluster2': []
+            }
+        }
+        
+        # Get results for this benchmark
+        results = BenchmarkResult.query.filter_by(benchmark_query_id=benchmark.id).order_by(BenchmarkResult.execution_time).all()
+        
+        for result in results:
+            version_pair = f"{result.cluster1_version}-{result.cluster2_version}"
+            if version_pair not in comparison_data[benchmark.id]['versions']:
+                comparison_data[benchmark.id]['versions'][version_pair] = []
+            
+            comparison_data[benchmark.id]['versions'][version_pair].append(result)
+            
+            # Add to chart data
+            if result.cluster1_timing or result.cluster2_timing:
+                comparison_data[benchmark.id]['chart_data']['labels'].append(version_pair)
+                comparison_data[benchmark.id]['chart_data']['cluster1'].append(result.cluster1_timing or 0)
+                comparison_data[benchmark.id]['chart_data']['cluster2'].append(result.cluster2_timing or 0)
+    
+    return render_template('benchmark_comparison.html',
+                           benchmarks=benchmarks,
+                           versions=versions,
+                           comparison_data=comparison_data,
+                           docker_available=docker_available)
+
 @app.route('/add_catalog_compatibility', methods=['POST'])
 def add_catalog_compatibility():
     """Add catalog compatibility information"""
@@ -984,3 +1252,4 @@ with app.app_context():
     if DATABASE_URL:
         seed_version_data()
         seed_catalog_compatibility()
+        seed_benchmark_queries()

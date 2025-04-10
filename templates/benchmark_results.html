@@ -1,0 +1,204 @@
+{% extends 'layout.html' %}
+
+{% block title %}Benchmark Results{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('benchmark_playground') }}">Benchmark Playground</a></li>
+            <li class="breadcrumb-item active">All Results</li>
+        </ol>
+    </nav>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-dark">
+            <h5 class="card-title mb-0">All Benchmark Results</h5>
+        </div>
+        <div class="card-body">
+            {% if results %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead>
+                            <tr>
+                                <th>Query</th>
+                                <th>Date</th>
+                                <th>Version Comparison</th>
+                                <th>Cluster 1 Time</th>
+                                <th>Cluster 2 Time</th>
+                                <th>Difference</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in results %}
+                                <tr>
+                                    <td>{{ result.query.name }}</td>
+                                    <td>{{ result.execution_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>v{{ result.cluster1_version }} vs v{{ result.cluster2_version }}</td>
+                                    <td>
+                                        {% if result.cluster1_status == 'Success' %}
+                                            {{ "%.3f"|format(result.cluster1_timing or 0) }} seconds
+                                        {% else %}
+                                            <span class="text-danger">{{ result.cluster1_status or 'N/A' }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if result.cluster2_status == 'Success' %}
+                                            {{ "%.3f"|format(result.cluster2_timing or 0) }} seconds
+                                        {% else %}
+                                            <span class="text-danger">{{ result.cluster2_status or 'N/A' }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if result.cluster1_status == 'Success' and result.cluster2_status == 'Success' %}
+                                            {% set diff = (result.cluster1_timing or 0) - (result.cluster2_timing or 0) %}
+                                            {% if diff > 0 %}
+                                                <span class="text-danger">+{{ "%.3f"|format(diff) }} seconds</span>
+                                            {% elif diff < 0 %}
+                                                <span class="text-success">{{ "%.3f"|format(diff) }} seconds</span>
+                                            {% else %}
+                                                <span class="text-secondary">0 seconds</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-secondary">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('view_benchmark_result', result_id=result.id) }}" class="btn btn-sm btn-primary">View</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-4">
+                    <h5>Results by Query Type</h5>
+                    <div class="accordion" id="benchmarkAccordion">
+                        {% for query_id, query_results in results_by_query.items() %}
+                            {% set query = query_results[0].query %}
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading{{ query_id }}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ query_id }}" aria-expanded="false" aria-controls="collapse{{ query_id }}">
+                                        {{ query.name }} ({{ query_results|length }} results)
+                                    </button>
+                                </h2>
+                                <div id="collapse{{ query_id }}" class="accordion-collapse collapse" aria-labelledby="heading{{ query_id }}" data-bs-parent="#benchmarkAccordion">
+                                    <div class="accordion-body">
+                                        <div class="mb-3">
+                                            <h6>Query:</h6>
+                                            <pre class="bg-dark text-light p-2 rounded"><code>{{ query.query_text }}</code></pre>
+                                        </div>
+                                        <canvas id="chart{{ query_id }}" height="150"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill"></i> No benchmark results available yet.
+                    <a href="{{ url_for('benchmark_playground') }}">Run a benchmark</a> to get started.
+                </div>
+            {% endif %}
+        </div>
+        <div class="card-footer">
+            <a href="{{ url_for('benchmark_playground') }}" class="btn btn-primary">Back to Playground</a>
+            {% if results %}
+                <a href="{{ url_for('benchmark_comparison') }}" class="btn btn-secondary">Version Comparison</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Set up charts for each query type
+    document.addEventListener('DOMContentLoaded', function() {
+        {% for query_id, query_results in results_by_query.items() %}
+            const ctx{{ query_id }} = document.getElementById('chart{{ query_id }}');
+            if (ctx{{ query_id }}) {
+                const labels = [];
+                const cluster1Data = [];
+                const cluster2Data = [];
+                
+                // Process the data for the chart
+                {% for result in query_results %}
+                    {% if result.cluster1_status == 'Success' or result.cluster2_status == 'Success' %}
+                        labels.push('{{ result.execution_time.strftime("%Y-%m-%d %H:%M") }}');
+                        cluster1Data.push({{ result.cluster1_timing or 0 }});
+                        cluster2Data.push({{ result.cluster2_timing or 0 }});
+                    {% endif %}
+                {% endfor %}
+                
+                new Chart(ctx{{ query_id }}, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Cluster 1',
+                                data: cluster1Data,
+                                backgroundColor: 'rgba(13, 110, 253, 0.2)',
+                                borderColor: 'rgba(13, 110, 253, 1)',
+                                borderWidth: 2,
+                                tension: 0.1
+                            },
+                            {
+                                label: 'Cluster 2',
+                                data: cluster2Data,
+                                backgroundColor: 'rgba(108, 117, 125, 0.2)',
+                                borderColor: 'rgba(108, 117, 125, 1)',
+                                borderWidth: 2,
+                                tension: 0.1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Time (seconds)'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Execution Date'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            title: {
+                                display: true,
+                                text: 'Performance Over Time'
+                            }
+                        }
+                    }
+                });
+            }
+        {% endfor %}
+        
+        // Initialize accordion behavior for showing charts
+        const accordionButtons = document.querySelectorAll('.accordion-button');
+        accordionButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Allow time for the accordion to open before resizing charts
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                }, 500);
+            });
+        });
+    });
+</script>
+{% endblock %}
