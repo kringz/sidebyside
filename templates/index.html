@@ -46,8 +46,122 @@
                     </div>
                 </div>
                 
-                <!-- Available Trino Images Section -->
+                <!-- Cluster Configuration Section -->
                 <div class="card-body border-top">
+                    <h4><i class="fas fa-server me-2"></i>Cluster Configuration</h4>
+                    <form action="{{ url_for('save_configuration') }}" method="post" class="mb-4" id="configForm" data-loading-message="Saving configuration...">
+                        <!-- Docker Configuration Section -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Docker Settings</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="docker_trino_connect_host" class="form-label">Trino Connect Host</label>
+                                            <input type="text" class="form-control" id="docker_trino_connect_host" name="docker_trino_connect_host" value="{{ config.docker.trino_connect_host }}" {% if not docker_available %}disabled{% endif %}>
+                                            <small class="text-muted">Hostname that Trino clients use to connect to Trino containers, typically <code>localhost</code>.</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="docker_socket_path" class="form-label">Docker Socket Path (Advanced)</label>
+                                            <input type="text" class="form-control" id="docker_socket_path" name="docker_socket_path" value="{{ config.docker.socket_path }}" placeholder="Leave empty for automatic detection" {% if not docker_available %}disabled{% endif %}>
+                                            <small class="text-muted">E.g. <code>unix:///var/run/docker.sock</code> or <code>tcp://localhost:2375</code></small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="docker_timeout" class="form-label">Docker Operation Timeout (seconds)</label>
+                                            <input type="number" class="form-control" id="docker_timeout" name="docker_timeout" value="{{ config.docker.timeout }}" min="10" max="300" {% if not docker_available %}disabled{% endif %}>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3 mt-4">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="docker_auto_pull_images" name="docker_auto_pull_images" {% if config.docker.auto_pull_images %}checked{% endif %} {% if not docker_available %}disabled{% endif %}>
+                                                <label class="form-check-label" for="docker_auto_pull_images">
+                                                    Automatically pull Docker images when versions change
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Cluster 1 Configuration -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">Cluster 1 Configuration</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="cluster1_version" class="form-label">Trino Version</label>
+                                            <input type="text" class="form-control" id="cluster1_version" name="cluster1_version" value="{{ config.cluster1.version }}" {% if not docker_available %}disabled{% endif %}>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="cluster1_port" class="form-label">Port</label>
+                                            <input type="number" class="form-control" id="cluster1_port" name="cluster1_port" value="{{ config.cluster1.port }}" min="1024" max="65535" {% if not docker_available %}disabled{% endif %}>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="cluster1_container_name" class="form-label">Container Name</label>
+                                            <input type="text" class="form-control" id="cluster1_container_name" name="cluster1_container_name" value="{{ config.cluster1.container_name }}" {% if not docker_available %}disabled{% endif %}>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Cluster 2 Configuration -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-secondary text-white">
+                                <h5 class="mb-0">Cluster 2 Configuration</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="cluster2_version" class="form-label">Trino Version</label>
+                                            <input type="text" class="form-control" id="cluster2_version" name="cluster2_version" value="{{ config.cluster2.version }}" {% if not docker_available %}disabled{% endif %}>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="cluster2_port" class="form-label">Port</label>
+                                            <input type="number" class="form-control" id="cluster2_port" name="cluster2_port" value="{{ config.cluster2.port }}" min="1024" max="65535" {% if not docker_available %}disabled{% endif %}>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="cluster2_container_name" class="form-label">Container Name</label>
+                                            <input type="text" class="form-control" id="cluster2_container_name" name="cluster2_container_name" value="{{ config.cluster2.container_name }}" {% if not docker_available %}disabled{% endif %}>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Save Configuration
+                            </button>
+                            <button type="reset" class="btn btn-secondary ms-2">
+                                <i class="fas fa-undo me-1"></i> Reset Form
+                            </button>
+                        </div>
+                    </form>
+                
+                    <!-- Available Trino Images Section -->
                     <h4><i class="fas fa-cube me-2"></i>Available Trino Images</h4>
                     {% if docker_available %}
                         {% if available_trino_images %}
@@ -150,7 +264,11 @@
                         <div class="card mb-4 border-info">
                             <div class="card-header bg-info text-white">
                                 <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="tpch" name="tpch" {% if config.catalogs.tpch.enabled %}checked{% endif %}>
+                                    <input class="form-check-input" type="checkbox" id="tpch" name="tpch" checked disabled 
+                                           {% if cluster1_status == 'running' or cluster2_status == 'running' %}readonly{% endif %}
+                                           data-bs-toggle="tooltip" data-bs-placement="top" 
+                                           title="TPC-H is always enabled when clusters are running for basic functionality.">
+                                    <input type="hidden" name="tpch" value="on">
                                     <label class="form-check-label" for="tpch">
                                         <h5 class="mb-0">TPC-H Catalog</h5>
                                     </label>

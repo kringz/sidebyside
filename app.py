@@ -742,12 +742,19 @@ def save_catalog_config():
     try:
         config = load_config()
         
-        # Always enable TPC-H in demo mode
-        if not docker_available:
+        # Check cluster status
+        cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
+        cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
+        clusters_running = (cluster1_status == 'running' or cluster2_status == 'running')
+        
+        # Always enable TPC-H in demo mode or when clusters are running
+        if not docker_available or clusters_running:
             config['catalogs']['tpch']['enabled'] = True
+            logger.info("TPC-H catalog enforced as enabled (demo mode or clusters running)")
         
         for catalog in config['catalogs']:
-            if catalog in request.form:
+            # Always include TPC-H catalog (form has a hidden field to ensure it's sent)
+            if catalog in request.form or (catalog == 'tpch' and clusters_running):
                 config['catalogs'][catalog]['enabled'] = True
                 
                 # Save catalog-specific configurations
