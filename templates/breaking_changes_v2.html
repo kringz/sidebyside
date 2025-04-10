@@ -46,16 +46,20 @@
                 </div>
                 
                 <div id="comparison-results" class="mt-4">
-                    <div class="text-center py-5" id="loading" style="display: none;">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <p class="mt-2">Loading changes between versions...</p>
-                        <p class="text-muted small">Processing release notes from multiple versions (limited to 20 max).</p>
-                        <p class="text-muted small">For large version ranges, a representative sample will be shown.</p>
-                        <div class="progress mt-3" style="height: 20px;">
-                            <div id="loading-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                                 role="progressbar" style="width: 0%"></div>
+                    <div class="modal-like-overlay" id="loading" style="display: none; position: fixed; z-index: 1050; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); text-align: center; padding-top: 20%;">
+                        <div class="card shadow mx-auto" style="max-width: 500px; background-color: white;">
+                            <div class="card-body p-4">
+                                <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <h5 class="mb-3">Loading changes between versions...</h5>
+                                <p class="text-muted mb-2">Processing release notes from multiple versions (limited to 20 max).</p>
+                                <p class="text-muted small mb-3">For large version ranges, a representative sample will be shown.</p>
+                                <div class="progress" style="height: 15px;">
+                                    <div id="loading-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -182,10 +186,8 @@ $(document).ready(function() {
                 clearInterval(progressInterval);
                 $('#loading-progress-bar').css('width', '100%');
                 
-                // Hide loading spinner after a slight delay to show 100%
-                setTimeout(function() {
-                    $('#loading').hide();
-                }, 300);
+                // Hide loading spinner immediately
+                $('#loading').hide();
                 
                 if (!response.success) {
                     $('#error-text').text(response.message || 'An error occurred while comparing versions.');
