@@ -63,15 +63,22 @@ docker_available = docker_manager.docker_available
 if not docker_available:
     logger.warning("Docker is not available. Running in demo mode.")
     
-    # Force enable TPC-H catalog in demo mode
+    # Force enable TPC-H and PostgreSQL catalogs in demo mode
     try:
         config = load_config()
+        # Enable TPC-H
         if 'tpch' in config['catalogs']:
             config['catalogs']['tpch']['enabled'] = True
-            save_config(config)
             logger.info("TPC-H catalog enabled for demo mode")
+            
+        # Enable PostgreSQL
+        if 'postgres' in config['catalogs']:
+            config['catalogs']['postgres']['enabled'] = True
+            logger.info("PostgreSQL catalog enabled for demo mode")
+            
+        save_config(config)
     except Exception as e:
-        logger.error(f"Error enabling TPC-H in demo mode: {str(e)}")
+        logger.error(f"Error enabling catalogs in demo mode: {str(e)}")
 else:
     # Check for and clean up stale containers on startup
     try:
@@ -122,6 +129,18 @@ def select_software():
 def trino_dashboard():
     """Main page with Trino cluster status and management and catalog configuration"""
     config = load_config()
+    
+    # Ensure Docker configuration exists
+    if 'docker' not in config:
+        config['docker'] = {
+            'trino_connect_host': 'localhost',
+            'socket_path': '',
+            'auto_pull_images': True,
+            'timeout': 30
+        }
+        # Save the updated config
+        save_config(config)
+        
     cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
     cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
     
@@ -548,12 +567,290 @@ def query_page():
     pre_populated_query = request.args.get('query', '')
     
     return render_template('query.html', 
-                           config=config,
-                           catalogs=catalogs,
-                           cluster1_status=cluster1_status,
-                           cluster2_status=cluster2_status,
-                           docker_available=docker_available,
-                           pre_populated_query=pre_populated_query)
+                          config=config,
+                          catalogs=catalogs,
+                          cluster1_status=cluster1_status,
+                          cluster2_status=cluster2_status,
+                          docker_available=docker_available,
+                          pre_populated_query=pre_populated_query)
+        
+@app.route('/topology')
+def topology():
+    """Interactive network topology visualizer for Trino clusters"""
+    try:
+        # Get configuration
+        config = load_config()
+        
+        # Get cluster status
+        cluster1_running = docker_manager.verify_container_running(config['cluster1']['container_name'])
+        cluster2_running = docker_manager.verify_container_running(config['cluster2']['container_name'])
+        
+        # Prepare data for template
+        return render_template('topology.html', 
+            cluster1_version=config['cluster1']['version'],
+            cluster2_version=config['cluster2']['version'],
+            cluster1_port=config['cluster1']['port'],
+            cluster2_port=config['cluster2']['port'],
+            cluster1_running=cluster1_running,
+            cluster2_running=cluster2_running
+        )
+    except Exception as e:
+        logger.error(f"Error loading topology page: {str(e)}")
+        flash(f"Error: {str(e)}", "danger")
+        return redirect(url_for('trino_dashboard'))
+        
+@app.route('/api/topology')
+def topology_data():
+    """API endpoint to get topology data for visualization"""
+    try:
+        # Get configuration
+        config = load_config()
+        
+        # Initialize data structure for Cytoscape
+        elements = {
+            'nodes': [],
+            'edges': []
+        }
+        
+        # Cluster info for UI updates
+        cluster_info = {
+            'cluster1': {
+                'running': False,
+                'nodeCount': 0,
+                'catalogs': []
+            },
+            'cluster2': {
+                'running': False,
+                'nodeCount': 0,
+                'catalogs': []
+            }
+        }
+        
+        # Check if clusters are running
+        cluster1_running = docker_manager.verify_container_running(config['cluster1']['container_name'])
+        cluster2_running = docker_manager.verify_container_running(config['cluster2']['container_name'])
+        
+        # Set running status in cluster info
+        cluster_info['cluster1']['running'] = cluster1_running
+        cluster_info['cluster2']['running'] = cluster2_running
+        
+        # Define node IDs to track what's been created
+        node_ids = set()
+        
+        # Add cluster nodes
+        for cluster_name in ['cluster1', 'cluster2']:
+            if cluster_name == 'cluster1' and cluster1_running or cluster_name == 'cluster2' and cluster2_running:
+                # Add coordinator node
+                coordinator_id = f"{cluster_name}-coordinator"
+                elements['nodes'].append({
+                    'data': {
+                        'id': coordinator_id,
+                        'label': f"Coordinator\n({config[cluster_name]['version']})",
+                        'nodeType': 'coordinator',
+                        'cluster': f"Trino {config[cluster_name]['version']}",
+                        'version': config[cluster_name]['version'],
+                        'port': config[cluster_name]['port'],
+                        'status': 'Running'
+                    }
+                })
+                node_ids.add(coordinator_id)
+                
+                # Add worker nodes (1-3 for demo)
+                worker_count = 2  # Simplified for demo, should come from actual cluster info
+                
+                for i in range(1, worker_count + 1):
+                    worker_id = f"{cluster_name}-worker-{i}"
+                    elements['nodes'].append({
+                        'data': {
+                            'id': worker_id,
+                            'label': f"Worker {i}\n({config[cluster_name]['version']})",
+                            'nodeType': 'worker',
+                            'cluster': f"Trino {config[cluster_name]['version']}",
+                            'version': config[cluster_name]['version'],
+                            'status': 'Running'
+                        }
+                    })
+                    node_ids.add(worker_id)
+                    
+                    # Add edge from coordinator to worker
+                    elements['edges'].append({
+                        'data': {
+                            'id': f"{coordinator_id}-to-{worker_id}",
+                            'source': coordinator_id,
+                            'target': worker_id,
+                            'edgeType': 'node-connection'
+                        }
+                    })
+                
+                # Update node count in cluster info
+                cluster_info[cluster_name]['nodeCount'] = worker_count + 1  # workers + coordinator
+                
+                # Add catalog nodes for enabled catalogs
+                catalog_list = []
+                for catalog_name, catalog_config in config['catalogs'].items():
+                    if catalog_config.get('enabled', False):
+                        catalog_id = f"{cluster_name}-{catalog_name}"
+                        
+                        # Skip if this node already exists
+                        if catalog_id in node_ids:
+                            continue
+                        
+                        catalog_label = catalog_name
+                        if catalog_name == 'tpch':
+                            catalog_label = "TPC-H"
+                        elif catalog_name == 'tpcds':
+                            catalog_label = "TPC-DS"
+                            
+                        elements['nodes'].append({
+                            'data': {
+                                'id': catalog_id,
+                                'label': catalog_label,
+                                'nodeType': 'catalog',
+                                'catalogType': catalog_name,
+                                'enabled': True,
+                                'connectedTo': cluster_name,
+                                'properties': {
+                                    'host': catalog_config.get('host', 'localhost'),
+                                    'port': catalog_config.get('port', 'default')
+                                }
+                            }
+                        })
+                        node_ids.add(catalog_id)
+                        
+                        # Add edge from coordinator to catalog
+                        elements['edges'].append({
+                            'data': {
+                                'id': f"{coordinator_id}-to-{catalog_id}",
+                                'source': coordinator_id,
+                                'target': catalog_id,
+                                'edgeType': 'catalog-connection'
+                            }
+                        })
+                        
+                        catalog_list.append(catalog_name)
+                        
+                        # Add schema nodes for each catalog (example schemas)
+                        if catalog_name == 'tpch':
+                            schema_id = f"{catalog_id}-sf1"
+                            elements['nodes'].append({
+                                'data': {
+                                    'id': schema_id,
+                                    'label': "sf1",
+                                    'nodeType': 'schema',
+                                    'catalog': catalog_name,
+                                    'tableCount': 8
+                                }
+                            })
+                            node_ids.add(schema_id)
+                            
+                            # Add edge from catalog to schema
+                            elements['edges'].append({
+                                'data': {
+                                    'id': f"{catalog_id}-to-{schema_id}",
+                                    'source': catalog_id,
+                                    'target': schema_id,
+                                    'edgeType': 'schema-connection'
+                                }
+                            })
+                            
+                            # Add some example tables
+                            for table_name in ['customer', 'orders', 'lineitem']:
+                                table_id = f"{schema_id}-{table_name}"
+                                elements['nodes'].append({
+                                    'data': {
+                                        'id': table_id,
+                                        'label': table_name,
+                                        'nodeType': 'table',
+                                        'schema': 'sf1',
+                                        'catalog': catalog_name,
+                                        'columnCount': 8
+                                    }
+                                })
+                                node_ids.add(table_id)
+                                
+                                # Add edge from schema to table
+                                elements['edges'].append({
+                                    'data': {
+                                        'id': f"{schema_id}-to-{table_id}",
+                                        'source': schema_id,
+                                        'target': table_id,
+                                        'edgeType': 'table-connection'
+                                    }
+                                })
+                        elif catalog_name == 'postgres':
+                            schema_id = f"{catalog_id}-public"
+                            elements['nodes'].append({
+                                'data': {
+                                    'id': schema_id,
+                                    'label': "public",
+                                    'nodeType': 'schema',
+                                    'catalog': catalog_name,
+                                    'tableCount': 3
+                                }
+                            })
+                            node_ids.add(schema_id)
+                            
+                            # Add edge from catalog to schema
+                            elements['edges'].append({
+                                'data': {
+                                    'id': f"{catalog_id}-to-{schema_id}",
+                                    'source': catalog_id,
+                                    'target': schema_id,
+                                    'edgeType': 'schema-connection'
+                                }
+                            })
+                            
+                            # Add some example tables
+                            for table_name in ['users', 'products', 'orders']:
+                                table_id = f"{schema_id}-{table_name}"
+                                elements['nodes'].append({
+                                    'data': {
+                                        'id': table_id,
+                                        'label': table_name,
+                                        'nodeType': 'table',
+                                        'schema': 'public',
+                                        'catalog': catalog_name,
+                                        'columnCount': 5
+                                    }
+                                })
+                                node_ids.add(table_id)
+                                
+                                # Add edge from schema to table
+                                elements['edges'].append({
+                                    'data': {
+                                        'id': f"{schema_id}-to-{table_id}",
+                                        'source': schema_id,
+                                        'target': table_id,
+                                        'edgeType': 'table-connection'
+                                    }
+                                })
+                
+                # Update catalogs in cluster info
+                cluster_info[cluster_name]['catalogs'] = catalog_list
+        
+        # Convert node/edge lists to format expected by Cytoscape
+        cytoscape_elements = []
+        for node in elements['nodes']:
+            cytoscape_elements.append(node)
+        for edge in elements['edges']:
+            cytoscape_elements.append(edge)
+            
+        # Return data as JSON
+        return jsonify({
+            'elements': cytoscape_elements,
+            'clusterInfo': cluster_info
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating topology data: {str(e)}")
+        return jsonify({
+            'error': str(e),
+            'elements': [],
+            'clusterInfo': {
+                'cluster1': {'running': False, 'nodeCount': 0, 'catalogs': []},
+                'cluster2': {'running': False, 'nodeCount': 0, 'catalogs': []}
+            }
+        }), 500
 
 @app.route('/run_query', methods=['POST'])
 def run_query():
@@ -796,6 +1093,10 @@ def save_catalog_config():
         cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
         clusters_running = (cluster1_status == 'running' or cluster2_status == 'running')
         
+        # Track if Postgres was enabled
+        postgres_enabled_before = config['catalogs']['postgres']['enabled']
+        postgres_config_changed = False
+        
         # Always enable TPC-H in demo mode or when clusters are running
         if not docker_available or clusters_running:
             config['catalogs']['tpch']['enabled'] = True
@@ -812,6 +1113,65 @@ def save_catalog_config():
                     column_naming = request.form.get('tpch_column_naming', 'SIMPLIFIED')
                     if column_naming in ['SIMPLIFIED', 'STANDARD']:
                         config['catalogs'][catalog]['column_naming'] = column_naming
+                        
+                # Configure PostgreSQL catalog with environment variables if it was just enabled
+                elif catalog == 'postgres':
+                    import os
+                    
+                    # Check if postgres was newly enabled or configuration changed
+                    # If this is the first time enabling PostgreSQL, mark it as a config change
+                    postgres_config_changed = (not postgres_enabled_before)
+                    
+                    # Get settings from environment variables (Replit PostgreSQL database)
+                    host = os.environ.get('PGHOST')
+                    port = os.environ.get('PGPORT')
+                    database = os.environ.get('PGDATABASE')
+                    user = os.environ.get('PGUSER')
+                    password = os.environ.get('PGPASSWORD')
+                    
+                    # Check if all required PostgreSQL environment variables are present
+                    has_all_env_vars = all([host, port, database, user, password])
+                    
+                    if has_all_env_vars:
+                        logger.info("Using PostgreSQL environment variables for Trino catalog configuration")
+                    else:
+                        # Fall back to form values if env vars aren't available
+                        logger.warning("Some PostgreSQL environment variables missing, using form values")
+                        host = request.form.get(f'{catalog}_host', 'localhost')
+                        port = request.form.get(f'{catalog}_port', '5432')
+                        database = request.form.get(f'{catalog}_database', 'postgres')
+                        user = request.form.get(f'{catalog}_user', 'postgres')
+                        password = request.form.get(f'{catalog}_password', '')
+                    
+                    # We need special handling when Docker is available to use host.docker.internal
+                    # This allows containers to access the host's PostgreSQL
+                    if docker_available:
+                        if host == 'localhost' or host == '127.0.0.1':
+                            orig_host = host
+                            host = 'host.docker.internal'
+                            logger.info(f"Docker detected - remapping PostgreSQL host from {orig_host} to {host} for container access")
+                            flash(f'PostgreSQL host automatically remapped from {orig_host} to {host} for container access', 'info')
+                    
+                    # Check if any configuration changed
+                    if (host != config['catalogs'][catalog].get('host') or
+                        port != config['catalogs'][catalog].get('port') or
+                        database != config['catalogs'][catalog].get('database') or
+                        user != config['catalogs'][catalog].get('user') or
+                        password != config['catalogs'][catalog].get('password')):
+                        postgres_config_changed = True
+                    
+                    # Set PostgreSQL configuration from environment variables
+                    config['catalogs'][catalog]['host'] = host
+                    config['catalogs'][catalog]['port'] = port
+                    config['catalogs'][catalog]['database'] = database
+                    config['catalogs'][catalog]['user'] = user
+                    config['catalogs'][catalog]['password'] = password
+                    
+                    logger.info(f"Configured PostgreSQL catalog with host={host}, port={port}, database={database}, user={user}")
+                    
+                    # Log message about auto-configuration
+                    if postgres_config_changed:
+                        flash('PostgreSQL catalog configured using environment variables', 'info')
                 elif catalog == 'hive' or catalog == 'iceberg' or catalog == 'delta-lake':
                     config['catalogs'][catalog]['metastore_host'] = request.form.get(f'{catalog}_metastore_host', 'localhost')
                     config['catalogs'][catalog]['metastore_port'] = request.form.get(f'{catalog}_metastore_port', '9083')
@@ -820,12 +1180,7 @@ def save_catalog_config():
                     config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '3306')
                     config['catalogs'][catalog]['user'] = request.form.get(f'{catalog}_user', 'root')
                     config['catalogs'][catalog]['password'] = request.form.get(f'{catalog}_password', '')
-                elif catalog == 'postgres':
-                    config['catalogs'][catalog]['host'] = request.form.get(f'{catalog}_host', 'localhost')
-                    config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '5432')
-                    config['catalogs'][catalog]['database'] = request.form.get(f'{catalog}_database', 'postgres')
-                    config['catalogs'][catalog]['user'] = request.form.get(f'{catalog}_user', 'postgres')
-                    config['catalogs'][catalog]['password'] = request.form.get(f'{catalog}_password', '')
+                # PostgreSQL catalog is handled in the special case above
                 elif catalog == 'sqlserver':
                     config['catalogs'][catalog]['host'] = request.form.get(f'{catalog}_host', 'localhost')
                     config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '1433')
@@ -854,6 +1209,55 @@ def save_catalog_config():
         
         save_config(config)
         flash('Catalog configuration saved!', 'success')
+        
+        # Restart clusters if Postgres config changed and clusters are running
+        if postgres_config_changed and clusters_running and docker_available:
+            logger.info("PostgreSQL configuration changed. Restarting Trino clusters...")
+            flash('PostgreSQL configuration changed. Restarting Trino clusters...', 'info')
+            
+            try:
+                # Stop clusters
+                docker_manager.stop_trino_cluster(config['cluster1']['container_name'])
+                docker_manager.stop_trino_cluster(config['cluster2']['container_name'])
+                
+                # Start clusters again
+                docker_manager.start_trino_cluster(
+                    config['cluster1']['container_name'],
+                    config['cluster1']['version'],
+                    config['cluster1']['port'],
+                    config['catalogs']
+                )
+                
+                docker_manager.start_trino_cluster(
+                    config['cluster2']['container_name'],
+                    config['cluster2']['version'],
+                    config['cluster2']['port'],
+                    config['catalogs']
+                )
+                
+                # Wait for clusters to initialize
+                time.sleep(5)
+                
+                # Initialize Trino clients using the configured host
+                trino_host = config.get('docker', {}).get('trino_connect_host', 'localhost')
+                trino_clients['cluster1'] = TrinoClient(
+                    host=trino_host,
+                    port=config['cluster1']['port'],
+                    user='trino',
+                    cluster_name=f"Trino {config['cluster1']['version']}"
+                )
+                
+                trino_clients['cluster2'] = TrinoClient(
+                    host=trino_host,
+                    port=config['cluster2']['port'],
+                    user='trino',
+                    cluster_name=f"Trino {config['cluster2']['version']}"
+                )
+                
+                flash('Trino clusters restarted successfully with PostgreSQL catalog!', 'success')
+            except Exception as e:
+                logger.error(f"Error restarting clusters: {str(e)}")
+                flash(f'Error restarting clusters: {str(e)}', 'danger')
     except Exception as e:
         logger.error(f"Error saving catalog configuration: {str(e)}")
         flash(f'Error saving catalog configuration: {str(e)}', 'danger')

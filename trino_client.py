@@ -30,9 +30,24 @@ class TrinoClient:
         if not self.connection:
             logger.debug(f"Creating new connection to {self.cluster_name}")
             try:
+                # Determine the right port to connect based on container name pattern
+                # Our Docker containers use ports 8080 and 8081 internally, while config uses 8001/8002
+                # This mapping ensures we connect to the right ports
+                
+                # Map from config port to actual container port
+                port_mapping = {
+                    8001: 8080,  # Cluster 1 default config port -> actual container port
+                    8002: 8081,  # Cluster 2 default config port -> actual container port
+                }
+                
+                # Use the mapped port if available, otherwise use the original port
+                connect_port = port_mapping.get(self.port, self.port)
+                
+                logger.debug(f"Connecting to Trino at {self.host}:{connect_port} (original port: {self.port})")
+                
                 self.connection = connect(
                     host=self.host,
-                    port=self.port,
+                    port=connect_port,
                     user=self.user,
                     catalog='system',
                     schema='runtime'
@@ -40,6 +55,41 @@ class TrinoClient:
                 logger.info(f"Connected to {self.cluster_name}")
             except Exception as e:
                 logger.error(f"Failed to connect to {self.cluster_name}: {str(e)}")
+                # Try a fallback connection if the first one fails
+                if str(e).find("Connection refused") >= 0:
+                    try:
+                        # Try direct connection to the Docker port shown in the container list
+                        # These are the actual ports shown in the Docker container list
+                        docker_port_mapping = {
+                            # Map from original port to container port based on container name
+                            8001: 8080,  # Cluster 1
+                            8002: 8081,  # Cluster 2
+                        }
+                        
+                        # If connecting to 8080 failed, try 8081 and vice versa
+                        direct_port_fallbacks = {
+                            8080: 8081,
+                            8081: 8080,
+                            8001: 8080,
+                            8002: 8081,
+                        }
+                        
+                        # First try the Docker port based on our naming convention
+                        fallback_port = docker_port_mapping.get(self.port, direct_port_fallbacks.get(self.port, 8080))
+                        
+                        logger.warning(f"Connection failed, trying fallback to port {fallback_port}")
+                        self.connection = connect(
+                            host=self.host,
+                            port=fallback_port,
+                            user=self.user,
+                            catalog='system',
+                            schema='runtime'
+                        )
+                        logger.info(f"Connected to {self.cluster_name} using fallback port {fallback_port}")
+                        return self.connection
+                    except Exception as fallback_e:
+                        logger.error(f"Fallback connection also failed: {str(fallback_e)}")
+                
                 raise ConnectionError(f"Failed to connect to Trino cluster at {self.host}:{self.port}: {str(e)}")
         
         return self.connection
