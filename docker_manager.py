@@ -418,6 +418,14 @@ class DockerManager:
             # Always set different internal HTTP ports for each container to avoid conflicts
             internal_http_port = 8081 if "2" in container_name else 8080
             
+            # Always ensure port is an integer for comparisons
+            try:
+                port = int(port)
+            except (ValueError, TypeError):
+                # If port can't be converted to int, use a safe default
+                logger.warning(f"Invalid port value: {port}, using default port")
+                port = 8081 if "2" in container_name else 8080
+            
             # Also use different external ports for each Trino cluster to avoid conflicts
             # Ensure Trino never uses ports that might conflict with PostgreSQL (5432/5433)
             # First cluster starts at 8080, second at 8081 by default
@@ -457,16 +465,18 @@ class DockerManager:
                                         break
                     
                     # Additional check for containers by expose filter (backup method)
-                    existing_containers = self.client.containers.list(all=True, filters={'expose': f'{port}/tcp'})
+                    # The port must be converted to string for the filter to work properly
+                    existing_containers = self.client.containers.list(all=True, filters={'expose': f'{str(port)}/tcp'})
                     if existing_containers:
                         container_names = [c.name for c in existing_containers if c.name != container_name]
                         if container_names:
                             logger.warning(f"Port {port} is already in use by containers: {', '.join(container_names)}")
                             # Find a free port starting from our default + 10
-                            for test_port in range(port + 10, port + 100):
-                                existing = self.client.containers.list(all=True, filters={'expose': f'{test_port}/tcp'})
+                            for test_port in range(int(port) + 10, int(port) + 100):
+                                # Ensure port is a string for filter
+                                existing = self.client.containers.list(all=True, filters={'expose': f'{str(test_port)}/tcp'})
                                 if not existing:
-                                    port = test_port
+                                    port = test_port  # This is an int
                                     logger.info(f"Using alternative port {port} to avoid conflicts")
                                     break
                 except Exception as e:
