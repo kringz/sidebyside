@@ -1,4 +1,7 @@
 catalogs:
+  tpch:
+    enabled: true
+    column_naming: SIMPLIFIED
   clickhouse:
     enabled: false
     host: localhost
