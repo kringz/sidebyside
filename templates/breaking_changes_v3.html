@@ -231,6 +231,12 @@ $(document).ready(function() {
         $('.spinner-overlay').remove();
         $('.spinner-container').remove();
         
+        // Store the original button text and disable it
+        const $submitButton = $(this).find('button[type="submit"]');
+        const originalButtonHtml = $submitButton.html();
+        $submitButton.html('<i class="fas fa-spinner fa-spin"></i> Loading...');
+        $submitButton.prop('disabled', true);
+        
         // Hide content areas
         $('#results-content').hide();
         $('#error-message').hide();
@@ -238,6 +244,9 @@ $(document).ready(function() {
         
         // Show loading message directly in the UI (not a modal)
         $('#comparison-results').prepend('<div id="inline-loading" class="alert alert-info"><i class="fas fa-sync fa-spin me-2"></i> Loading comparison results...</div>');
+        
+        // Store button for access in callbacks
+        const compareButton = $submitButton;
         
         // Get selected versions
         const fromVersion = $('#from_version').val();
@@ -257,6 +266,10 @@ $(document).ready(function() {
                 
                 // Remove the inline loading message
                 $('#inline-loading').remove();
+                
+                // Restore the submit button to its original state
+                compareButton.html('<i class="fas fa-sync-alt me-2"></i>Compare Versions');
+                compareButton.prop('disabled', false);
                 
                 if (!response.success) {
                     $('#error-text').text(response.message || 'An error occurred while comparing versions.');
@@ -459,6 +472,10 @@ $(document).ready(function() {
                 
                 // Remove the inline loading message
                 $('#inline-loading').remove();
+                
+                // Restore the submit button to its original state
+                compareButton.html('<i class="fas fa-sync-alt me-2"></i>Compare Versions');
+                compareButton.prop('disabled', false);
                 
                 // Show error message
                 $('#error-text').text('Error loading version comparison data: ' + error);
