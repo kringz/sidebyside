@@ -560,6 +560,20 @@ def query_page():
     if not docker_available and 'tpch' in config['catalogs']:
         config['catalogs']['tpch']['enabled'] = True
         
+    # Get list of catalogs
+    catalogs = [catalog for catalog, settings in config['catalogs'].items() if settings['enabled']]
+    
+    # Check if a query is provided in the URL (e.g., when re-running a query from history)
+    pre_populated_query = request.args.get('query', '')
+    
+    return render_template('query.html', 
+                          config=config,
+                          catalogs=catalogs,
+                          cluster1_status=cluster1_status,
+                          cluster2_status=cluster2_status,
+                          docker_available=docker_available,
+                          pre_populated_query=pre_populated_query)
+        
 @app.route('/topology')
 def topology():
     """Interactive network topology visualizer for Trino clusters"""
@@ -837,21 +851,6 @@ def topology_data():
                 'cluster2': {'running': False, 'nodeCount': 0, 'catalogs': []}
             }
         }), 500
-        config['catalogs']['tpch']['enabled'] = True
-        
-    # Get list of catalogs
-    catalogs = [catalog for catalog, settings in config['catalogs'].items() if settings['enabled']]
-    
-    # Check if a query is provided in the URL (e.g., when re-running a query from history)
-    pre_populated_query = request.args.get('query', '')
-    
-    return render_template('query.html', 
-                           config=config,
-                           catalogs=catalogs,
-                           cluster1_status=cluster1_status,
-                           cluster2_status=cluster2_status,
-                           docker_available=docker_available,
-                           pre_populated_query=pre_populated_query)
 
 @app.route('/run_query', methods=['POST'])
 def run_query():
