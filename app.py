@@ -97,10 +97,10 @@ def landing():
     
     # List of available software options
     software_options = [
-        {'id': 'trino', 'name': 'Trino:Trino', 'description': 'Compare different versions of Trino distributed SQL query engine'}
-        # Future options will be added here when they're ready
-        # {'id': 'spark', 'name': 'Spark:Spark', 'description': 'Compare different versions of Apache Spark (Coming Soon)', 'disabled': True},
-        # {'id': 'kafka', 'name': 'Kafka:Kafka', 'description': 'Compare different versions of Apache Kafka (Coming Soon)', 'disabled': True}
+        {'id': 'trino', 'name': 'Trino:Trino', 'description': 'Compare different versions of Trino distributed SQL query engine'},
+        # Future options will be added here
+        {'id': 'spark', 'name': 'Spark:Spark', 'description': 'Compare different versions of Apache Spark (Coming Soon)', 'disabled': True},
+        {'id': 'kafka', 'name': 'Kafka:Kafka', 'description': 'Compare different versions of Apache Kafka (Coming Soon)', 'disabled': True}
     ]
     
     return render_template('landing.html', 
@@ -1762,10 +1762,6 @@ def seed_catalog_compatibility():
 # Register the breaking changes routes (using v2 version)
 from breaking_changes_v2 import register_breaking_changes_routes
 register_breaking_changes_routes(app)
-
-# Register the simple compare blueprint for a clean implementation
-from simple_compare import register_simple_compare
-register_simple_compare(app)
 
 # Initialize application
 # Flask 2.x doesn't have before_first_request anymore

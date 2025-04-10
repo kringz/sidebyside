@@ -4,18 +4,6 @@
 
 {% block scripts %}
 <script>
-// Debug code to log available versions
-console.log("Available versions count: {{ available_versions|length }}");
-{% if available_versions %}
-console.log("First 10 versions: ", [
-    {% for version in available_versions[:10] %}
-        "{{ version.version }}",
-    {% endfor %}
-]);
-{% else %}
-console.log("No versions available");
-{% endif %}
-
 // Completely override the global loading functions to prevent any spinner from appearing
 window.showLoading = function() { 
     console.log("Loading function disabled"); 
