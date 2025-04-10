@@ -1,0 +1,417 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="card-title"><i class="fas fa-exclamation-triangle me-2"></i>Breaking Changes & Feature Comparison</h2>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Compare breaking changes, new features, and important modifications between any two Trino versions.
+                    </div>
+                    
+                    <form id="versionCompareForm" class="mb-4">
+                        <div class="row">
+                            <div class="col-md-5">
+                                <div class="form-group">
+                                    <label for="fromVersion">From Version:</label>
+                                    <select class="form-select" id="fromVersion" name="fromVersion">
+                                        {% for version in available_versions %}
+                                        <option value="{{ version.version }}" {% if version.version == cluster1_version %}selected{% endif %}>{{ version.version }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-center justify-content-center">
+                                <i class="fas fa-arrow-right fa-2x"></i>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="form-group">
+                                    <label for="toVersion">To Version:</label>
+                                    <select class="form-select" id="toVersion" name="toVersion">
+                                        {% for version in available_versions %}
+                                        <option value="{{ version.version }}" {% if version.version == cluster2_version %}selected{% endif %}>{{ version.version }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-grid gap-2 col-md-4 mx-auto mt-3">
+                            <button type="button" id="compareVersionsBtn" class="btn btn-primary">
+                                <i class="fas fa-code-branch me-2"></i>Compare Versions
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div id="comparisonResults" class="mt-4" {% if not comparison_data %}style="display:none"{% endif %}>
+                        <h3>Comparison: <span id="versionRange">{{ from_version }} → {{ to_version }}</span></h3>
+                        
+                        <ul class="nav nav-tabs" id="changesTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="breaking-tab" data-bs-toggle="tab" data-bs-target="#breaking" type="button" role="tab" aria-controls="breaking" aria-selected="true">
+                                    <i class="fas fa-exclamation-circle me-1"></i>Breaking Changes
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="new-features-tab" data-bs-toggle="tab" data-bs-target="#new-features" type="button" role="tab" aria-controls="new-features" aria-selected="false">
+                                    <i class="fas fa-plus-circle me-1"></i>New Features
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="deprecated-tab" data-bs-toggle="tab" data-bs-target="#deprecated" type="button" role="tab" aria-controls="deprecated" aria-selected="false">
+                                    <i class="fas fa-minus-circle me-1"></i>Deprecated/Removed
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="other-tab" data-bs-toggle="tab" data-bs-target="#other" type="button" role="tab" aria-controls="other" aria-selected="false">
+                                    <i class="fas fa-wrench me-1"></i>Other Changes
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content p-3 border border-top-0 rounded-bottom" id="changesTabContent">
+                            <!-- Breaking Changes Tab -->
+                            <div class="tab-pane fade show active" id="breaking" role="tabpanel" aria-labelledby="breaking-tab">
+                                {% if comparison_data and comparison_data.breaking_changes %}
+                                    <div class="list-group">
+                                        {% for change in comparison_data.breaking_changes %}
+                                        <div class="list-group-item">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h5 class="mb-1">{{ change.title }}</h5>
+                                                <small>Version {{ change.version }}</small>
+                                            </div>
+                                            <p class="mb-1">{{ change.description }}</p>
+                                            {% if change.workaround %}
+                                            <div class="alert alert-warning mt-2 mb-0">
+                                                <strong>Workaround:</strong> {{ change.workaround }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-success">
+                                        <i class="fas fa-check-circle me-2"></i>No breaking changes detected between these versions.
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- New Features Tab -->
+                            <div class="tab-pane fade" id="new-features" role="tabpanel" aria-labelledby="new-features-tab">
+                                {% if comparison_data and comparison_data.new_features %}
+                                    <div class="accordion" id="newFeaturesAccordion">
+                                        {% for feature in comparison_data.new_features %}
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="feature-{{ loop.index }}">
+                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                                        data-bs-target="#feature-collapse-{{ loop.index }}" aria-expanded="false" 
+                                                        aria-controls="feature-collapse-{{ loop.index }}">
+                                                    {{ feature.title }} <span class="badge bg-info ms-2">{{ feature.version }}</span>
+                                                </button>
+                                            </h2>
+                                            <div id="feature-collapse-{{ loop.index }}" class="accordion-collapse collapse" 
+                                                 aria-labelledby="feature-{{ loop.index }}" data-bs-parent="#newFeaturesAccordion">
+                                                <div class="accordion-body">
+                                                    <p>{{ feature.description }}</p>
+                                                    {% if feature.example %}
+                                                    <div class="card">
+                                                        <div class="card-header bg-dark text-white">Example</div>
+                                                        <div class="card-body bg-light">
+                                                            <pre class="mb-0"><code>{{ feature.example }}</code></pre>
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>No new features found between these versions.
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Deprecated/Removed Tab -->
+                            <div class="tab-pane fade" id="deprecated" role="tabpanel" aria-labelledby="deprecated-tab">
+                                {% if comparison_data and comparison_data.deprecated_removed %}
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Item</th>
+                                                    <th>Status</th>
+                                                    <th>Version</th>
+                                                    <th>Description</th>
+                                                    <th>Alternative</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for item in comparison_data.deprecated_removed %}
+                                                <tr>
+                                                    <td><code>{{ item.name }}</code></td>
+                                                    <td>
+                                                        <span class="badge {% if item.status == 'Deprecated' %}bg-warning{% else %}bg-danger{% endif %}">
+                                                            {{ item.status }}
+                                                        </span>
+                                                    </td>
+                                                    <td>{{ item.version }}</td>
+                                                    <td>{{ item.description }}</td>
+                                                    <td>{% if item.alternative %}<code>{{ item.alternative }}</code>{% else %}N/A{% endif %}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>No deprecated or removed features found between these versions.
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Other Changes Tab -->
+                            <div class="tab-pane fade" id="other" role="tabpanel" aria-labelledby="other-tab">
+                                {% if comparison_data and comparison_data.other_changes %}
+                                    <div class="list-group">
+                                        {% for change in comparison_data.other_changes %}
+                                        <div class="list-group-item">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h5 class="mb-1">{{ change.title }}</h5>
+                                                <small>Version {{ change.version }}</small>
+                                            </div>
+                                            <p class="mb-1">{{ change.description }}</p>
+                                            {% if change.category %}
+                                            <span class="badge bg-secondary">{{ change.category }}</span>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>No other significant changes found between these versions.
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Loading Spinner -->
+                    <div id="loadingComparison" class="text-center my-5" style="display:none">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Fetching and comparing version information...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Release Notes Links Modal -->
+<div class="modal fade" id="releaseNotesModal" tabindex="-1" aria-labelledby="releaseNotesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="releaseNotesModalLabel">Release Notes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="list-group">
+                    {% for version in available_versions %}
+                    <a href="{{ version.release_notes_url }}" target="_blank" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Version {{ version.version }}</h5>
+                            <small>{{ version.release_date }}</small>
+                        </div>
+                        <p class="mb-1">View release notes on Trino website</p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Handle version comparison form submission
+    $('#compareVersionsBtn').click(function() {
+        const fromVersion = $('#fromVersion').val();
+        const toVersion = $('#toVersion').val();
+        
+        // Show loading spinner
+        $('#comparisonResults').hide();
+        $('#loadingComparison').show();
+        
+        // Make AJAX request to get comparison data
+        $.ajax({
+            url: '{{ url_for("compare_versions") }}',
+            type: 'POST',
+            data: {
+                from_version: fromVersion,
+                to_version: toVersion
+            },
+            dataType: 'json',
+            success: function(response) {
+                // Hide loading spinner
+                $('#loadingComparison').hide();
+                
+                // Update version range display
+                $('#versionRange').text(fromVersion + ' → ' + toVersion);
+                
+                // Populate breaking changes tab
+                if (response.breaking_changes && response.breaking_changes.length > 0) {
+                    let html = '<div class="list-group">';
+                    for (const change of response.breaking_changes) {
+                        html += `
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">${change.title}</h5>
+                                    <small>Version ${change.version}</small>
+                                </div>
+                                <p class="mb-1">${change.description}</p>
+                                ${change.workaround ? 
+                                    `<div class="alert alert-warning mt-2 mb-0">
+                                        <strong>Workaround:</strong> ${change.workaround}
+                                    </div>` : ''}
+                            </div>`;
+                    }
+                    html += '</div>';
+                    $('#breaking').html(html);
+                } else {
+                    $('#breaking').html(`
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>No breaking changes detected between these versions.
+                        </div>`);
+                }
+                
+                // Populate new features tab
+                if (response.new_features && response.new_features.length > 0) {
+                    let html = '<div class="accordion" id="newFeaturesAccordion">';
+                    for (let i = 0; i < response.new_features.length; i++) {
+                        const feature = response.new_features[i];
+                        html += `
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="feature-${i}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                            data-bs-target="#feature-collapse-${i}" aria-expanded="false" 
+                                            aria-controls="feature-collapse-${i}">
+                                        ${feature.title} <span class="badge bg-info ms-2">${feature.version}</span>
+                                    </button>
+                                </h2>
+                                <div id="feature-collapse-${i}" class="accordion-collapse collapse" 
+                                    aria-labelledby="feature-${i}" data-bs-parent="#newFeaturesAccordion">
+                                    <div class="accordion-body">
+                                        <p>${feature.description}</p>
+                                        ${feature.example ? 
+                                            `<div class="card">
+                                                <div class="card-header bg-dark text-white">Example</div>
+                                                <div class="card-body bg-light">
+                                                    <pre class="mb-0"><code>${feature.example}</code></pre>
+                                                </div>
+                                            </div>` : ''}
+                                    </div>
+                                </div>
+                            </div>`;
+                    }
+                    html += '</div>';
+                    $('#new-features').html(html);
+                } else {
+                    $('#new-features').html(`
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>No new features found between these versions.
+                        </div>`);
+                }
+                
+                // Populate deprecated/removed tab
+                if (response.deprecated_removed && response.deprecated_removed.length > 0) {
+                    let html = `
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Status</th>
+                                        <th>Version</th>
+                                        <th>Description</th>
+                                        <th>Alternative</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+                    
+                    for (const item of response.deprecated_removed) {
+                        html += `
+                            <tr>
+                                <td><code>${item.name}</code></td>
+                                <td>
+                                    <span class="badge ${item.status === 'Deprecated' ? 'bg-warning' : 'bg-danger'}">
+                                        ${item.status}
+                                    </span>
+                                </td>
+                                <td>${item.version}</td>
+                                <td>${item.description}</td>
+                                <td>${item.alternative ? `<code>${item.alternative}</code>` : 'N/A'}</td>
+                            </tr>`;
+                    }
+                    
+                    html += `
+                                </tbody>
+                            </table>
+                        </div>`;
+                    $('#deprecated').html(html);
+                } else {
+                    $('#deprecated').html(`
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>No deprecated or removed features found between these versions.
+                        </div>`);
+                }
+                
+                // Populate other changes tab
+                if (response.other_changes && response.other_changes.length > 0) {
+                    let html = '<div class="list-group">';
+                    for (const change of response.other_changes) {
+                        html += `
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">${change.title}</h5>
+                                    <small>Version ${change.version}</small>
+                                </div>
+                                <p class="mb-1">${change.description}</p>
+                                ${change.category ? 
+                                    `<span class="badge bg-secondary">${change.category}</span>` : ''}
+                            </div>`;
+                    }
+                    html += '</div>';
+                    $('#other').html(html);
+                } else {
+                    $('#other').html(`
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>No other significant changes found between these versions.
+                        </div>`);
+                }
+                
+                // Show the results
+                $('#comparisonResults').show();
+            },
+            error: function(xhr, status, error) {
+                // Hide loading spinner
+                $('#loadingComparison').hide();
+                
+                // Show error message
+                alert('Error comparing versions: ' + error);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -8,8 +8,10 @@ import traceback
 from config import load_config, save_config, get_default_config
 from docker_manager import DockerManager
 from trino_client import TrinoClient
-from models import db, QueryHistory, TrinoVersion, CatalogCompatibility
+from models import db, QueryHistory, TrinoVersion, CatalogCompatibility, BreakingChange, FeatureChange
 from datetime import datetime, date
+import requests
+from bs4 import BeautifulSoup
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)

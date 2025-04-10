@@ -100,3 +100,33 @@ class CatalogCompatibility(db.Model):
     
     def __repr__(self):
         return f"<CatalogCompatibility {self.catalog_name}>"
+
+
+class BreakingChange(db.Model):
+    """Model for storing breaking changes between Trino versions"""
+    id = db.Column(db.Integer, primary_key=True)
+    version = db.Column(db.String(20), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    workaround = db.Column(db.Text, nullable=True)
+    component = db.Column(db.String(50), nullable=True)
+    impacts_performance = db.Column(db.Boolean, default=False)
+    impacts_compatibility = db.Column(db.Boolean, default=True)
+    
+    def __repr__(self):
+        return f"<BreakingChange {self.title} in {self.version}>"
+
+
+class FeatureChange(db.Model):
+    """Model for storing feature changes (new, removed, or modified) between Trino versions"""
+    id = db.Column(db.Integer, primary_key=True)
+    version = db.Column(db.String(20), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    change_type = db.Column(db.String(20), nullable=False)  # 'new', 'removed', 'deprecated', 'modified'
+    component = db.Column(db.String(50), nullable=True)
+    example = db.Column(db.Text, nullable=True)
+    alternative = db.Column(db.String(255), nullable=True)  # For removed/deprecated features
+    
+    def __repr__(self):
+        return f"<FeatureChange {self.title} ({self.change_type}) in {self.version}>"
