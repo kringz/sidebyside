@@ -310,8 +310,7 @@ class DockerManager:
                                 f.write("iceberg.catalog.type=rest\n")
                                 f.write(f"iceberg.rest-catalog.uri=http://{iceberg_rest_host}:8181\n")
                                 
-                                # New in 474 - use catalog-level REST configuration
-                                f.write("iceberg.rest-catalog.impersonation.enabled=false\n")
+                                # Only use properties documented/supported for Trino 474+
                                 f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
                                 
                                 # In 474+, S3 credentials need to be provided differently
@@ -332,7 +331,14 @@ class DockerManager:
                                 f.write("s3.aws-access-key=access-key\n")
                                 f.write("s3.aws-secret-key=secret-key\n")
                                 f.write("s3.path-style-access=true\n")
-                                f.write("s3.ssl.enabled=false\n")
+                                # Version 473 specifically doesn't support s3.ssl.enabled
+                                try:
+                                    # Only include this property for versions below 473
+                                    if version_num < 473:
+                                        f.write("s3.ssl.enabled=false\n")
+                                except:
+                                    # In case of an error, omit the property
+                                    pass
                                 f.write("fs.native-s3.enabled=true\n")
                         
                         # For older Trino versions, use the legacy Hive S3 configuration
