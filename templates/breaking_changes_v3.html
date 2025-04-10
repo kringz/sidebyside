@@ -4,11 +4,43 @@
 
 {% block scripts %}
 <script>
-// Disable the spinner from the layout.html
+// Completely override the global loading functions to prevent any spinner from appearing
+window.showLoading = function() { 
+    console.log("Loading function disabled"); 
+    return false; 
+};
+window.hideLoading = function() { 
+    console.log("Hide loading function disabled"); 
+    return false; 
+};
+
+// Remove any existing spinner elements
 $(document).ready(function() {
-    // Hide and disable the spinner overlay from layout.html
+    // Immediately remove all spinner elements
     $('.spinner-overlay').hide();
+    $('.spinner-container').hide();
     $('.spinner-overlay').remove();
+    $('.spinner-container').remove();
+    
+    // Add custom CSS to hide any spinner that might be dynamically added
+    $('<style>')
+        .prop('type', 'text/css')
+        .html(`
+            .spinner-overlay, .spinner-container { 
+                display: none !important; 
+                visibility: hidden !important;
+                opacity: 0 !important;
+                z-index: -1000 !important;
+            }
+        `)
+        .appendTo('head');
+        
+    // Force remove on any form submission
+    $('form').on('submit', function() {
+        $('.spinner-overlay').remove();
+        $('.spinner-container').remove();
+        return true;
+    });
 });
 </script>
 {% endblock %}
@@ -195,10 +227,17 @@ $(document).ready(function() {
     $('#version-comparison-form').on('submit', function(e) {
         e.preventDefault();
         
+        // Make doubly sure no spinner appears
+        $('.spinner-overlay').remove();
+        $('.spinner-container').remove();
+        
         // Hide content areas
         $('#results-content').hide();
         $('#error-message').hide();
         $('#version-range-info').hide();
+        
+        // Show loading message directly in the UI (not a modal)
+        $('#comparison-results').prepend('<div id="inline-loading" class="alert alert-info"><i class="fas fa-sync fa-spin me-2"></i> Loading comparison results...</div>');
         
         // Get selected versions
         const fromVersion = $('#from_version').val();
@@ -215,6 +254,9 @@ $(document).ready(function() {
             success: function(response) {
                 // Debug info
                 console.log("Response received:", response);
+                
+                // Remove the inline loading message
+                $('#inline-loading').remove();
                 
                 if (!response.success) {
                     $('#error-text').text(response.message || 'An error occurred while comparing versions.');
@@ -414,6 +456,9 @@ $(document).ready(function() {
                 console.error("AJAX error:", error);
                 console.error("Status:", status);
                 console.error("Response:", xhr.responseText);
+                
+                // Remove the inline loading message
+                $('#inline-loading').remove();
                 
                 // Show error message
                 $('#error-text').text('Error loading version comparison data: ' + error);
