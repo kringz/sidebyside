@@ -214,7 +214,18 @@ class DockerManager:
                     elif catalog_name == 'postgres':
                         with open(catalog_file_path, "w") as f:
                             f.write("connector.name=postgresql\n")
-                            connection_url = f"jdbc:postgresql://{catalog_config.get('host', 'localhost')}:{catalog_config.get('port', '5432')}/{catalog_config.get('database', 'postgres')}"
+                            
+                            # Use host.docker.internal to allow container to access host's PostgreSQL
+                            # Or use the actual PostgreSQL host from the config if running in a production environment
+                            host = catalog_config.get('host', 'localhost')
+                            
+                            # Replace localhost with host.docker.internal for Docker connectivity to host
+                            if host == 'localhost' or host == '127.0.0.1':
+                                # Use special Docker DNS name to access host services from container
+                                host = 'host.docker.internal'
+                                logger.info(f"Automatically mapping PostgreSQL localhost to {host} for container access")
+                            
+                            connection_url = f"jdbc:postgresql://{host}:{catalog_config.get('port', '5432')}/{catalog_config.get('database', 'postgres')}"
                             f.write(f"connection-url={connection_url}\n")
                             f.write(f"connection-user={catalog_config.get('user', 'postgres')}\n")
                             if catalog_config.get('password'):
@@ -225,15 +236,41 @@ class DockerManager:
             
             # Start Trino container
             logger.info(f"Starting Trino {version} container {container_name} on port {port}...")
-            container = self.client.containers.run(
-                f"trinodb/trino:{version}",
-                name=container_name,
-                ports={'8080/tcp': port},
-                volumes={
-                    config_dir: {'bind': '/etc/trino', 'mode': 'rw'}
-                },
-                detach=True
-            )
+            
+            # Determine network mode based on catalogs
+            # Use host networking if PostgreSQL is enabled to allow direct access to the host's PostgreSQL
+            use_host_network = False
+            if catalogs:  # Check if catalogs is not None
+                for catalog_name, catalog_config in catalogs.items():
+                    if catalog_name == 'postgres' and catalog_config.get('enabled', False):
+                        use_host_network = True
+                        logger.info("PostgreSQL catalog enabled - using host networking for container")
+                        break
+            
+            if use_host_network:
+                # With host networking, the container shares the host's network stack
+                # This allows direct access to host services without port mapping
+                container = self.client.containers.run(
+                    f"trinodb/trino:{version}",
+                    name=container_name,
+                    network_mode="host",  # Use host networking
+                    volumes={
+                        config_dir: {'bind': '/etc/trino', 'mode': 'rw'}
+                    },
+                    detach=True
+                )
+                logger.info(f"Started Trino container with host networking mode for direct PostgreSQL access")
+            else:
+                # Standard networking with port mapping
+                container = self.client.containers.run(
+                    f"trinodb/trino:{version}",
+                    name=container_name,
+                    ports={'8080/tcp': port},
+                    volumes={
+                        config_dir: {'bind': '/etc/trino', 'mode': 'rw'}
+                    },
+                    detach=True
+                )
             
             logger.info(f"Trino container {container_name} started successfully")
             return container

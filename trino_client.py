@@ -30,9 +30,17 @@ class TrinoClient:
         if not self.connection:
             logger.debug(f"Creating new connection to {self.cluster_name}")
             try:
+                # When using host networking mode, we need to connect to the correct port directly
+                # instead of the mapped port. Trino internally runs on 8080 in the container
+                connect_port = self.port
+                
+                # If the port is different from the standard Trino port (8080),
+                # it's probably a mapped port from Docker, so use that
+                logger.debug(f"Connecting to Trino at {self.host}:{connect_port}")
+                
                 self.connection = connect(
                     host=self.host,
-                    port=self.port,
+                    port=connect_port,
                     user=self.user,
                     catalog='system',
                     schema='runtime'
@@ -40,6 +48,23 @@ class TrinoClient:
                 logger.info(f"Connected to {self.cluster_name}")
             except Exception as e:
                 logger.error(f"Failed to connect to {self.cluster_name}: {str(e)}")
+                # Try a fallback connection if the first one fails
+                if str(e).find("Connection refused") >= 0:
+                    try:
+                        fallback_port = 8080 if self.port != 8080 else self.port
+                        logger.warning(f"Connection failed, trying fallback to port {fallback_port}")
+                        self.connection = connect(
+                            host=self.host,
+                            port=fallback_port,
+                            user=self.user,
+                            catalog='system',
+                            schema='runtime'
+                        )
+                        logger.info(f"Connected to {self.cluster_name} using fallback port")
+                        return self.connection
+                    except Exception as fallback_e:
+                        logger.error(f"Fallback connection also failed: {str(fallback_e)}")
+                
                 raise ConnectionError(f"Failed to connect to Trino cluster at {self.host}:{self.port}: {str(e)}")
         
         return self.connection

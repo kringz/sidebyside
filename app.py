@@ -822,14 +822,38 @@ def save_catalog_config():
                     import os
                     
                     # Check if postgres was newly enabled or configuration changed
+                    # If this is the first time enabling PostgreSQL, mark it as a config change
                     postgres_config_changed = (not postgres_enabled_before)
                     
-                    # Get settings from environment or default to form values
-                    host = os.environ.get('PGHOST', request.form.get(f'{catalog}_host', 'localhost'))
-                    port = os.environ.get('PGPORT', request.form.get(f'{catalog}_port', '5432'))
-                    database = os.environ.get('PGDATABASE', request.form.get(f'{catalog}_database', 'postgres'))
-                    user = os.environ.get('PGUSER', request.form.get(f'{catalog}_user', 'postgres'))
-                    password = os.environ.get('PGPASSWORD', request.form.get(f'{catalog}_password', ''))
+                    # Get settings from environment variables (Replit PostgreSQL database)
+                    host = os.environ.get('PGHOST')
+                    port = os.environ.get('PGPORT')
+                    database = os.environ.get('PGDATABASE')
+                    user = os.environ.get('PGUSER')
+                    password = os.environ.get('PGPASSWORD')
+                    
+                    # Check if all required PostgreSQL environment variables are present
+                    has_all_env_vars = all([host, port, database, user, password])
+                    
+                    if has_all_env_vars:
+                        logger.info("Using PostgreSQL environment variables for Trino catalog configuration")
+                    else:
+                        # Fall back to form values if env vars aren't available
+                        logger.warning("Some PostgreSQL environment variables missing, using form values")
+                        host = request.form.get(f'{catalog}_host', 'localhost')
+                        port = request.form.get(f'{catalog}_port', '5432')
+                        database = request.form.get(f'{catalog}_database', 'postgres')
+                        user = request.form.get(f'{catalog}_user', 'postgres')
+                        password = request.form.get(f'{catalog}_password', '')
+                    
+                    # We need special handling when Docker is available to use host.docker.internal
+                    # This allows containers to access the host's PostgreSQL
+                    if docker_available:
+                        if host == 'localhost' or host == '127.0.0.1':
+                            orig_host = host
+                            host = 'host.docker.internal'
+                            logger.info(f"Docker detected - remapping PostgreSQL host from {orig_host} to {host} for container access")
+                            flash(f'PostgreSQL host automatically remapped from {orig_host} to {host} for container access', 'info')
                     
                     # Check if any configuration changed
                     if (host != config['catalogs'][catalog].get('host') or
