@@ -399,7 +399,11 @@ def query_history():
         flash('Database functionality is disabled.', 'warning')
         return redirect(url_for('index'))
         
-    history = QueryHistory.query.order_by(QueryHistory.execution_time.desc()).all()
+    try:
+        history = db.session.query(QueryHistory).order_by(QueryHistory.execution_time.desc()).all()
+    except Exception as e:
+        app.logger.error(f"Error querying history: {str(e)}")
+        history = []
     return render_template('history.html', 
                            history=history,
                            docker_available=docker_available)
@@ -472,7 +476,11 @@ def save_catalog_config():
 # Seed predefined benchmark queries
 def seed_benchmark_queries():
     """Seed predefined benchmark queries for the benchmark playground if none exist"""
-    benchmark_count = BenchmarkQuery.query.count()
+    try:
+        benchmark_count = db.session.query(BenchmarkQuery).count()
+    except Exception as e:
+        app.logger.error(f"Error counting benchmark queries: {str(e)}")
+        benchmark_count = 0
     if benchmark_count == 0:
         logger.info("Seeding benchmark queries...")
         benchmarks = [
@@ -666,14 +674,20 @@ def version_compatibility():
         return redirect(url_for('index'))
     
     try:
-        versions = TrinoVersion.query.order_by(TrinoVersion.version.desc()).all()
-    except AttributeError:
-        # Fix for SQLAlchemy ordering issue
-        versions = TrinoVersion.query.all()
-        # Sort manually 
-        versions = sorted(versions, key=lambda x: x.version, reverse=True) if versions else []
+        versions = db.session.query(TrinoVersion).order_by(TrinoVersion.version.desc()).all()
+    except Exception as e:
+        # Log the error
+        app.logger.error(f"Error querying Trino versions: {str(e)}")
+        # Provide empty results as fallback
+        versions = []
     
-    catalogs = CatalogCompatibility.query.all()
+    try:
+        catalogs = db.session.query(CatalogCompatibility).all()
+    except Exception as e:
+        # Log the error
+        app.logger.error(f"Error querying catalog compatibility: {str(e)}")
+        # Provide empty results as fallback
+        catalogs = []
     
     # Format versions for display
     catalog_data = {}
@@ -754,7 +768,11 @@ def benchmark_playground():
     cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
     
     # Get all benchmark queries
-    benchmarks = BenchmarkQuery.query.filter_by(is_active=True).order_by(BenchmarkQuery.category, BenchmarkQuery.name).all()
+    try:
+        benchmarks = db.session.query(BenchmarkQuery).filter_by(is_active=True).order_by(BenchmarkQuery.category, BenchmarkQuery.name).all()
+    except Exception as e:
+        app.logger.error(f"Error querying benchmark queries: {str(e)}")
+        benchmarks = []
     
     # Group benchmarks by category for easier display
     benchmark_categories = {}
@@ -800,7 +818,11 @@ def run_benchmark():
     
     try:
         # Load the benchmark query
-        benchmark = BenchmarkQuery.query.get(benchmark_id)
+        try:
+            benchmark = db.session.query(BenchmarkQuery).get(benchmark_id)
+        except Exception as e:
+            app.logger.error(f"Error retrieving benchmark query: {str(e)}")
+            benchmark = None
         if not benchmark:
             flash('Benchmark not found', 'warning')
             return redirect(url_for('benchmark_playground'))
@@ -986,7 +1008,11 @@ def benchmark_comparison():
         return redirect(url_for('index'))
     
     # Get all benchmarks
-    benchmarks = BenchmarkQuery.query.all()
+    try:
+        benchmarks = db.session.query(BenchmarkQuery).all()
+    except Exception as e:
+        app.logger.error(f"Error querying benchmarks: {str(e)}")
+        benchmarks = []
     
     # Get version info
     try:
@@ -1055,7 +1081,11 @@ def add_catalog_compatibility():
         notes = request.form.get('notes')
         
         # Check if entry already exists
-        existing_compat = CatalogCompatibility.query.filter_by(catalog_name=catalog_name).first()
+        try:
+            existing_compat = db.session.query(CatalogCompatibility).filter_by(catalog_name=catalog_name).first()
+        except Exception as e:
+            app.logger.error(f"Error querying catalog compatibility: {str(e)}")
+            existing_compat = None
         if existing_compat:
             # Update existing entry
             existing_compat.min_version = min_version
@@ -1089,7 +1119,13 @@ def add_catalog_compatibility():
 
 def seed_version_data():
     """Seed the database with initial version data if it's empty"""
-    if TrinoVersion.query.count() == 0:
+    try:
+        version_count = db.session.query(TrinoVersion).count()
+    except Exception as e:
+        app.logger.error(f"Error counting Trino versions: {str(e)}")
+        version_count = 0
+        
+    if version_count == 0:
         # Add some initial version data
         versions = [
             {
@@ -1166,7 +1202,13 @@ def seed_version_data():
 
 def seed_catalog_compatibility():
     """Seed the database with initial catalog compatibility data if it's empty"""
-    if CatalogCompatibility.query.count() == 0:
+    try:
+        catalog_count = db.session.query(CatalogCompatibility).count()
+    except Exception as e:
+        app.logger.error(f"Error counting catalog compatibility records: {str(e)}")
+        catalog_count = 0
+        
+    if catalog_count == 0:
         # Add some initial catalog compatibility data
         catalog_data = [
             {
