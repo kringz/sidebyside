@@ -35,8 +35,17 @@ def register_breaking_changes_routes(app):
                 logger.info("Fetching all available Trino versions from official website")
                 versions = fetch_all_trino_versions()
                 logger.info(f"Successfully fetched {len(versions)} versions from Trino website")
+                
+                # Print the first 5 versions to debug
+                logger.info(f"First 5 versions: {versions[:5] if len(versions) >= 5 else versions}")
+                
+                # If versions is empty, raise an exception to fall back to the default
+                if not versions:
+                    raise ValueError("No versions fetched from website")
+                    
             except Exception as e:
                 logger.error(f"Error fetching Trino versions: {str(e)}")
+                logger.error(traceback.format_exc())
                 # Fallback to default version range if fetch fails
                 default_versions = range(400, 475)
                 versions = [{"version": str(v)} for v in default_versions]
