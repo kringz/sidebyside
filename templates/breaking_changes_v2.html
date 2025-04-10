@@ -215,66 +215,79 @@ $(document).ready(function() {
                     $('#connector-count').text(response.connector_changes.length);
                     $('#no-connector-changes').hide();
                     
-                    // Group changes by version and category
-                    const groupedChanges = {};
+                    // Group changes by connector category
+                    const groupedByConnector = {};
                     response.connector_changes.forEach(function(change) {
                         const version = change.version;
                         const category = change.category || 'Uncategorized';
                         
-                        if (!groupedChanges[version]) {
-                            groupedChanges[version] = {};
-                        }
-                        if (!groupedChanges[version][category]) {
-                            groupedChanges[version][category] = [];
+                        if (!groupedByConnector[category]) {
+                            groupedByConnector[category] = [];
                         }
                         
-                        groupedChanges[version][category].push(change);
+                        // Add to the connector category group
+                        groupedByConnector[category].push(change);
                     });
                     
-                    // Sort versions in descending order
-                    const sortedVersions = Object.keys(groupedChanges).sort((a, b) => parseInt(b) - parseInt(a));
+                    // Sort connector categories alphabetically
+                    const sortedConnectors = Object.keys(groupedByConnector).sort();
                     
-                    // Create accordion items for each version
-                    sortedVersions.forEach(function(version, vIndex) {
-                        const versionId = `connector-v${version}`;
-                        const versionDiv = $(`
+                    // Create accordion items for each connector
+                    sortedConnectors.forEach(function(connector, cIndex) {
+                        const connectorId = `connector-${connector.toLowerCase().replace(/\s+/g, '-')}`;
+                        const changes = groupedByConnector[connector];
+                        
+                        const connectorDiv = $(`
                             <div class="accordion-item">
-                                <h2 class="accordion-header" id="heading-${versionId}">
+                                <h2 class="accordion-header" id="heading-${connectorId}">
                                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
-                                            data-bs-target="#collapse-${versionId}" aria-expanded="false" aria-controls="collapse-${versionId}">
-                                        <strong>Version ${version}</strong>
+                                            data-bs-target="#collapse-${connectorId}" aria-expanded="false" aria-controls="collapse-${connectorId}">
+                                        <strong>${connector}</strong> <span class="ms-2 badge rounded-pill bg-primary">${changes.length}</span>
                                     </button>
                                 </h2>
-                                <div id="collapse-${versionId}" class="accordion-collapse collapse" 
-                                     aria-labelledby="heading-${versionId}">
+                                <div id="collapse-${connectorId}" class="accordion-collapse collapse" 
+                                     aria-labelledby="heading-${connectorId}">
                                     <div class="accordion-body p-0">
-                                        <div class="list-group list-group-flush" id="categories-${versionId}"></div>
+                                        <ul class="list-group list-group-flush" id="changes-${connectorId}"></ul>
                                     </div>
                                 </div>
                             </div>
                         `);
                         
-                        $('#connector-changes-list').append(versionDiv);
+                        $('#connector-changes-list').append(connectorDiv);
                         
-                        // Add categories and changes
-                        const categories = Object.keys(groupedChanges[version]).sort();
-                        categories.forEach(function(category) {
-                            const changes = groupedChanges[version][category];
+                        // Sort changes by version (descending)
+                        changes.sort((a, b) => parseInt(b.version) - parseInt(a.version));
+                        
+                        // Add each change with its version as a link
+                        changes.forEach(function(change) {
+                            // Create URL for the version's release notes
+                            const baseUrl = "https://trino.io/docs/current/release";
+                            const releaseUrl = `${baseUrl}/release-${change.version}.html`;
                             
-                            const categoryItem = $(`
-                                <div class="list-group-item">
-                                    <h5 class="mb-2">${category}</h5>
-                                    <ul class="list-unstyled mb-0"></ul>
-                                </div>
+                            // Try to create a fragment identifier from the category
+                            let fragmentId = '';
+                            if (connector.toLowerCase() !== 'uncategorized') {
+                                fragmentId = `#${connector.toLowerCase().replace(/\s+/g, '-')}-connector`;
+                            }
+                            
+                            const changeItem = $(`
+                                <li class="list-group-item change-item">
+                                    <div class="d-flex align-items-start">
+                                        <span class="badge bg-secondary me-2 mt-1">v${change.version}</span>
+                                        <div>
+                                            ${change.text}
+                                            <div class="mt-1">
+                                                <a href="${releaseUrl}${fragmentId}" target="_blank" class="small text-muted">
+                                                    <i class="fas fa-external-link-alt me-1"></i>View in release notes
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
                             `);
                             
-                            const changesList = categoryItem.find('ul');
-                            
-                            changes.forEach(function(change) {
-                                changesList.append(`<li class="change-item mb-2">${change.text}</li>`);
-                            });
-                            
-                            $(`#categories-${versionId}`).append(categoryItem);
+                            $(`#changes-${connectorId}`).append(changeItem);
                         });
                     });
                 } else {
@@ -314,6 +327,9 @@ $(document).ready(function() {
                                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
                                             data-bs-target="#collapse-${versionId}" aria-expanded="false" aria-controls="collapse-${versionId}">
                                         <strong>Version ${version}</strong>
+                                        <span class="ms-2 badge rounded-pill bg-secondary">
+                                            ${Object.values(groupedChanges[version]).flat().length} changes
+                                        </span>
                                     </button>
                                 </h2>
                                 <div id="collapse-${versionId}" class="accordion-collapse collapse" 
@@ -342,7 +358,26 @@ $(document).ready(function() {
                             const changesList = categoryItem.find('ul');
                             
                             changes.forEach(function(change) {
-                                changesList.append(`<li class="change-item mb-2">${change.text}</li>`);
+                                // Create URL for the version's release notes
+                                const baseUrl = "https://trino.io/docs/current/release";
+                                const releaseUrl = `${baseUrl}/release-${version}.html`;
+                                
+                                // Create fragment identifier if possible
+                                let fragmentId = '';
+                                if (category.toLowerCase() !== 'uncategorized') {
+                                    fragmentId = `#${category.toLowerCase().replace(/\s+/g, '-')}`;
+                                }
+                                
+                                changesList.append(`
+                                    <li class="change-item mb-2">
+                                        ${change.text}
+                                        <div class="mt-1">
+                                            <a href="${releaseUrl}${fragmentId}" target="_blank" class="small text-muted">
+                                                <i class="fas fa-external-link-alt me-1"></i>View in release notes
+                                            </a>
+                                        </div>
+                                    </li>
+                                `);
                             });
                             
                             $(`#categories-${versionId}`).append(categoryItem);
