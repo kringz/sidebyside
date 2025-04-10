@@ -35,6 +35,10 @@ def get_default_config():
                     'container_name': 'trino2'
                 },
                 'catalogs': {
+                    'tpch': {
+                        'enabled': True,
+                        'column_naming': 'SIMPLIFIED'  # Can be 'SIMPLIFIED' or 'STANDARD'
+                    },
                     'hive': {
                         'enabled': True,
                         'metastore_host': 'localhost',

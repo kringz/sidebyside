@@ -191,6 +191,13 @@ class DockerManager:
                             f.write(f"elasticsearch.port={catalog_config.get('port', '9200')}\n")
                             f.write("elasticsearch.default-schema-name=default\n")
                     
+                    elif catalog_name == 'tpch':
+                        with open(catalog_file_path, "w") as f:
+                            f.write("connector.name=tpch\n")
+                            # Optional configuration for column naming
+                            if catalog_config.get('column_naming'):
+                                f.write(f"tpch.column-naming={catalog_config.get('column_naming')}\n")
+                    
                     logger.info(f"Created catalog config for {catalog_name}")
             
             # Start Trino container
