@@ -69,8 +69,10 @@ def register_breaking_changes_routes(app):
                 'from_version': changes['from_version'],
                 'to_version': changes['to_version'],
                 'versions_checked': changes['versions_checked'],
+                'total_versions': len(changes['versions_checked']),
                 'connector_changes': changes['connector_changes'],
-                'general_changes': changes['general_changes']
+                'general_changes': changes['general_changes'],
+                'processed_count': len(set([change.get('version') for change in changes['connector_changes'] + changes['general_changes']]))
             })
             
         except Exception as e:

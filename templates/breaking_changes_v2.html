@@ -151,9 +151,20 @@ $(document).ready(function() {
         $('#error-message').hide();
         $('#version-range-info').hide();
         
+        // Reset progress bar
+        $('#loading-progress-bar').css('width', '5%');
+        
         // Get selected versions
         const fromVersion = $('#from_version').val();
         const toVersion = $('#to_version').val();
+        
+        // Setup a progress ticker that gradually increases while we wait
+        let progress = 5;
+        const progressInterval = setInterval(function() {
+            progress += 3;
+            if (progress > 90) progress = 90; // Cap at 90% until complete
+            $('#loading-progress-bar').css('width', progress + '%');
+        }, 500);
         
         // Submit form via AJAX
         $.ajax({
@@ -161,8 +172,14 @@ $(document).ready(function() {
             type: 'POST',
             data: $(this).serialize(),
             success: function(response) {
-                // Hide loading spinner
-                $('#loading').hide();
+                // Stop progress ticker and set to 100%
+                clearInterval(progressInterval);
+                $('#loading-progress-bar').css('width', '100%');
+                
+                // Hide loading spinner after a slight delay to show 100%
+                setTimeout(function() {
+                    $('#loading').hide();
+                }, 300);
                 
                 if (!response.success) {
                     $('#error-text').text(response.message || 'An error occurred while comparing versions.');
@@ -170,8 +187,20 @@ $(document).ready(function() {
                     return;
                 }
                 
-                // Update version range info
-                $('#version-range-text').text(`${response.from_version} to ${response.to_version}`);
+                // Update version range info with more details
+                let versionText = `${response.from_version} to ${response.to_version}`;
+                
+                // Show sample information if applicable
+                if (response.total_versions > response.versions_checked.length) {
+                    versionText += ` (sampling ${response.versions_checked.length} of ${response.total_versions} versions)`;
+                } 
+                
+                // Add how many versions actually contained changes
+                if (response.processed_count) {
+                    versionText += `, changes found in ${response.processed_count} version(s)`;
+                }
+                
+                $('#version-range-text').html(versionText);
                 $('#version-range-info').show();
                 
                 // Reset counters and clear content
@@ -328,6 +357,9 @@ $(document).ready(function() {
             },
             error: function(xhr, status, error) {
                 console.error(error);
+                
+                // Stop progress ticker
+                clearInterval(progressInterval);
                 
                 // Hide loading spinner and show error
                 $('#loading').hide();
