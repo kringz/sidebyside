@@ -25,7 +25,13 @@ class QueryHistory(db.Model):
     cluster1_error = db.Column(db.Text, nullable=True)
     cluster2_error = db.Column(db.Text, nullable=True)
     
-    def save_results(self, results, timing, errors):
+    # Store explain plans
+    cluster1_explain = db.Column(db.Text, nullable=True)
+    cluster2_explain = db.Column(db.Text, nullable=True)
+    cluster1_explain_timing = db.Column(db.Float, nullable=True)
+    cluster2_explain_timing = db.Column(db.Float, nullable=True)
+    
+    def save_results(self, results, timing, errors, explain_results=None, explain_timing=None):
         """Save the query execution results"""
         if 'cluster1' in results:
             self.cluster1_results = json.dumps(results['cluster1'])
@@ -47,6 +53,16 @@ class QueryHistory(db.Model):
             self.cluster2_error = errors.get('cluster2')
             self.cluster2_status = 'Error'
         
+        # Save explain plans if provided
+        if explain_results and explain_timing:
+            if 'cluster1' in explain_results:
+                self.cluster1_explain = json.dumps(explain_results['cluster1'])
+                self.cluster1_explain_timing = explain_timing.get('cluster1')
+            
+            if 'cluster2' in explain_results:
+                self.cluster2_explain = json.dumps(explain_results['cluster2'])
+                self.cluster2_explain_timing = explain_timing.get('cluster2')
+        
         # Set status for successful runs
         if not self.cluster1_status and 'cluster1' in results:
             self.cluster1_status = 'Success'
@@ -63,6 +79,18 @@ class QueryHistory(db.Model):
         """Get the cluster2 results as a Python object"""
         if self.cluster2_results:
             return json.loads(self.cluster2_results)
+        return None
+        
+    def get_cluster1_explain(self):
+        """Get the cluster1 explain plan as a Python object"""
+        if self.cluster1_explain:
+            return json.loads(self.cluster1_explain)
+        return None
+        
+    def get_cluster2_explain(self):
+        """Get the cluster2 explain plan as a Python object"""
+        if self.cluster2_explain:
+            return json.loads(self.cluster2_explain)
         return None
 
 
