@@ -117,9 +117,18 @@
 </div>
 {% endblock %}
 
+{% block scripts %}
+<script>
+// Explicitly make sure jQuery is loaded
+if (typeof jQuery === 'undefined') {
+    document.write('<script src="https://code.jquery.com/jquery-3.6.0.min.js"><\/script>');
+}
+</script>
+{% endblock %}
+
 {% block custom_scripts %}
 <script>
-$(document).ready(function() {
+jQuery(document).ready(function($) {
     // Handle form submission
     $('#version-comparison-form').on('submit', function(e) {
         e.preventDefault();

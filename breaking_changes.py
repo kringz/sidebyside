@@ -2,9 +2,20 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 import traceback
 import logging
 import requests
-from bs4 import BeautifulSoup
 import re
+import sys
 from distutils.version import LooseVersion
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# Try to import BeautifulSoup, providing a graceful fallback if not available
+try:
+    from bs4 import BeautifulSoup
+    BEAUTIFULSOUP_AVAILABLE = True
+except ImportError:
+    logger.warning("BeautifulSoup4 is not installed. Web scraping functionality will be limited.")
+    BEAUTIFULSOUP_AVAILABLE = False
 
 from models import db, BreakingChange, FeatureChange, TrinoVersion
 
@@ -181,6 +192,23 @@ def register_breaking_changes_routes(app):
 def fetch_trino_changes(from_version, to_version):
     """Fetch breaking changes and feature differences from Trino website release notes"""
     try:
+        # If BeautifulSoup is not available, return an empty result with a message
+        if not BEAUTIFULSOUP_AVAILABLE:
+            logger.warning("BeautifulSoup4 is not installed. Cannot scrape Trino release notes.")
+            return {
+                'breaking_changes': [{
+                    'version': 'N/A',
+                    'title': 'Web scraping functionality unavailable',
+                    'description': 'The BeautifulSoup4 library is required for scraping release notes. Please install it with pip: pip install beautifulsoup4',
+                    'workaround': 'Install BeautifulSoup4 or manually check release notes at https://trino.io/docs/current/release/',
+                    'component': 'System',
+                    'impacts_performance': False
+                }],
+                'new_features': [],
+                'deprecated_removed': [],
+                'other_changes': []
+            }
+        
         # Base URL for Trino release notes
         base_url = "https://trino.io/docs/current/release"
         

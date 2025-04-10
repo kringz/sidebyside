@@ -47,7 +47,7 @@ call venv\Scripts\activate.bat || (
 echo.
 echo 3. Installing required dependencies...
 pip install --upgrade pip
-pip install flask flask-sqlalchemy gunicorn pyyaml docker trafilatura trino email-validator
+pip install flask flask-sqlalchemy gunicorn pyyaml docker trafilatura trino email-validator beautifulsoup4 requests
 
 echo.
 echo 4. Initializing the database...
