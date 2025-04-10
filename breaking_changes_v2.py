@@ -39,8 +39,8 @@ def register_breaking_changes_routes(app):
         config = app.config.get('CURRENT_CONFIG', {})
         
         # Set default comparison to be between the two configured clusters
-        cluster1_version = config.get('cluster1', {}).get('version', '406')
-        cluster2_version = config.get('cluster2', {}).get('version', '405')
+        cluster1_version = config.get('cluster1', {}).get('version', '403')
+        cluster2_version = config.get('cluster2', {}).get('version', '407')
         
         # Use completely new template with entirely different loading approach
         return render_template('breaking_changes_v3.html',
