@@ -281,6 +281,46 @@ class DockerManager:
                         # Output debug information about the TPC-H catalog creation
                         logger.info(f"Created TPC-H catalog configuration with column naming: {catalog_config.get('column_naming', 'DEFAULT')}")
                     
+                    elif catalog_name == 'iceberg':
+                        with open(catalog_file_path, "w") as f:
+                            f.write("connector.name=iceberg\n")
+                            f.write("iceberg.catalog.type=rest\n")
+                            
+                            # In Docker, the hostname is the container name
+                            if self.docker_available:
+                                iceberg_rest_host = f"iceberg-rest-for-{container_name}"
+                                s3_endpoint = f"http://s3.us-east-1.minio.com:9000"
+                            else:
+                                # In non-Docker mode, use localhost
+                                iceberg_rest_host = catalog_config.get('rest_host', 'localhost')
+                                s3_endpoint = catalog_config.get('s3_endpoint', 'http://localhost:9000')
+                                
+                            f.write(f"iceberg.rest-catalog.uri=http://{iceberg_rest_host}:8181\n")
+                            f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
+                            f.write(f"hive.s3.endpoint={s3_endpoint}\n")
+                            f.write("hive.s3.region=us-east-1\n")
+                            f.write("hive.s3.aws-access-key=access-key\n")
+                            f.write("hive.s3.aws-secret-key=secret-key\n")
+                            
+                            # For Trino 458+, use the native S3 filesystem instead of Hive's S3 impl
+                            version_num = 0
+                            try:
+                                version_num = int(version)
+                            except ValueError:
+                                # If version can't be converted to int, assume older version
+                                pass
+                                
+                            if version_num >= 458:
+                                logger.info(f"Trino version {version} >= 458, using native S3 filesystem properties")
+                                # Update S3 filesystem properties to use native properties
+                                f.write("s3.endpoint={s3_endpoint}\n")
+                                f.write("s3.region=us-east-1\n")
+                                f.write("s3.aws-access-key=access-key\n")
+                                f.write("s3.aws-secret-key=secret-key\n")
+                                f.write("fs.native-s3.enabled=true\n")
+                                
+                        logger.info(f"Created Iceberg catalog configuration at {catalog_file_path}")
+                    
                     # Log that we created the catalog config
                     logger.info(f"Created catalog config for {catalog_name}")
             
@@ -453,6 +493,208 @@ class DockerManager:
                 except Exception as e:
                     logger.error(f"Error starting PostgreSQL container: {str(e)}")
                     # Continue anyway, as we might be able to connect to an existing PostgreSQL instance
+            
+            # Check if Iceberg catalog is enabled
+            use_iceberg = False
+            iceberg_config = None
+            minio_container_name = None
+            iceberg_rest_container_name = None
+            
+            if catalogs_config:  # Check if catalogs_config is not None
+                for catalog_name, catalog_config in catalogs_config.items():
+                    if catalog_name == 'iceberg' and catalog_config.get('enabled', False):
+                        use_iceberg = True
+                        iceberg_config = catalog_config
+                        # Create unique container names based on the Trino container name
+                        iceberg_rest_container_name = f"iceberg-rest-for-{container_name}"
+                        minio_container_name = f"minio-for-{container_name}"
+                        logger.info(f"Iceberg catalog enabled - will use containers {iceberg_rest_container_name} and {minio_container_name}")
+                        break
+            
+            # If Iceberg catalog is enabled, start the necessary containers
+            if use_iceberg and iceberg_config and self.docker_available:
+                try:
+                    # 1. Create a dedicated network for this cluster if it doesn't exist
+                    network_name = f"trino-network-{container_name}"
+                    try:
+                        # Check if the network already exists
+                        try:
+                            existing_network = self.client.networks.get(network_name)
+                            logger.info(f"Using existing Docker network: {network_name}")
+                        except docker.errors.NotFound:
+                            # Create a new network
+                            existing_network = self.client.networks.create(
+                                name=network_name,
+                                driver="bridge",
+                                check_duplicate=True
+                            )
+                            logger.info(f"Created new Docker network: {network_name}")
+                    except Exception as e:
+                        logger.warning(f"Error setting up Docker network: {str(e)}")
+                        network_name = None  # Fall back to default bridge network
+                    
+                    # 2. Start the MinIO container
+                    # First check if container already exists
+                    try:
+                        existing_minio = self.client.containers.get(minio_container_name)
+                        if existing_minio.status != 'running':
+                            logger.info(f"Found non-running MinIO container {minio_container_name}, removing it")
+                            existing_minio.remove(force=True)
+                            existing_minio = None
+                        else:
+                            logger.info(f"MinIO container {minio_container_name} already running")
+                    except docker.errors.NotFound:
+                        existing_minio = None
+                    
+                    # Start MinIO container if needed
+                    if existing_minio is None:
+                        logger.info(f"Starting MinIO container {minio_container_name}")
+                        
+                        minio_env = {
+                            "MINIO_ROOT_USER": "access-key",
+                            "MINIO_ROOT_PASSWORD": "secret-key",
+                            "MINIO_DOMAIN": "s3.us-east-1.minio.com"
+                        }
+                        
+                        # Determine suggested port based on the container name
+                        suggested_minio_port = 9000 if "1" in container_name else 9001
+                        minio_ports = {
+                            '9000/tcp': suggested_minio_port,  # S3 API port
+                            '9003/tcp': suggested_minio_port + 3  # Console port
+                        }
+                        
+                        # Add network aliases for virtual-style paths
+                        network_config = {}
+                        if network_name:
+                            network_config = {
+                                network_name: {
+                                    "aliases": ["sample-bucket.s3.us-east-1.minio.com"]
+                                }
+                            }
+                        
+                        minio_options = {
+                            "name": minio_container_name,
+                            "environment": minio_env,
+                            "ports": minio_ports,
+                            "detach": True,
+                            "command": "server --address :9000 --console-address :9003 /data",
+                            "volumes": {
+                                f"{minio_container_name}-data": {"bind": "/data", "mode": "rw"}
+                            },
+                            "restart_policy": {"Name": "on-failure", "MaximumRetryCount": 5}
+                        }
+                        
+                        # Add network configuration if available
+                        if network_name:
+                            minio_options["networks"] = network_config
+                        
+                        # Start MinIO container
+                        minio_container = self.client.containers.run(
+                            "minio/minio:latest",
+                            **minio_options
+                        )
+                        
+                        logger.info(f"Started MinIO container {minio_container_name}")
+                        time.sleep(2)  # Give it a moment to start up
+                    
+                    # 3. Start the bucket creation container
+                    bucket_creator_name = f"create-buckets-for-{container_name}"
+                    try:
+                        existing_creator = self.client.containers.get(bucket_creator_name)
+                        logger.info(f"Bucket creator container {bucket_creator_name} already exists, removing it")
+                        existing_creator.remove(force=True)
+                    except docker.errors.NotFound:
+                        pass
+                    
+                    # Start a new bucket creation container
+                    bucket_creator_cmd = (
+                        "/bin/sh -c '"
+                        "mc alias set minio http://%s:9000 access-key secret-key && "
+                        "mc mb minio/sample-bucket/wh/ && "
+                        "echo \"MinIO bucket created successfully\" && "
+                        "tail -f /dev/null'"
+                    ) % minio_container_name
+                    
+                    logger.info(f"Starting bucket creator container with command: {bucket_creator_cmd}")
+                    
+                    bucket_creator_options = {
+                        "name": bucket_creator_name,
+                        "detach": True,
+                        "remove": True,  # Remove container when it exits
+                        "entrypoint": "/bin/sh",
+                        "command": ["-c", bucket_creator_cmd.replace("'", "")]
+                    }
+                    
+                    # Add to network if available
+                    if network_name:
+                        bucket_creator_options["network"] = network_name
+                    
+                    bucket_creator = self.client.containers.run(
+                        "minio/mc:latest",
+                        **bucket_creator_options
+                    )
+                    
+                    logger.info(f"Started bucket creator container {bucket_creator_name}")
+                    time.sleep(5)  # Give MinIO time to start and the bucket to be created
+                    
+                    # 4. Start Iceberg REST service container
+                    try:
+                        existing_iceberg = self.client.containers.get(iceberg_rest_container_name)
+                        if existing_iceberg.status != 'running':
+                            logger.info(f"Found non-running Iceberg REST container {iceberg_rest_container_name}, removing it")
+                            existing_iceberg.remove(force=True)
+                            existing_iceberg = None
+                        else:
+                            logger.info(f"Iceberg REST container {iceberg_rest_container_name} already running")
+                    except docker.errors.NotFound:
+                        existing_iceberg = None
+                    
+                    # Start Iceberg REST container if needed
+                    if existing_iceberg is None:
+                        logger.info(f"Starting Iceberg REST container {iceberg_rest_container_name}")
+                        
+                        iceberg_env = {
+                            "AWS_ACCESS_KEY_ID": "access-key",
+                            "AWS_SECRET_ACCESS_KEY": "secret-key",
+                            "AWS_REGION": "us-east-1",
+                            "CATALOG_URI": "jdbc:sqlite:/home/iceberg/iceberg.db",
+                            "CATALOG_WAREHOUSE": "s3://sample-bucket/wh/",
+                            "CATALOG_IO__IMPL": "org.apache.iceberg.aws.s3.S3FileIO",
+                            "CATALOG_S3_ENDPOINT": f"http://{minio_container_name}:9000"
+                        }
+                        
+                        # Determine a suggested port based on the container name
+                        suggested_iceberg_port = 8181 if "1" in container_name else 8182
+                        
+                        iceberg_options = {
+                            "name": iceberg_rest_container_name,
+                            "environment": iceberg_env,
+                            "ports": {'8181/tcp': suggested_iceberg_port},
+                            "detach": True,
+                            "volumes": {
+                                f"{iceberg_rest_container_name}-metadata": {"bind": "/home/iceberg", "mode": "rw"}
+                            },
+                            "restart_policy": {"Name": "on-failure", "MaximumRetryCount": 5}
+                        }
+                        
+                        # Add to network if available
+                        if network_name:
+                            iceberg_options["network"] = network_name
+                        
+                        # Start Iceberg REST container
+                        iceberg_container = self.client.containers.run(
+                            "tabulario/iceberg-rest:latest",
+                            **iceberg_options
+                        )
+                        
+                        logger.info(f"Started Iceberg REST container {iceberg_rest_container_name}")
+                        time.sleep(5)  # Give it time to initialize
+                    
+                    logger.info(f"Iceberg containers set up successfully for Trino cluster {container_name}")
+                    
+                except Exception as e:
+                    logger.error(f"Error setting up Iceberg containers: {str(e)}")
+                    # Continue anyway, as we might be able to connect to existing Iceberg services
             
             # Always set different internal HTTP ports for each container to avoid conflicts
             internal_http_port = 8081 if "2" in container_name else 8080
