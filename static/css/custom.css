@@ -41,25 +41,18 @@
     font-weight: 500;
 }
 
-/* Button loading state */
+/* Button loading state - DISABLED globally */
 .btn-loading {
     position: relative;
-    color: transparent !important;
+    /* Removed: color: transparent !important; */
 }
 
-.btn-loading::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 1em;
-    height: 1em;
-    margin-top: -0.5em;
-    margin-left: -0.5em;
-    border: 2px solid var(--bs-light);
-    border-radius: 50%;
-    border-right-color: transparent;
-    animation: spin 0.75s linear infinite;
+.btn-loading::after,
+.btn-loading::before {
+    /* Completely disable all loading animations */
+    display: none !important;
+    content: none !important;
+    animation: none !important;
 }
 
 @keyframes spin {
@@ -157,4 +150,21 @@ pre code {
 /* Make catalog section stand out more */
 .card-header.bg-primary {
     background-color: var(--bs-primary) !important;
+}
+
+/* Override for Compare Versions button to ensure no spinning */
+#compare-versions-btn {
+    color: #fff !important; /* Always keep text visible */
+}
+
+#compare-versions-btn.btn-loading {
+    color: #fff !important; /* Double override to ensure text visibility */
+    opacity: 1 !important;
+}
+
+#compare-versions-btn.btn-loading::after,
+#compare-versions-btn.btn-loading::before {
+    display: none !important;
+    content: none !important;
+    animation: none !important;
 }
