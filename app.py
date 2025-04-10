@@ -1763,6 +1763,10 @@ def seed_catalog_compatibility():
 from breaking_changes_v2 import register_breaking_changes_routes
 register_breaking_changes_routes(app)
 
+# Register the simple compare blueprint for a clean implementation
+from simple_compare import register_simple_compare
+register_simple_compare(app)
+
 # Initialize application
 # Flask 2.x doesn't have before_first_request anymore
 # Use with app.app_context() instead
