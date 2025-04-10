@@ -48,12 +48,12 @@
                 
                 <!-- Cluster Configuration Section -->
                 <div class="card-body border-top">
-                    <h4><i class="fas fa-server me-2"></i>Cluster Configuration</h4>
+                    <h4 class="card-title"><i class="fas fa-server me-2"></i>Cluster Configuration</h4>
                     <form action="{{ url_for('save_configuration') }}" method="post" class="mb-4" id="configForm" data-loading-message="Saving configuration...">
                         <!-- Docker Configuration Section -->
                         <div class="card mb-4">
-                            <div class="card-header">
-                                <h5 class="mb-0">Docker Settings</h5>
+                            <div class="card-header bg-dark text-white">
+                                <h5 class="mb-0"><i class="fab fa-docker me-2"></i>Docker Connection Settings</h5>
                             </div>
                             <div class="card-body">
                                 <div class="row">
