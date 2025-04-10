@@ -64,8 +64,13 @@ catalogs:
 cluster1:
   container_name: trino1
   port: 8001
-  version: '405'
+  version: '443'
 cluster2:
   container_name: trino2
   port: 8002
-  version: '406'
+  version: '469'
+docker:
+  auto_pull_images: false
+  socket_path: ''
+  timeout: 30
+  trino_connect_host: localhost
