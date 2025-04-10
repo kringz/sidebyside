@@ -72,6 +72,16 @@ if not docker_available:
             logger.info("TPC-H catalog enabled for demo mode")
     except Exception as e:
         logger.error(f"Error enabling TPC-H in demo mode: {str(e)}")
+else:
+    # Check for and clean up stale containers on startup
+    try:
+        config = load_config()
+        container_names = [config['cluster1']['container_name'], config['cluster2']['container_name']]
+        cleaned_containers = docker_manager.cleanup_stale_containers(container_names)
+        if cleaned_containers:
+            logger.info(f"Cleaned up stale containers on startup: {', '.join(cleaned_containers)}")
+    except Exception as e:
+        logger.error(f"Error checking for stale containers on startup: {str(e)}")
 
 # Initialize Trino clients (will be set up when clusters are started)
 trino_clients = {
@@ -114,6 +124,18 @@ def trino_dashboard():
     config = load_config()
     cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
     cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
+    
+    # Verify containers are truly running if they report as running
+    if docker_available:
+        if cluster1_status == 'running' and not docker_manager.verify_container_running(config['cluster1']['container_name']):
+            logger.warning(f"Container {config['cluster1']['container_name']} reports as running but is not functional")
+            flash(f"Container {config['cluster1']['container_name']} reports as running but might not be functional. Consider restarting.", 'warning')
+            # Don't change status here, but show warning to user
+            
+        if cluster2_status == 'running' and not docker_manager.verify_container_running(config['cluster2']['container_name']):
+            logger.warning(f"Container {config['cluster2']['container_name']} reports as running but is not functional")
+            flash(f"Container {config['cluster2']['container_name']} reports as running but might not be functional. Consider restarting.", 'warning')
+            # Don't change status here, but show warning to user
     
     # Get available Trino images if Docker is available
     available_trino_images = []
@@ -461,6 +483,33 @@ def stop_clusters():
         trino_clients['cluster2'] = None
         
         flash('Both Trino clusters stopped successfully!', 'success')
+    except Exception as e:
+        logger.error(f"Error stopping clusters: {str(e)}")
+        flash(f'Error stopping clusters: {str(e)}', 'danger')
+    
+    return redirect(url_for('trino_dashboard'))
+
+@app.route('/clean_shutdown', methods=['POST'])
+def clean_shutdown():
+    """Perform a clean shutdown of Trino clusters before app exit"""
+    try:
+        config = load_config()
+        
+        # Attempt to stop both clusters gracefully
+        if docker_available:
+            logger.info("Performing clean shutdown of all Trino clusters...")
+            docker_manager.stop_trino_cluster(config['cluster1']['container_name'])
+            docker_manager.stop_trino_cluster(config['cluster2']['container_name'])
+            
+            # Reset Trino clients
+            trino_clients['cluster1'] = None
+            trino_clients['cluster2'] = None
+            
+            flash('Clean shutdown completed. All Trino clusters have been stopped.', 'success')
+        else:
+            flash('Docker is not available, no cleanup needed.', 'info')
+            
+        return redirect(url_for('trino_dashboard'))
     except Exception as e:
         logger.error(f"Error stopping clusters: {str(e)}")
         flash(f'Error stopping clusters: {str(e)}', 'danger')
