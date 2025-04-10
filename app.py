@@ -4,11 +4,15 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 import yaml
 import time
 import traceback
+import json
 
 from config import load_config, save_config, get_default_config
 from docker_manager import DockerManager
 from trino_client import TrinoClient
-from models import db, QueryHistory, TrinoVersion, CatalogCompatibility, BreakingChange, FeatureChange
+from models import (
+    db, QueryHistory, TrinoVersion, CatalogCompatibility, 
+    BreakingChange, FeatureChange, BenchmarkQuery, BenchmarkResult
+)
 from datetime import datetime, date
 from breaking_changes import register_breaking_changes_routes
 
@@ -464,6 +468,195 @@ def save_catalog_config():
         flash(f'Error saving catalog configuration: {str(e)}', 'danger')
     
     return redirect(url_for('index'))
+
+# Seed predefined benchmark queries
+def seed_benchmark_queries():
+    """Seed predefined benchmark queries for the benchmark playground if none exist"""
+    benchmark_count = BenchmarkQuery.query.count()
+    if benchmark_count == 0:
+        logger.info("Seeding benchmark queries...")
+        benchmarks = [
+            {
+                'name': 'Simple SELECT',
+                'description': 'A simple SELECT query with a filter',
+                'query_text': 'SELECT * FROM tpch.tiny.customer WHERE nationkey = 1 LIMIT 10',
+                'category': 'Basic',
+                'complexity': 'Simple',
+                'expected_runtime': 0.5
+            },
+            {
+                'name': 'Aggregation',
+                'description': 'GROUP BY aggregation query',
+                'query_text': 'SELECT nationkey, count(*) FROM tpch.tiny.customer GROUP BY nationkey ORDER BY nationkey',
+                'category': 'Aggregation',
+                'complexity': 'Simple',
+                'expected_runtime': 1.0
+            },
+            {
+                'name': 'Simple Join',
+                'description': 'Basic join between customer and orders',
+                'query_text': 'SELECT c.name, o.orderkey, o.orderdate FROM tpch.tiny.customer c JOIN tpch.tiny.orders o ON c.custkey = o.custkey LIMIT 20',
+                'category': 'Join',
+                'complexity': 'Medium',
+                'expected_runtime': 1.5
+            },
+            {
+                'name': 'Window Function',
+                'description': 'Query with window functions for analytics',
+                'query_text': 'SELECT orderkey, clerk, totalprice, rank() OVER (PARTITION BY clerk ORDER BY totalprice DESC) as price_rank FROM tpch.tiny.orders LIMIT 100',
+                'category': 'Window Function',
+                'complexity': 'Medium',
+                'expected_runtime': 2.0
+            },
+            {
+                'name': 'Complex Join',
+                'description': 'Multi-table join with aggregation',
+                'query_text': '''
+                    SELECT
+                        n.name as nation,
+                        r.name as region,
+                        count(c.custkey) as customer_count,
+                        sum(o.totalprice) as total_sales
+                    FROM
+                        tpch.tiny.customer c
+                        JOIN tpch.tiny.orders o ON c.custkey = o.custkey
+                        JOIN tpch.tiny.nation n ON c.nationkey = n.nationkey
+                        JOIN tpch.tiny.region r ON n.regionkey = r.regionkey
+                    GROUP BY
+                        n.name, r.name
+                    ORDER BY
+                        total_sales DESC
+                ''',
+                'category': 'Join',
+                'complexity': 'Complex',
+                'expected_runtime': 3.0
+            },
+            {
+                'name': 'Subquery',
+                'description': 'Query with a subquery in the WHERE clause',
+                'query_text': '''
+                    SELECT c.name, c.custkey, c.nationkey
+                    FROM tpch.tiny.customer c
+                    WHERE c.custkey IN (
+                        SELECT o.custkey
+                        FROM tpch.tiny.orders o
+                        WHERE o.totalprice > 150000
+                    )
+                    LIMIT 20
+                ''',
+                'category': 'Subquery',
+                'complexity': 'Medium',
+                'expected_runtime': 2.5
+            },
+            {
+                'name': 'Advanced Aggregation',
+                'description': 'Query with multiple aggregations and HAVING clause',
+                'query_text': '''
+                    SELECT
+                        l.suppkey,
+                        sum(l.extendedprice) as total_price,
+                        avg(l.extendedprice) as avg_price,
+                        count(*) as item_count
+                    FROM
+                        tpch.tiny.lineitem l
+                    GROUP BY
+                        l.suppkey
+                    HAVING
+                        count(*) > 300
+                    ORDER BY
+                        total_price DESC
+                    LIMIT 10
+                ''',
+                'category': 'Aggregation',
+                'complexity': 'Complex',
+                'expected_runtime': 2.5
+            },
+            {
+                'name': 'Date Functions',
+                'description': 'Query with date and time functions',
+                'query_text': '''
+                    SELECT
+                        year(o.orderdate) as order_year,
+                        month(o.orderdate) as order_month,
+                        count(*) as order_count,
+                        sum(o.totalprice) as monthly_sales
+                    FROM
+                        tpch.tiny.orders o
+                    GROUP BY
+                        year(o.orderdate),
+                        month(o.orderdate)
+                    ORDER BY
+                        order_year, order_month
+                ''',
+                'category': 'Date Functions',
+                'complexity': 'Medium',
+                'expected_runtime': 1.5
+            },
+            {
+                'name': 'Common Table Expression (CTE)',
+                'description': 'Query using a CTE for improved readability',
+                'query_text': '''
+                    WITH high_value_orders AS (
+                        SELECT custkey, count(*) as order_count
+                        FROM tpch.tiny.orders
+                        WHERE totalprice > 150000
+                        GROUP BY custkey
+                    )
+                    SELECT
+                        c.name,
+                        c.nationkey,
+                        hvo.order_count
+                    FROM
+                        tpch.tiny.customer c
+                        JOIN high_value_orders hvo ON c.custkey = hvo.custkey
+                    ORDER BY
+                        hvo.order_count DESC
+                    LIMIT 10
+                ''',
+                'category': 'CTE',
+                'complexity': 'Complex',
+                'expected_runtime': 2.0
+            },
+            {
+                'name': 'Nested Subqueries',
+                'description': 'Complex query with nested subqueries',
+                'query_text': '''
+                    SELECT
+                        s.name as supplier,
+                        n.name as nation,
+                        (
+                            SELECT avg(ps.supplycost)
+                            FROM tpch.tiny.partsupp ps
+                            WHERE ps.suppkey = s.suppkey
+                        ) as avg_cost,
+                        (
+                            SELECT count(*)
+                            FROM tpch.tiny.lineitem l
+                            WHERE l.suppkey = s.suppkey
+                        ) as lineitem_count
+                    FROM
+                        tpch.tiny.supplier s
+                        JOIN tpch.tiny.nation n ON s.nationkey = n.nationkey
+                    ORDER BY
+                        lineitem_count DESC
+                    LIMIT 10
+                ''',
+                'category': 'Subquery',
+                'complexity': 'Complex',
+                'expected_runtime': 3.5
+            }
+        ]
+        
+        for benchmark_data in benchmarks:
+            benchmark = BenchmarkQuery(**benchmark_data)
+            db.session.add(benchmark)
+        
+        db.session.commit()
+        logger.info(f"Added {len(benchmarks)} benchmark queries to the database")
+        return len(benchmarks)
+    
+    return benchmark_count
+
 
 @app.route('/version_compatibility')
 def version_compatibility():
