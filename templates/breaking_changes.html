@@ -41,6 +41,8 @@
                 </form>
                 
                 <div id="comparison-results" class="mt-4">
+                    <!-- Initial instructions will be added here via JavaScript -->
+                    
                     <div class="text-center py-5" id="loading" style="display: none;">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading...</span>
@@ -126,6 +128,9 @@ jQuery(document).ready(function($) {
     // Handle form submission
     $('#version-comparison-form').on('submit', function(e) {
         e.preventDefault();
+        
+        // Remove initial instructions
+        $('#initial-instructions').remove();
         
         // Show loading spinner
         $('#loading').show();
@@ -335,8 +340,14 @@ jQuery(document).ready(function($) {
         });
     });
     
-    // Auto-submit on page load to show the initial comparison
-    $('#version-comparison-form').submit();
+    // Removed auto-submit to prevent automatic loading
+    // Add an initial message to guide users
+    $('#comparison-results').prepend(
+        '<div class="alert alert-info" id="initial-instructions">' +
+        '<i class="fas fa-info-circle me-2"></i>' +
+        'Select Trino versions and click "Compare" to see differences between versions.' +
+        '</div>'
+    );
 });
 </script>
 {% endblock %}
