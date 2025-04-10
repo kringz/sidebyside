@@ -197,6 +197,8 @@ class DockerManager:
                             # Optional configuration for column naming
                             if catalog_config.get('column_naming'):
                                 f.write(f"tpch.column-naming={catalog_config.get('column_naming')}\n")
+                            # Output debug information about the TPC-H catalog creation
+                            logger.info(f"Created TPC-H catalog configuration with column naming: {catalog_config.get('column_naming', 'DEFAULT')}")
                     
                     logger.info(f"Created catalog config for {catalog_name}")
             

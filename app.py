@@ -354,6 +354,12 @@ def run_query():
     # Demo mode for query execution when Docker is not available
     is_demo_mode = not docker_available
     if is_demo_mode:
+        # Ensure TPC-H is enabled in demo mode for TPC-H queries
+        if 'tpch' in query.lower() and 'tpch' in config['catalogs']:
+            config['catalogs']['tpch']['enabled'] = True
+            save_config(config)
+            logger.info("Enabled TPC-H catalog for demo mode query")
+        
         flash('Running in demo mode. Query results will be simulated for demonstration purposes.', 'info')
         
     try:
@@ -849,6 +855,12 @@ def benchmark_playground():
         return redirect(url_for('index'))
     
     config = load_config()
+    
+    # Ensure TPC-H is enabled for benchmarks, as all benchmark queries use TPC-H
+    if 'tpch' in config['catalogs'] and not config['catalogs']['tpch']['enabled']:
+        config['catalogs']['tpch']['enabled'] = True
+        save_config(config)
+        logger.info("Enabled TPC-H catalog for benchmark playground")
     cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
     cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
     
