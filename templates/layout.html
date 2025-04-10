@@ -18,6 +18,16 @@
     {% block custom_styles %}{% endblock %}
 </head>
 <body>
+    <!-- Loading Spinner Overlay (hidden by default) -->
+    <div class="spinner-overlay">
+        <div class="spinner-container">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="spinner-message" id="loading-message">Loading...</div>
+        </div>
+    </div>
+    
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
