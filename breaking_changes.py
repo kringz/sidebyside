@@ -4,6 +4,8 @@ import logging
 import requests
 import re
 import sys
+import json
+import datetime
 
 # Simple version comparison function to replace LooseVersion
 def version_compare(v1, v2):
@@ -59,7 +61,7 @@ try:
 except ImportError:
     logger.warning("BeautifulSoup4 is not installed. Web scraping functionality will be limited.")
 
-from models import db, BreakingChange, FeatureChange, TrinoVersion
+from models import db, BreakingChange, FeatureChange, TrinoVersion, VersionComparison
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -95,7 +97,7 @@ def register_breaking_changes_routes(app):
             })
         
         try:
-            # Convert version strings to LooseVersion for proper comparison
+            # Convert version strings for proper comparison
             from_v = from_version
             to_v = to_version
             
@@ -104,7 +106,18 @@ def register_breaking_changes_routes(app):
                 from_version, to_version = to_version, from_version
                 from_v, to_v = to_v, from_v
             
-            # Query the database for breaking changes between these versions
+            # First, check if we have a cached comparison result for these versions
+            force_refresh = request.form.get('force_refresh', 'false').lower() == 'true'
+            cached_comparison = None if force_refresh else VersionComparison.query.filter_by(
+                from_version=from_version, 
+                to_version=to_version
+            ).first()
+            
+            if cached_comparison and cached_comparison.is_cache_valid():
+                logger.info(f"Using cached version comparison results for {from_version} to {to_version}")
+                return jsonify(cached_comparison.get_comparison_results())
+            
+            # No valid cache found, proceed with database lookup
             breaking_changes = BreakingChange.query.filter(
                 BreakingChange.version >= from_version,
                 BreakingChange.version <= to_version
@@ -123,6 +136,7 @@ def register_breaking_changes_routes(app):
             
             # If we don't have data in the database for these versions, fetch it from the Trino website
             if not breaking_changes and not feature_changes:
+                logger.info(f"Fetching version comparison data for {from_version} to {to_version} from external source")
                 # Fetch data from Trino website
                 changes_data = fetch_trino_changes(from_version, to_version)
                 
@@ -169,8 +183,23 @@ def register_breaking_changes_routes(app):
                         component=change.get('category')
                     )
                     db.session.add(db_change)
+                
+                # Store the comparison result in the cache
+                if cached_comparison:
+                    # Update existing cache entry
+                    cached_comparison.set_comparison_results(changes_data)
+                    cached_comparison.cached_at = datetime.datetime.utcnow()
+                else:
+                    # Create new cache entry
+                    cached_comparison = VersionComparison(
+                        from_version=from_version,
+                        to_version=to_version,
+                        comparison_results=json.dumps(changes_data)
+                    )
+                    db.session.add(cached_comparison)
                     
                 db.session.commit()
+                logger.info(f"Cached version comparison results for {from_version} to {to_version}")
                 
                 # Use the fetched data directly in the response
                 return jsonify(changes_data)
@@ -219,6 +248,23 @@ def register_breaking_changes_routes(app):
                     for feature in other_changes
                 ]
             }
+            
+            # Store the comparison result in the cache
+            if cached_comparison:
+                # Update existing cache entry
+                cached_comparison.set_comparison_results(result)
+                cached_comparison.cached_at = datetime.datetime.utcnow()
+            else:
+                # Create new cache entry
+                cached_comparison = VersionComparison(
+                    from_version=from_version,
+                    to_version=to_version,
+                    comparison_results=json.dumps(result)
+                )
+                db.session.add(cached_comparison)
+                
+            db.session.commit()
+            logger.info(f"Cached version comparison results for {from_version} to {to_version}")
             
             return jsonify(result)
             

@@ -146,6 +146,43 @@ class BreakingChange(db.Model):
         return f"<BreakingChange {self.title} in {self.version}>"
 
 
+class VersionComparison(db.Model):
+    """Model for storing cached version comparison results"""
+    id = db.Column(db.Integer, primary_key=True)
+    from_version = db.Column(db.String(20), nullable=False)
+    to_version = db.Column(db.String(20), nullable=False)
+    
+    # Store the comparison results as JSON
+    comparison_results = db.Column(db.Text, nullable=False)
+    
+    # When this comparison was cached
+    cached_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Cache expiry/validity in days (0 means no expiry)
+    cache_valid_days = db.Column(db.Integer, default=30)
+    
+    def get_comparison_results(self):
+        """Get the comparison results as a Python object"""
+        if self.comparison_results:
+            return json.loads(self.comparison_results)
+        return {}
+    
+    def set_comparison_results(self, results):
+        """Set the comparison results from a Python object"""
+        self.comparison_results = json.dumps(results)
+    
+    def is_cache_valid(self):
+        """Check if the cached results are still valid"""
+        if self.cache_valid_days == 0:
+            return True  # No expiry
+        
+        cache_age = datetime.utcnow() - self.cached_at
+        return cache_age.days < self.cache_valid_days
+    
+    def __repr__(self):
+        return f"<VersionComparison {self.from_version} to {self.to_version}>"
+
+
 class FeatureChange(db.Model):
     """Model for storing feature changes (new, removed, or modified) between Trino versions"""
     id = db.Column(db.Integer, primary_key=True)
