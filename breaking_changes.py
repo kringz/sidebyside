@@ -262,7 +262,7 @@ def fetch_trino_changes(from_version, to_version):
         for major in range(3, 5):  # 300-499
             for minor in range(0, 10):
                 version = f"{major}{minor}0"
-                if version_compare(from_version, version) <= 0 <= LooseVersion(to_version):
+                if version_compare(from_version, version) <= 0 and version_compare(version, to_version) <= 0:
                     versions.append(version)
         
         # Add specific versions not captured by the pattern above
@@ -275,7 +275,7 @@ def fetch_trino_changes(from_version, to_version):
                         "410", "411", "412", "413", "414", "415", "416", "417", "418", "419"]
         
         for version in specific_versions:
-            if version_compare(from_version, version) <= 0 <= LooseVersion(to_version):
+            if version_compare(from_version, version) <= 0 and version_compare(version, to_version) <= 0:
                 if version not in versions:
                     versions.append(version)
         
@@ -300,7 +300,8 @@ def fetch_trino_changes(from_version, to_version):
                 if response.status_code == 200:
                     # Parse the HTML content - import BeautifulSoup only when needed
                     try:
-                        
+                        # Import BeautifulSoup only when needed
+                        from bs4 import BeautifulSoup
                         soup = BeautifulSoup(response.text, 'html.parser')
                     except ImportError:
                         # Use dummy implementation if import fails
