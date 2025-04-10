@@ -48,6 +48,13 @@ catalogs:
     database: postgres
     enabled: true
     host: localhost
+    password: ''
+    port: '5432'
+    user: postgres
+  postgresql:
+    database: postgres
+    enabled: true
+    host: localhost
     password: postgres
     port: '5432'
     user: postgres
