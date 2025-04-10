@@ -149,13 +149,20 @@ class DockerManager:
             # Create necessary directories
             os.makedirs(f"{config_dir}/catalog", exist_ok=True)
             
-            # Create Trino config files
+            # Create Trino config files with different internal HTTP ports based on container
+            # Use 8080 for first container and 8081 for second to avoid port conflicts
+            internal_http_port = 8080
+            if "2" in container_name:
+                internal_http_port = 8081
+                
             with open(f"{config_dir}/config.properties", "w") as f:
                 f.write("coordinator=true\n")
                 f.write("node-scheduler.include-coordinator=true\n")
-                f.write("http-server.http.port=8080\n")
+                f.write(f"http-server.http.port={internal_http_port}\n")
                 f.write("discovery-server.enabled=true\n")
-                f.write("discovery.uri=http://localhost:8080\n")
+                f.write(f"discovery.uri=http://localhost:{internal_http_port}\n")
+                
+            logger.info(f"Configured Trino {container_name} with internal HTTP port {internal_http_port}")
             
             # Create JVM config
             with open(f"{config_dir}/jvm.config", "w") as f:
@@ -250,6 +257,9 @@ class DockerManager:
             if use_host_network:
                 # With host networking, the container shares the host's network stack
                 # This allows direct access to host services without port mapping
+                # Note: With host networking, we still need to use different internal HTTP ports
+                # Otherwise the second container will fail to start (port conflict)
+                internal_http_port = 8081 if "2" in container_name else 8080
                 container = self.client.containers.run(
                     f"trinodb/trino:{version}",
                     name=container_name,
@@ -259,13 +269,14 @@ class DockerManager:
                     },
                     detach=True
                 )
-                logger.info(f"Started Trino container with host networking mode for direct PostgreSQL access")
+                logger.info(f"Started Trino container {container_name} with host networking mode using internal port {internal_http_port}")
             else:
                 # Standard networking with port mapping
+                # Use the same internal HTTP port determined earlier when creating config files
                 container = self.client.containers.run(
                     f"trinodb/trino:{version}",
                     name=container_name,
-                    ports={'8080/tcp': port},
+                    ports={f'{internal_http_port}/tcp': port},
                     volumes={
                         config_dir: {'bind': '/etc/trino', 'mode': 'rw'}
                     },
