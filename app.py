@@ -981,6 +981,10 @@ def benchmark_playground():
 @app.route('/run_benchmark', methods=['POST'])
 def run_benchmark():
     """Run a benchmark query and record results"""
+    import threading
+    import queue
+    import random
+    
     if not DATABASE_URL:
         flash('Database functionality is disabled. Benchmarking requires database access.', 'warning')
         return redirect(url_for('benchmarks'))
@@ -1025,9 +1029,15 @@ def run_benchmark():
             cluster2_config=json.dumps(config['cluster2'])
         )
         
-        # Run the query on both clusters (if running)
-        for cluster_name in ['cluster1', 'cluster2']:
+        # Create thread-safe queue for collecting results from both clusters
+        result_queue = queue.Queue()
+        
+        # Define worker function to execute benchmark query
+        def execute_benchmark_query(cluster_name):
             container_name = config[cluster_name]['container_name']
+            cluster_result = {
+                'cluster_name': cluster_name
+            }
             
             # Handle demo mode for TPC-H queries specially
             if is_demo_mode and 'tpch' in benchmark.query_text.lower():
@@ -1057,15 +1067,23 @@ def run_benchmark():
                         }
                     }
                     
-                    # Save results
-                    results[cluster_name] = query_results
-                    timing[cluster_name] = end_time - start_time
+                    # Add results to the dictionary
+                    cluster_result['result'] = query_results
+                    cluster_result['timing'] = end_time - start_time
+                    cluster_result['status'] = 'Success'
+                    cluster_result['row_count'] = len(query_results.get('rows', []))
                     
-                    # Set status to success
-                    if cluster_name == 'cluster1':
-                        benchmark_result.cluster1_status = 'Success'
-                    else:
-                        benchmark_result.cluster2_status = 'Success'
+                    # Add CPU time and memory usage
+                    stats = query_results['stats']
+                    cluster_result['cpu_time'] = stats.get('cpu_time_ms', 0) / 1000.0  # Convert to seconds
+                    cluster_result['memory_usage'] = stats.get('peak_memory_bytes', 0) / (1024 * 1024)  # Convert to MB
+                    
+                    # Add timing details
+                    cluster_result['timing_details'] = {
+                        'planning_time': stats.get('planning_time_ms', 0) / 1000.0,
+                        'execution_time': stats.get('execution_time_ms', 0) / 1000.0,
+                        'queued_time': stats.get('queued_time_ms', 0) / 1000.0
+                    }
                 else:
                     # For other TPC-H queries, create generic results
                     query_results = {
@@ -1080,15 +1098,23 @@ def run_benchmark():
                         }
                     }
                     
-                    # Save results
-                    results[cluster_name] = query_results
-                    timing[cluster_name] = end_time - start_time
+                    # Add results to the dictionary
+                    cluster_result['result'] = query_results
+                    cluster_result['timing'] = end_time - start_time
+                    cluster_result['status'] = 'Success'
+                    cluster_result['row_count'] = len(query_results.get('rows', []))
                     
-                    # Set status to success
-                    if cluster_name == 'cluster1':
-                        benchmark_result.cluster1_status = 'Success'
-                    else:
-                        benchmark_result.cluster2_status = 'Success'
+                    # Add CPU time and memory usage
+                    stats = query_results['stats']
+                    cluster_result['cpu_time'] = stats.get('cpu_time_ms', 0) / 1000.0
+                    cluster_result['memory_usage'] = stats.get('peak_memory_bytes', 0) / (1024 * 1024)
+                    
+                    # Add timing details
+                    cluster_result['timing_details'] = {
+                        'planning_time': stats.get('planning_time_ms', 0) / 1000.0,
+                        'execution_time': stats.get('execution_time_ms', 0) / 1000.0,
+                        'queued_time': stats.get('queued_time_ms', 0) / 1000.0
+                    }
             elif docker_manager.get_container_status(container_name) == 'running':
                 if trino_clients[cluster_name]:
                     try:
@@ -1097,81 +1123,90 @@ def run_benchmark():
                         query_results = trino_clients[cluster_name].execute_query(benchmark.query_text)
                         end_time = time.time()
                         
-                        # Save results
-                        results[cluster_name] = query_results
-                        timing[cluster_name] = end_time - start_time
-                        
-                        # Extract row count
-                        row_counts[cluster_name] = len(query_results.get('rows', []))
+                        # Add results to the dictionary
+                        cluster_result['result'] = query_results
+                        cluster_result['timing'] = end_time - start_time
+                        cluster_result['status'] = 'Success'
+                        cluster_result['row_count'] = len(query_results.get('rows', []))
                         
                         # Try to extract CPU time and memory usage from query stats if available
                         if 'stats' in query_results:
                             stats = query_results['stats']
-                            cpu_time[cluster_name] = stats.get('cpu_time_ms', 0) / 1000.0  # Convert to seconds
-                            memory_usage[cluster_name] = stats.get('peak_memory_bytes', 0) / (1024 * 1024)  # Convert to MB
+                            cluster_result['cpu_time'] = stats.get('cpu_time_ms', 0) / 1000.0  # Convert to seconds
+                            cluster_result['memory_usage'] = stats.get('peak_memory_bytes', 0) / (1024 * 1024)  # Convert to MB
                             
-                            # Capture detailed timing for planning vs execution
-                            timing_details[cluster_name] = {
+                            # Add timing details
+                            cluster_result['timing_details'] = {
                                 'planning_time': stats.get('planning_time_ms', 0) / 1000.0,
                                 'execution_time': stats.get('execution_time_ms', 0) / 1000.0,
                                 'queued_time': stats.get('queued_time_ms', 0) / 1000.0
                             }
-                        
-                        # Set status to success
-                        if cluster_name == 'cluster1':
-                            benchmark_result.cluster1_status = 'Success'
-                        else:
-                            benchmark_result.cluster2_status = 'Success'
-                            
                     except Exception as e:
                         logger.error(f"Error executing benchmark on {cluster_name}: {str(e)}")
-                        errors[cluster_name] = str(e)
-                        
-                        # Set status to error
-                        if cluster_name == 'cluster1':
-                            benchmark_result.cluster1_status = 'Error'
-                            benchmark_result.cluster1_error = str(e)
-                        else:
-                            benchmark_result.cluster2_status = 'Error'
-                            benchmark_result.cluster2_error = str(e)
+                        cluster_result['error'] = str(e)
+                        cluster_result['status'] = 'Error'
                 else:
-                    errors[cluster_name] = "Trino client not initialized"
-                    if cluster_name == 'cluster1':
-                        benchmark_result.cluster1_status = 'Error'
-                        benchmark_result.cluster1_error = "Trino client not initialized"
-                    else:
-                        benchmark_result.cluster2_status = 'Error'
-                        benchmark_result.cluster2_error = "Trino client not initialized"
+                    cluster_result['error'] = "Trino client not initialized"
+                    cluster_result['status'] = 'Error'
             else:
-                errors[cluster_name] = "Cluster not running"
+                cluster_result['error'] = "Cluster not running"
+                cluster_result['status'] = 'Error'
+                
+            # Put the result in the queue
+            result_queue.put(cluster_result)
+            
+        # Create and start threads for each cluster to execute queries in parallel
+        threads = []
+        for cluster_name in ['cluster1', 'cluster2']:
+            thread = threading.Thread(target=execute_benchmark_query, args=(cluster_name,))
+            thread.start()
+            threads.append(thread)
+        
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
+        
+        # Collect results from the queue
+        while not result_queue.empty():
+            result = result_queue.get()
+            cluster_name = result['cluster_name']
+            
+            if 'error' in result:
+                errors[cluster_name] = result['error']
                 if cluster_name == 'cluster1':
                     benchmark_result.cluster1_status = 'Error'
-                    benchmark_result.cluster1_error = "Cluster not running"
+                    benchmark_result.cluster1_error = result['error']
                 else:
                     benchmark_result.cluster2_status = 'Error'
-                    benchmark_result.cluster2_error = "Cluster not running"
-        
-        # Save timing and resource usage metrics
-        if 'cluster1' in timing:
-            benchmark_result.cluster1_timing = timing['cluster1']
-        if 'cluster2' in timing:
-            benchmark_result.cluster2_timing = timing['cluster2']
-        if 'cluster1' in cpu_time:
-            benchmark_result.cluster1_cpu_time = cpu_time['cluster1']
-        if 'cluster2' in cpu_time:
-            benchmark_result.cluster2_cpu_time = cpu_time['cluster2']
-        if 'cluster1' in memory_usage:
-            benchmark_result.cluster1_memory_usage = memory_usage['cluster1']
-        if 'cluster2' in memory_usage:
-            benchmark_result.cluster2_memory_usage = memory_usage['cluster2']
-        if 'cluster1' in row_counts:
-            benchmark_result.cluster1_row_count = row_counts['cluster1']
-        if 'cluster2' in row_counts:
-            benchmark_result.cluster2_row_count = row_counts['cluster2']
-        if 'cluster1' in timing_details:
-            benchmark_result.cluster1_timing_details = json.dumps(timing_details['cluster1'])
-        if 'cluster2' in timing_details:
-            benchmark_result.cluster2_timing_details = json.dumps(timing_details['cluster2'])
+                    benchmark_result.cluster2_error = result['error']
+            else:
+                # Store the results
+                results[cluster_name] = result['result']
+                timing[cluster_name] = result['timing']
+                
+                # Update the benchmark result with status
+                if cluster_name == 'cluster1':
+                    benchmark_result.cluster1_status = result['status']
+                    benchmark_result.cluster1_timing = result['timing']
+                    if 'row_count' in result:
+                        benchmark_result.cluster1_row_count = result['row_count']
+                    if 'cpu_time' in result:
+                        benchmark_result.cluster1_cpu_time = result['cpu_time']
+                    if 'memory_usage' in result:
+                        benchmark_result.cluster1_memory_usage = result['memory_usage']
+                    if 'timing_details' in result:
+                        benchmark_result.cluster1_timing_details = json.dumps(result['timing_details'])
+                else:
+                    benchmark_result.cluster2_status = result['status']
+                    benchmark_result.cluster2_timing = result['timing']
+                    if 'row_count' in result:
+                        benchmark_result.cluster2_row_count = result['row_count']
+                    if 'cpu_time' in result:
+                        benchmark_result.cluster2_cpu_time = result['cpu_time']
+                    if 'memory_usage' in result:
+                        benchmark_result.cluster2_memory_usage = result['memory_usage']
+                    if 'timing_details' in result:
+                        benchmark_result.cluster2_timing_details = json.dumps(result['timing_details'])
         
         # Save results to the database
         db.session.add(benchmark_result)
