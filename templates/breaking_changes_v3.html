@@ -2,6 +2,17 @@
 
 {% block title %}Trino Version Changes Comparison{% endblock %}
 
+{% block scripts %}
+<script>
+// Disable the spinner from the layout.html
+$(document).ready(function() {
+    // Hide and disable the spinner overlay from layout.html
+    $('.spinner-overlay').hide();
+    $('.spinner-overlay').remove();
+});
+</script>
+{% endblock %}
+
 {% block header_css %}
 <style>
     .version-select-container {
@@ -180,23 +191,9 @@
 {% block custom_scripts %}
 <script>
 $(document).ready(function() {
-    // Loading overlay functions completely removed
-    function showLoadingOverlay() {
-        console.log("Loading functionality removed");
-        // Do nothing - loading overlay removed
-    }
-    
-    function hideLoadingOverlay() {
-        console.log("Loading functionality removed");
-        // Do nothing - loading overlay removed
-    }
-    
-    // Handle form submission
+    // Handle form submission - completely rebuilt without any loading overlay
     $('#version-comparison-form').on('submit', function(e) {
         e.preventDefault();
-        
-        // Show loading overlay
-        showLoadingOverlay();
         
         // Hide content areas
         $('#results-content').hide();
@@ -209,8 +206,6 @@ $(document).ready(function() {
         
         console.log("Form submitted with versions:", fromVersion, "to", toVersion);
         
-        // Progress indicators removed
-        
         // Submit form via AJAX
         $.ajax({
             url: $(this).attr('action'),
@@ -220,13 +215,6 @@ $(document).ready(function() {
             success: function(response) {
                 // Debug info
                 console.log("Response received:", response);
-                
-                // Progress indicators removed
-                
-                // Hide loading overlay after a short delay
-                setTimeout(function() {
-                    hideLoadingOverlay();
-                }, 300);
                 
                 if (!response.success) {
                     $('#error-text').text(response.message || 'An error occurred while comparing versions.');
@@ -426,11 +414,6 @@ $(document).ready(function() {
                 console.error("AJAX error:", error);
                 console.error("Status:", status);
                 console.error("Response:", xhr.responseText);
-                
-                // Progress indicators removed
-                
-                // Hide loading overlay
-                hideLoadingOverlay();
                 
                 // Show error message
                 $('#error-text').text('Error loading version comparison data: ' + error);
