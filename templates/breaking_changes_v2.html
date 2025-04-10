@@ -149,8 +149,10 @@ $(document).ready(function() {
     $('#version-comparison-form').on('submit', function(e) {
         e.preventDefault();
         
-        // Show loading spinner
-        $('#loading').show();
+        // Show loading spinner and debug loading elements
+        console.log("Loading elements count:", $('[id="loading"]').length);
+        console.log("DOM loading elements:", document.querySelectorAll('#loading'));
+        $('[id="loading"]').show();
         $('#results-content').hide();
         $('#error-message').hide();
         $('#version-range-info').hide();
