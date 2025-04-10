@@ -58,6 +58,33 @@
                             Available tables: customer, orders, lineitem, part, partsupp, supplier, nation, region
                         </div>
                         {% endif %}
+                        
+                        {% if 'postgres' in catalogs %}
+                        <div class="alert alert-info mt-2">
+                            <strong>PostgreSQL Usage:</strong> To query PostgreSQL data, use the format <code>postgres.schema.tablename</code>, for example:
+                            <ul class="mb-0">
+                                <li><code>SELECT * FROM postgres.information_schema.tables LIMIT 5</code></li>
+                                <li><code>SHOW SCHEMAS FROM postgres</code></li>
+                            </ul>
+                            You can explore available schemas and tables using the example queries below.
+                        </div>
+                        {% endif %}
+                        
+                        {% if 'mysql' in catalogs or 'mariadb' in catalogs or 'hive' in catalogs or 'elasticsearch' in catalogs or 'iceberg' in catalogs or 'delta-lake' in catalogs or 'clickhouse' in catalogs %}
+                        <div class="alert alert-info mt-2">
+                            <strong>Other Catalogs:</strong> Use the connector name as a schema prefix to query other data sources:
+                            <ul class="mb-0">
+                                {% if 'mysql' in catalogs %}<li><code>SHOW SCHEMAS FROM mysql</code></li>{% endif %}
+                                {% if 'mariadb' in catalogs %}<li><code>SHOW SCHEMAS FROM mariadb</code></li>{% endif %}
+                                {% if 'hive' in catalogs %}<li><code>SHOW TABLES FROM hive.default</code></li>{% endif %}
+                                {% if 'elasticsearch' in catalogs %}<li><code>SHOW TABLES FROM elasticsearch</code></li>{% endif %}
+                                {% if 'iceberg' in catalogs %}<li><code>SHOW TABLES FROM iceberg.default</code></li>{% endif %}
+                                {% if 'delta-lake' in catalogs %}<li><code>SHOW TABLES FROM delta.default</code></li>{% endif %}
+                                {% if 'clickhouse' in catalogs %}<li><code>SELECT * FROM clickhouse.system.tables LIMIT 10</code></li>{% endif %}
+                            </ul>
+                            <small class="text-muted">Click on any example query below to load it into the query editor.</small>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 
@@ -117,6 +144,81 @@
                                         FROM tpch.tiny.customer c 
                                         JOIN tpch.tiny.orders o ON c.custkey = o.custkey 
                                         LIMIT 10
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if 'postgres' in catalogs %}
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW TABLES FROM postgres
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW SCHEMAS FROM postgres
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SELECT * FROM postgres.information_schema.tables LIMIT 10
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SELECT table_schema, table_name 
+                                        FROM postgres.information_schema.tables 
+                                        WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+                                        ORDER BY table_schema, table_name
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if 'mysql' in catalogs %}
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW TABLES FROM mysql
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SELECT * FROM mysql.information_schema.tables LIMIT 10
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if 'hive' in catalogs %}
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW SCHEMAS FROM hive
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW TABLES FROM hive.default
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if 'elasticsearch' in catalogs %}
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW TABLES FROM elasticsearch
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SELECT * FROM elasticsearch.default.indices LIMIT 10
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if 'iceberg' in catalogs %}
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW SCHEMAS FROM iceberg
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW TABLES FROM iceberg.default
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if 'delta-lake' in catalogs %}
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW SCHEMAS FROM delta
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW TABLES FROM delta.default
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if 'clickhouse' in catalogs %}
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW SCHEMAS FROM clickhouse
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SHOW TABLES FROM clickhouse.system
+                                    </button>
+                                    <button type="button" class="list-group-item list-group-item-action example-query">
+                                        SELECT * FROM clickhouse.system.tables LIMIT 10
                                     </button>
                                     {% endif %}
                                 </div>
