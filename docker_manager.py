@@ -209,6 +209,35 @@ class DockerManager:
                             f.write(f"elasticsearch.port={catalog_config.get('port', '9200')}\n")
                             f.write("elasticsearch.default-schema-name=default\n")
                     
+                    elif catalog_name == 'postgres':
+                        # Special handling for PostgreSQL with our dedicated container
+                        host = catalog_config.get('host', 'localhost')
+                        port = catalog_config.get('port', '5432')
+                        user = catalog_config.get('user', 'postgres')
+                        password = catalog_config.get('password', 'postgres')
+                        database = catalog_config.get('database', 'postgres')
+                        
+                        # If we have a dedicated PostgreSQL container for this Trino cluster,
+                        # use its container_name and port
+                        if postgres_container_name and "1" in container_name:
+                            # For the first Trino cluster (trino1), use the first PostgreSQL container
+                            host = postgres_container_name
+                            logger.info(f"Updated PostgreSQL connection for {container_name} to use container {host}")
+                        elif postgres_container_name and "2" in container_name:
+                            # For the second Trino cluster (trino2), use the second PostgreSQL container
+                            host = postgres_container_name
+                            logger.info(f"Updated PostgreSQL connection for {container_name} to use container {host}")
+                                
+                        # Create the PostgreSQL catalog config
+                        with open(catalog_file_path, "w") as f:
+                            f.write("connector.name=postgresql\n")
+                            # Note: Inside Docker containers, we need to use the Docker container name as the hostname
+                            f.write(f"connection-url=jdbc:postgresql://{host}:{port}/{database}\n")
+                            f.write(f"connection-user={user}\n")
+                            f.write(f"connection-password={password}\n")
+                        
+                        logger.info(f"Created PostgreSQL catalog configuration with host {host}")
+                        
                     elif catalog_name == 'tpch':
                         with open(catalog_file_path, "w") as f:
                             f.write("connector.name=tpch\n")
@@ -218,42 +247,77 @@ class DockerManager:
                             # Output debug information about the TPC-H catalog creation
                             logger.info(f"Created TPC-H catalog configuration with column naming: {catalog_config.get('column_naming', 'DEFAULT')}")
                     
-                    elif catalog_name == 'postgres':
-                        with open(catalog_file_path, "w") as f:
-                            f.write("connector.name=postgresql\n")
-                            
-                            # Use host.docker.internal to allow container to access host's PostgreSQL
-                            # Or use the actual PostgreSQL host from the config if running in a production environment
-                            host = catalog_config.get('host', 'localhost')
-                            
-                            # Replace localhost with host.docker.internal for Docker connectivity to host
-                            if host == 'localhost' or host == '127.0.0.1':
-                                # Use special Docker DNS name to access host services from container
-                                host = 'host.docker.internal'
-                                logger.info(f"Automatically mapping PostgreSQL localhost to {host} for container access")
-                            
-                            connection_url = f"jdbc:postgresql://{host}:{catalog_config.get('port', '5432')}/{catalog_config.get('database', 'postgres')}"
-                            f.write(f"connection-url={connection_url}\n")
-                            f.write(f"connection-user={catalog_config.get('user', 'postgres')}\n")
-                            if catalog_config.get('password'):
-                                f.write(f"connection-password={catalog_config.get('password')}\n")
-                            logger.info(f"Created PostgreSQL catalog configuration with connection URL: {connection_url}")
+
 
                     logger.info(f"Created catalog config for {catalog_name}")
             
             # Start Trino container
             logger.info(f"Starting Trino {version} container {container_name} on port {port}...")
             
-            # For PostgreSQL access, we'll map host.docker.internal to access the host's PostgreSQL
-            # We don't need host networking mode anymore since we're using explicit port mapping
-            # for consistent container port visibility in Docker
+            # Check if PostgreSQL catalog is enabled
             use_postgres = False
+            postgres_config = None
             if catalogs_config:  # Check if catalogs_config is not None
                 for catalog_name, catalog_config in catalogs_config.items():
                     if catalog_name == 'postgres' and catalog_config.get('enabled', False):
                         use_postgres = True
-                        logger.info("PostgreSQL catalog enabled - container will use host.docker.internal")
+                        postgres_config = catalog_config
+                        logger.info("PostgreSQL catalog enabled - will start dedicated PostgreSQL container")
                         break
+                        
+            # If PostgreSQL is enabled, start a dedicated PostgreSQL container for this Trino cluster
+            postgres_container_name = None
+            if use_postgres and postgres_config:
+                # Create a unique container name based on the Trino container name
+                postgres_container_name = f"postgres-for-{container_name}"
+                postgres_port = 5432  # Default PostgreSQL port
+                
+                # Create and start the PostgreSQL container
+                try:
+                    # First check if container already exists
+                    try:
+                        existing_container = self.client.containers.get(postgres_container_name)
+                        # If it exists but not running, remove it
+                        if existing_container.status != 'running':
+                            logger.info(f"Found non-running PostgreSQL container {postgres_container_name}, removing it")
+                            existing_container.remove(force=True)
+                            existing_container = None
+                        else:
+                            logger.info(f"PostgreSQL container {postgres_container_name} already running")
+                    except docker.errors.NotFound:
+                        existing_container = None
+                    
+                    # Start new container if needed
+                    if existing_container is None:
+                        logger.info(f"Starting PostgreSQL container {postgres_container_name}")
+                        
+                        # Environment variables for the PostgreSQL container
+                        pg_env = {
+                            "POSTGRES_PASSWORD": postgres_config.get('password', 'postgres'),
+                            "POSTGRES_USER": postgres_config.get('user', 'postgres'),
+                            "POSTGRES_DB": postgres_config.get('database', 'postgres')
+                        }
+                        
+                        # Start PostgreSQL container
+                        pg_container = self.client.containers.run(
+                            "postgres:13",  # Standard PostgreSQL image
+                            name=postgres_container_name,
+                            environment=pg_env,
+                            ports={'5432/tcp': None},  # Let Docker assign a random host port
+                            detach=True
+                        )
+                        
+                        logger.info(f"Started PostgreSQL container {postgres_container_name}")
+                        
+                        # Get the assigned host port
+                        pg_container.reload()
+                        host_port_config = pg_container.attrs['NetworkSettings']['Ports']['5432/tcp'][0]
+                        postgres_port = int(host_port_config['HostPort'])
+                        
+                        logger.info(f"PostgreSQL container {postgres_container_name} is running on port {postgres_port}")
+                except Exception as e:
+                    logger.error(f"Error starting PostgreSQL container: {str(e)}")
+                    # Continue anyway, as we might be able to connect to an existing PostgreSQL instance
             
             # Always set different internal HTTP ports for each container to avoid conflicts
             internal_http_port = 8081 if "2" in container_name else 8080
@@ -484,11 +548,27 @@ class DockerManager:
         return cleaned
     
     def stop_trino_cluster(self, container_name):
-        """Stop and remove a Trino cluster"""
+        """Stop and remove a Trino cluster and its associated PostgreSQL container if any"""
         if not self.docker_available:
             logger.warning(f"Docker not available, cannot stop Trino cluster {container_name}")
             return
             
+        # First try to stop and remove the associated PostgreSQL container if it exists
+        postgres_container_name = f"postgres-for-{container_name}"
+        try:
+            postgres_container = self.client.containers.get(postgres_container_name)
+            logger.info(f"Stopping PostgreSQL container {postgres_container_name}...")
+            postgres_container.stop()
+            postgres_container.remove()
+            logger.info(f"PostgreSQL container {postgres_container_name} stopped and removed")
+        except docker.errors.NotFound:
+            # No PostgreSQL container found, which is okay
+            logger.debug(f"No PostgreSQL container found for {container_name}")
+        except Exception as e:
+            # Log but continue - we still want to try stopping the Trino container
+            logger.error(f"Error stopping PostgreSQL container {postgres_container_name}: {str(e)}")
+            
+        # Now stop and remove the Trino container
         try:
             container = self.client.containers.get(container_name)
             logger.info(f"Stopping Trino container {container_name}...")
