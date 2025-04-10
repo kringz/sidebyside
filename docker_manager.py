@@ -244,44 +244,37 @@ class DockerManager:
             # Start Trino container
             logger.info(f"Starting Trino {version} container {container_name} on port {port}...")
             
-            # Determine network mode based on catalogs_config parameter
-            # Use host networking if PostgreSQL is enabled to allow direct access to the host's PostgreSQL
-            use_host_network = False
+            # For PostgreSQL access, we'll map host.docker.internal to access the host's PostgreSQL
+            # We don't need host networking mode anymore since we're using explicit port mapping
+            # for consistent container port visibility in Docker
+            use_postgres = False
             if catalogs_config:  # Check if catalogs_config is not None
                 for catalog_name, catalog_config in catalogs_config.items():
                     if catalog_name == 'postgres' and catalog_config.get('enabled', False):
-                        use_host_network = True
-                        logger.info("PostgreSQL catalog enabled - using host networking for container")
+                        use_postgres = True
+                        logger.info("PostgreSQL catalog enabled - container will use host.docker.internal")
                         break
             
-            if use_host_network:
-                # With host networking, the container shares the host's network stack
-                # This allows direct access to host services without port mapping
-                # Note: With host networking, we still need to use different internal HTTP ports
-                # Otherwise the second container will fail to start (port conflict)
-                internal_http_port = 8081 if "2" in container_name else 8080
-                container = self.client.containers.run(
-                    f"trinodb/trino:{version}",
-                    name=container_name,
-                    network_mode="host",  # Use host networking
-                    volumes={
-                        config_dir: {'bind': '/etc/trino', 'mode': 'rw'}
-                    },
-                    detach=True
-                )
-                logger.info(f"Started Trino container {container_name} with host networking mode using internal port {internal_http_port}")
+            # Always set different internal HTTP ports for each container to avoid conflicts
+            internal_http_port = 8081 if "2" in container_name else 8080
+            
+            # Always use bridge networking with explicit port mapping for both containers
+            # This ensures that Docker shows the port mappings in container list
+            container = self.client.containers.run(
+                f"trinodb/trino:{version}",
+                name=container_name,
+                ports={f'{internal_http_port}/tcp': port},  # Explicit port mapping
+                volumes={
+                    config_dir: {'bind': '/etc/trino', 'mode': 'rw'}
+                },
+                detach=True
+            )
+            
+            # Log the port mapping for clarity
+            if use_postgres:
+                logger.info(f"Started Trino container {container_name} with port mapping {internal_http_port} -> {port} (with PostgreSQL host access)")
             else:
-                # Standard networking with port mapping
-                # Use the same internal HTTP port determined earlier when creating config files
-                container = self.client.containers.run(
-                    f"trinodb/trino:{version}",
-                    name=container_name,
-                    ports={f'{internal_http_port}/tcp': port},
-                    volumes={
-                        config_dir: {'bind': '/etc/trino', 'mode': 'rw'}
-                    },
-                    detach=True
-                )
+                logger.info(f"Started Trino container {container_name} with port mapping {internal_http_port} -> {port}")
             
             logger.info(f"Trino container {container_name} started successfully")
             return container
