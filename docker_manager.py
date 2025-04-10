@@ -393,6 +393,45 @@ class DockerManager:
             logger.error(f"Error getting list of Trino images: {str(e)}")
             return []
     
+    def verify_container_running(self, container_name):
+        """Check if a container is actually running and return true if it is"""
+        if not self.docker_available:
+            return False
+            
+        try:
+            container = self.client.containers.get(container_name)
+            return container.status == 'running'
+        except docker.errors.NotFound:
+            logger.info(f"Container {container_name} not found during verification")
+            return False
+        except Exception as e:
+            logger.error(f"Error verifying container status for {container_name}: {str(e)}")
+            return False
+            
+    def cleanup_stale_containers(self, container_names):
+        """Check and clean up stale Trino containers with the given names"""
+        if not self.docker_available:
+            logger.warning("Docker not available, cannot clean up stale containers")
+            return
+            
+        cleaned = []
+        for name in container_names:
+            try:
+                container = self.client.containers.get(name)
+                # If the container exists but our app doesn't know about it, it's stale
+                logger.info(f"Found stale container {name}, removing it...")
+                container.stop()
+                container.remove()
+                cleaned.append(name)
+                logger.info(f"Stale container {name} stopped and removed")
+            except docker.errors.NotFound:
+                # Container doesn't exist, nothing to do
+                pass
+            except Exception as e:
+                logger.error(f"Error cleaning up stale container {name}: {str(e)}")
+        
+        return cleaned
+    
     def stop_trino_cluster(self, container_name):
         """Stop and remove a Trino cluster"""
         if not self.docker_available:
