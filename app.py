@@ -812,9 +812,10 @@ def run_benchmark():
         flash('No benchmark selected', 'warning')
         return redirect(url_for('benchmark_playground'))
     
-    if not docker_available:
-        flash('Docker is not available in this environment. Benchmark execution is disabled.', 'warning')
-        return redirect(url_for('benchmark_playground'))
+    # Demo mode warning but allow benchmarks to run with simulated results
+    is_demo_mode = not docker_available
+    if is_demo_mode:
+        flash('Running in demo mode. Results will be simulated for demonstration purposes.', 'info')
     
     try:
         # Load the benchmark query
@@ -848,7 +849,68 @@ def run_benchmark():
         # Run the query on both clusters (if running)
         for cluster_name in ['cluster1', 'cluster2']:
             container_name = config[cluster_name]['container_name']
-            if docker_manager.get_container_status(container_name) == 'running':
+            
+            # Handle demo mode for TPC-H queries specially
+            if is_demo_mode and 'tpch' in benchmark.query_text.lower():
+                # Simulate a successful TPC-H query in demo mode
+                query_text = benchmark.query_text.lower()
+                start_time = time.time()
+                time.sleep(0.5)  # Simulate query execution time
+                end_time = time.time()
+                
+                # Create mock results based on the query
+                if 'customer' in query_text:
+                    mock_columns = ['custkey', 'name', 'address', 'nationkey', 'phone', 'acctbal', 'mktsegment', 'comment']
+                    mock_rows = []
+                    for i in range(10):  # Generate 10 sample rows
+                        mock_rows.append([i+1, f'Customer #{i+1}', f'Address #{i+1}', i % 25, f'PHONE#{i+1}', 1000.0 + i*100, f'SEGMENT{i%5}', 'Sample comment'])
+                    
+                    # Create simulated query results
+                    query_results = {
+                        'columns': mock_columns,
+                        'rows': mock_rows,
+                        'stats': {
+                            'cpu_time_ms': 150 + (100 * random.random()),
+                            'planning_time_ms': 20 + (10 * random.random()),
+                            'execution_time_ms': 130 + (90 * random.random()),
+                            'queued_time_ms': 5 + (5 * random.random()),
+                            'peak_memory_bytes': 1024 * 1024 * (10 + 5 * random.random())
+                        }
+                    }
+                    
+                    # Save results
+                    results[cluster_name] = query_results
+                    timing[cluster_name] = end_time - start_time
+                    
+                    # Set status to success
+                    if cluster_name == 'cluster1':
+                        benchmark_result.cluster1_status = 'Success'
+                    else:
+                        benchmark_result.cluster2_status = 'Success'
+                else:
+                    # For other TPC-H queries, create generic results
+                    query_results = {
+                        'columns': ['column1', 'column2', 'column3'],
+                        'rows': [[i, f'Value {i}', i*100] for i in range(5)],
+                        'stats': {
+                            'cpu_time_ms': 200 + (150 * random.random()),
+                            'planning_time_ms': 25 + (15 * random.random()),
+                            'execution_time_ms': 175 + (135 * random.random()),
+                            'queued_time_ms': 5 + (5 * random.random()),
+                            'peak_memory_bytes': 1024 * 1024 * (15 + 10 * random.random())
+                        }
+                    }
+                    
+                    # Save results
+                    results[cluster_name] = query_results
+                    timing[cluster_name] = end_time - start_time
+                    
+                    # Set status to success
+                    if cluster_name == 'cluster1':
+                        benchmark_result.cluster1_status = 'Success'
+                    else:
+                        benchmark_result.cluster2_status = 'Success'
+            elif docker_manager.get_container_status(container_name) == 'running':
                 if trino_clients[cluster_name]:
                     try:
                         # Execute the query with timing
