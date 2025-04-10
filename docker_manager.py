@@ -251,10 +251,27 @@ class DockerManager:
                 import time
                 
                 def simulate_progress():
-                    # Simulate progress in demo mode
+                    # Simulate progress with byte information in demo mode
+                    total_bytes = 500 * 1024 * 1024  # ~500MB image
                     for i in range(11):
                         progress = i / 10.0
-                        progress_callback(progress)
+                        bytes_downloaded = int(progress * total_bytes)
+                        
+                        # Try to send detailed information if callback supports it
+                        try:
+                            # Updated for callback accepting byte information
+                            import inspect
+                            sig = inspect.signature(progress_callback)
+                            if len(sig.parameters) >= 3:
+                                # Callback accepts (progress, bytes_downloaded, total_bytes)
+                                progress_callback(progress, bytes_downloaded, total_bytes)
+                            else:
+                                # Fall back to simple progress
+                                progress_callback(progress)
+                        except:
+                            # If anything fails, use simple callback
+                            progress_callback(progress)
+                            
                         time.sleep(0.5)
                 
                 # Start a thread to simulate progress

@@ -129,12 +129,30 @@ def pull_trino_images():
             progress_data[version] = 0.0
             image_pull_progress[version] = 0.0
             
-        # Create a progress tracker callback function
+        # Create a progress tracker callback function with byte information
         def update_progress(version):
-            def callback(value):
+            def callback(value, bytes_downloaded=None, total_bytes=None):
                 progress_data[version] = value
                 image_pull_progress[version] = value
-                logger.debug(f"Pull progress for Trino {version}: {value:.1%}")
+                
+                # Store byte information in session for UI display
+                if 'pull_details' not in session:
+                    session['pull_details'] = {}
+                
+                if version not in session['pull_details']:
+                    session['pull_details'][version] = {
+                        'current_bytes': 0,
+                        'total_bytes': 0
+                    }
+                
+                # Update byte information if provided
+                if bytes_downloaded is not None and total_bytes is not None:
+                    session['pull_details'][version]['current_bytes'] = bytes_downloaded
+                    session['pull_details'][version]['total_bytes'] = total_bytes
+                    logger.debug(f"Pull progress for Trino {version}: {value:.1%} ({bytes_downloaded/(1024*1024):.1f}MB / {total_bytes/(1024*1024):.1f}MB)")
+                else:
+                    logger.debug(f"Pull progress for Trino {version}: {value:.1%}")
+                
                 # We don't actually need to return anything, the progress is stored in the shared dict
             return callback
         

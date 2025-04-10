@@ -242,9 +242,52 @@ function setupImagePullTracking() {
                         if (data.progress_details) {
                             // Use detailed progress information including bytes
                             Object.entries(data.progress_details).forEach(([version, detail]) => {
+                                // Log detailed progress information
                                 console.log(`Progress for ${version}: ${detail.progress * 100}% (${Math.round(detail.current_bytes / (1024 * 1024))} MB / ${Math.round(detail.total_bytes / (1024 * 1024))} MB)`);
                                 
                                 if (activePulls.has(version)) {
+                                    // Debug element existence 
+                                    if (!document.getElementById('imagePullProgress')) {
+                                        console.error('imagePullProgress container not found, creating it');
+                                        
+                                        // Create container if missing
+                                        const progressContainer = document.createElement('div');
+                                        progressContainer.id = 'imagePullProgress';
+                                        progressContainer.className = 'row mb-3';
+                                        
+                                        const colDiv = document.createElement('div');
+                                        colDiv.className = 'col-12';
+                                        
+                                        const cardDiv = document.createElement('div');
+                                        cardDiv.className = 'card';
+                                        
+                                        const cardHeader = document.createElement('div');
+                                        cardHeader.className = 'card-header';
+                                        cardHeader.innerHTML = '<h5 class="mb-0"><i class="fas fa-spinner fa-spin me-2"></i> Pulling Trino Images</h5>';
+                                        
+                                        const cardBody = document.createElement('div');
+                                        cardBody.className = 'card-body';
+                                        
+                                        const progressBars = document.createElement('div');
+                                        progressBars.id = 'imagePullProgressBars';
+                                        
+                                        // Assemble the structure
+                                        cardBody.appendChild(progressBars);
+                                        cardDiv.appendChild(cardHeader);
+                                        cardDiv.appendChild(cardBody);
+                                        colDiv.appendChild(cardDiv);
+                                        progressContainer.appendChild(colDiv);
+                                        
+                                        // Insert after the "Available Trino Images" section
+                                        const imageSection = document.querySelector('.card-body.border-top');
+                                        if (imageSection) {
+                                            imageSection.parentNode.insertBefore(progressContainer, imageSection.nextSibling);
+                                        } else {
+                                            // Fallback - add to body
+                                            document.body.appendChild(progressContainer);
+                                        }
+                                    }
+                                    
                                     // Ensure progress element is visible
                                     document.getElementById('imagePullProgress').classList.remove('d-none');
                                     
