@@ -45,6 +45,40 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Control buttons -->
+                <div class="card-footer mb-4">
+                    <div class="d-flex justify-content-center">
+                        <form action="{{ url_for('pull_trino_images') }}" method="post" class="me-2" id="pullImagesForm" data-loading-message="Pulling Trino images... This may take several minutes.">
+                            <div class="dropdown">
+                                <button type="button" class="btn btn-info dropdown-toggle" id="pullImagesBtn" data-bs-toggle="dropdown" aria-expanded="false" {% if not docker_available %}disabled{% endif %}>
+                                    <i class="fas fa-download me-1"></i> Pull Images
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="pullImagesBtn">
+                                    <li><button type="button" class="dropdown-item" id="pullAllImagesBtn">Pull Both Configured Images</button></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><button type="button" class="dropdown-item pull-version-btn" data-version="{{ config.cluster1.version }}">Pull Cluster 1 ({{ config.cluster1.version }}) Image</button></li>
+                                    <li><button type="button" class="dropdown-item pull-version-btn" data-version="{{ config.cluster2.version }}">Pull Cluster 2 ({{ config.cluster2.version }}) Image</button></li>
+                                </ul>
+                            </div>
+                        </form>
+                        <form action="{{ url_for('start_clusters') }}" method="post" class="me-2" data-loading-message="Starting Trino clusters... This may take a minute.">
+                            <button type="submit" class="btn btn-success" {% if not docker_available %}disabled{% endif %}>
+                                <i class="fas fa-play me-1"></i> Start Clusters
+                            </button>
+                        </form>
+                        <form action="{{ url_for('stop_clusters') }}" method="post" class="me-2" data-loading-message="Stopping Trino clusters...">
+                            <button type="submit" class="btn btn-danger" {% if not docker_available %}disabled{% endif %}>
+                                <i class="fas fa-stop me-1"></i> Stop Clusters
+                            </button>
+                        </form>
+                        <form action="{{ url_for('restart_clusters') }}" method="post" data-loading-message="Restarting Trino clusters... This may take a minute.">
+                            <button type="submit" class="btn btn-warning" {% if not docker_available %}disabled{% endif %}>
+                                <i class="fas fa-redo me-1"></i> Restart Clusters
+                            </button>
+                        </form>
+                    </div>
+                </div>
                 
                 <!-- Cluster Configuration Section -->
                 <div class="card-header bg-primary">
