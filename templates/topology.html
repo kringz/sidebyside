@@ -1,0 +1,146 @@
+{% extends "layout.html" %}
+
+{% block title %}Trino Cluster Topology{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-dark text-light">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Trino Cluster Topology Visualizer</h5>
+                    <div>
+                        <button id="refreshTopology" class="btn btn-sm btn-primary">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" id="layoutDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                Layout
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="layoutDropdown">
+                                <li><a class="dropdown-item layout-option" data-layout="cose" href="#">Cose (Default)</a></li>
+                                <li><a class="dropdown-item layout-option" data-layout="circle" href="#">Circle</a></li>
+                                <li><a class="dropdown-item layout-option" data-layout="grid" href="#">Grid</a></li>
+                                <li><a class="dropdown-item layout-option" data-layout="concentric" href="#">Concentric</a></li>
+                                <li><a class="dropdown-item layout-option" data-layout="breadthfirst" href="#">Breadth First</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-9">
+                            <div id="topology-container" class="border rounded" style="height: 600px; background-color: var(--bs-gray-800)"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-dark text-light mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Node Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="node-details">
+                                        <p class="text-muted">Click on a node to see details</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card bg-dark text-light">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Legend</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div class="rounded-circle me-2" style="width: 15px; height: 15px; background-color: #4299e1;"></div>
+                                        <span>Coordinator</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div class="rounded-circle me-2" style="width: 15px; height: 15px; background-color: #48bb78;"></div>
+                                        <span>Worker</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div class="rounded-circle me-2" style="width: 15px; height: 15px; background-color: #805ad5;"></div>
+                                        <span>Catalog</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div class="rounded-circle me-2" style="width: 15px; height: 15px; background-color: #f56565;"></div>
+                                        <span>Schema</span>
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <div class="rounded-circle me-2" style="width: 15px; height: 15px; background-color: #ecc94b;"></div>
+                                        <span>Table</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card bg-dark text-light">
+                <div class="card-header">
+                    <h5 class="mb-0">Cluster 1 ({{ cluster1_version }})</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        <li class="list-group-item bg-dark text-light border-secondary">
+                            <strong>Status:</strong> 
+                            <span id="cluster1-status" class="badge rounded-pill {{ 'bg-success' if cluster1_running else 'bg-danger' }}">
+                                {{ 'Running' if cluster1_running else 'Stopped' }}
+                            </span>
+                        </li>
+                        <li class="list-group-item bg-dark text-light border-secondary">
+                            <strong>Port:</strong> {{ cluster1_port }}
+                        </li>
+                        <li class="list-group-item bg-dark text-light border-secondary">
+                            <strong>Nodes:</strong> <span id="cluster1-nodes">{{ cluster1_nodes|default('Unknown', true) }}</span>
+                        </li>
+                        <li class="list-group-item bg-dark text-light border-secondary">
+                            <strong>Catalogs:</strong> <span id="cluster1-catalogs">{{ cluster1_catalogs|default('Loading...', true) }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card bg-dark text-light">
+                <div class="card-header">
+                    <h5 class="mb-0">Cluster 2 ({{ cluster2_version }})</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        <li class="list-group-item bg-dark text-light border-secondary">
+                            <strong>Status:</strong> 
+                            <span id="cluster2-status" class="badge rounded-pill {{ 'bg-success' if cluster2_running else 'bg-danger' }}">
+                                {{ 'Running' if cluster2_running else 'Stopped' }}
+                            </span>
+                        </li>
+                        <li class="list-group-item bg-dark text-light border-secondary">
+                            <strong>Port:</strong> {{ cluster2_port }}
+                        </li>
+                        <li class="list-group-item bg-dark text-light border-secondary">
+                            <strong>Nodes:</strong> <span id="cluster2-nodes">{{ cluster2_nodes|default('Unknown', true) }}</span>
+                        </li>
+                        <li class="list-group-item bg-dark text-light border-secondary">
+                            <strong>Catalogs:</strong> <span id="cluster2-catalogs">{{ cluster2_catalogs|default('Loading...', true) }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Add Cytoscape.js for graph visualization -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.22.1/cytoscape.min.js"></script>
+<!-- Add layout extensions -->
+<script src="https://cdn.jsdelivr.net/npm/cytoscape-cose-bilkent@4.1.0/cytoscape-cose-bilkent.min.js"></script>
+
+<script src="{{ url_for('static', filename='js/topology.js') }}"></script>
+{% endblock %}

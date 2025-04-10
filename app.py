@@ -560,6 +560,285 @@ def query_page():
     if not docker_available and 'tpch' in config['catalogs']:
         config['catalogs']['tpch']['enabled'] = True
         
+@app.route('/topology')
+def topology():
+    """Interactive network topology visualizer for Trino clusters"""
+    try:
+        # Get configuration
+        config = load_config()
+        
+        # Get cluster status
+        cluster1_running = docker_manager.verify_container_running(config['cluster1']['container_name'])
+        cluster2_running = docker_manager.verify_container_running(config['cluster2']['container_name'])
+        
+        # Prepare data for template
+        return render_template('topology.html', 
+            cluster1_version=config['cluster1']['version'],
+            cluster2_version=config['cluster2']['version'],
+            cluster1_port=config['cluster1']['port'],
+            cluster2_port=config['cluster2']['port'],
+            cluster1_running=cluster1_running,
+            cluster2_running=cluster2_running
+        )
+    except Exception as e:
+        logger.error(f"Error loading topology page: {str(e)}")
+        flash(f"Error: {str(e)}", "danger")
+        return redirect(url_for('trino_dashboard'))
+        
+@app.route('/api/topology')
+def topology_data():
+    """API endpoint to get topology data for visualization"""
+    try:
+        # Get configuration
+        config = load_config()
+        
+        # Initialize data structure for Cytoscape
+        elements = {
+            'nodes': [],
+            'edges': []
+        }
+        
+        # Cluster info for UI updates
+        cluster_info = {
+            'cluster1': {
+                'running': False,
+                'nodeCount': 0,
+                'catalogs': []
+            },
+            'cluster2': {
+                'running': False,
+                'nodeCount': 0,
+                'catalogs': []
+            }
+        }
+        
+        # Check if clusters are running
+        cluster1_running = docker_manager.verify_container_running(config['cluster1']['container_name'])
+        cluster2_running = docker_manager.verify_container_running(config['cluster2']['container_name'])
+        
+        # Set running status in cluster info
+        cluster_info['cluster1']['running'] = cluster1_running
+        cluster_info['cluster2']['running'] = cluster2_running
+        
+        # Define node IDs to track what's been created
+        node_ids = set()
+        
+        # Add cluster nodes
+        for cluster_name in ['cluster1', 'cluster2']:
+            if cluster_name == 'cluster1' and cluster1_running or cluster_name == 'cluster2' and cluster2_running:
+                # Add coordinator node
+                coordinator_id = f"{cluster_name}-coordinator"
+                elements['nodes'].append({
+                    'data': {
+                        'id': coordinator_id,
+                        'label': f"Coordinator\n({config[cluster_name]['version']})",
+                        'nodeType': 'coordinator',
+                        'cluster': f"Trino {config[cluster_name]['version']}",
+                        'version': config[cluster_name]['version'],
+                        'port': config[cluster_name]['port'],
+                        'status': 'Running'
+                    }
+                })
+                node_ids.add(coordinator_id)
+                
+                # Add worker nodes (1-3 for demo)
+                worker_count = 2  # Simplified for demo, should come from actual cluster info
+                
+                for i in range(1, worker_count + 1):
+                    worker_id = f"{cluster_name}-worker-{i}"
+                    elements['nodes'].append({
+                        'data': {
+                            'id': worker_id,
+                            'label': f"Worker {i}\n({config[cluster_name]['version']})",
+                            'nodeType': 'worker',
+                            'cluster': f"Trino {config[cluster_name]['version']}",
+                            'version': config[cluster_name]['version'],
+                            'status': 'Running'
+                        }
+                    })
+                    node_ids.add(worker_id)
+                    
+                    # Add edge from coordinator to worker
+                    elements['edges'].append({
+                        'data': {
+                            'id': f"{coordinator_id}-to-{worker_id}",
+                            'source': coordinator_id,
+                            'target': worker_id,
+                            'edgeType': 'node-connection'
+                        }
+                    })
+                
+                # Update node count in cluster info
+                cluster_info[cluster_name]['nodeCount'] = worker_count + 1  # workers + coordinator
+                
+                # Add catalog nodes for enabled catalogs
+                catalog_list = []
+                for catalog_name, catalog_config in config['catalogs'].items():
+                    if catalog_config.get('enabled', False):
+                        catalog_id = f"{cluster_name}-{catalog_name}"
+                        
+                        # Skip if this node already exists
+                        if catalog_id in node_ids:
+                            continue
+                        
+                        catalog_label = catalog_name
+                        if catalog_name == 'tpch':
+                            catalog_label = "TPC-H"
+                        elif catalog_name == 'tpcds':
+                            catalog_label = "TPC-DS"
+                            
+                        elements['nodes'].append({
+                            'data': {
+                                'id': catalog_id,
+                                'label': catalog_label,
+                                'nodeType': 'catalog',
+                                'catalogType': catalog_name,
+                                'enabled': True,
+                                'connectedTo': cluster_name,
+                                'properties': {
+                                    'host': catalog_config.get('host', 'localhost'),
+                                    'port': catalog_config.get('port', 'default')
+                                }
+                            }
+                        })
+                        node_ids.add(catalog_id)
+                        
+                        # Add edge from coordinator to catalog
+                        elements['edges'].append({
+                            'data': {
+                                'id': f"{coordinator_id}-to-{catalog_id}",
+                                'source': coordinator_id,
+                                'target': catalog_id,
+                                'edgeType': 'catalog-connection'
+                            }
+                        })
+                        
+                        catalog_list.append(catalog_name)
+                        
+                        # Add schema nodes for each catalog (example schemas)
+                        if catalog_name == 'tpch':
+                            schema_id = f"{catalog_id}-sf1"
+                            elements['nodes'].append({
+                                'data': {
+                                    'id': schema_id,
+                                    'label': "sf1",
+                                    'nodeType': 'schema',
+                                    'catalog': catalog_name,
+                                    'tableCount': 8
+                                }
+                            })
+                            node_ids.add(schema_id)
+                            
+                            # Add edge from catalog to schema
+                            elements['edges'].append({
+                                'data': {
+                                    'id': f"{catalog_id}-to-{schema_id}",
+                                    'source': catalog_id,
+                                    'target': schema_id,
+                                    'edgeType': 'schema-connection'
+                                }
+                            })
+                            
+                            # Add some example tables
+                            for table_name in ['customer', 'orders', 'lineitem']:
+                                table_id = f"{schema_id}-{table_name}"
+                                elements['nodes'].append({
+                                    'data': {
+                                        'id': table_id,
+                                        'label': table_name,
+                                        'nodeType': 'table',
+                                        'schema': 'sf1',
+                                        'catalog': catalog_name,
+                                        'columnCount': 8
+                                    }
+                                })
+                                node_ids.add(table_id)
+                                
+                                # Add edge from schema to table
+                                elements['edges'].append({
+                                    'data': {
+                                        'id': f"{schema_id}-to-{table_id}",
+                                        'source': schema_id,
+                                        'target': table_id,
+                                        'edgeType': 'table-connection'
+                                    }
+                                })
+                        elif catalog_name == 'postgres':
+                            schema_id = f"{catalog_id}-public"
+                            elements['nodes'].append({
+                                'data': {
+                                    'id': schema_id,
+                                    'label': "public",
+                                    'nodeType': 'schema',
+                                    'catalog': catalog_name,
+                                    'tableCount': 3
+                                }
+                            })
+                            node_ids.add(schema_id)
+                            
+                            # Add edge from catalog to schema
+                            elements['edges'].append({
+                                'data': {
+                                    'id': f"{catalog_id}-to-{schema_id}",
+                                    'source': catalog_id,
+                                    'target': schema_id,
+                                    'edgeType': 'schema-connection'
+                                }
+                            })
+                            
+                            # Add some example tables
+                            for table_name in ['users', 'products', 'orders']:
+                                table_id = f"{schema_id}-{table_name}"
+                                elements['nodes'].append({
+                                    'data': {
+                                        'id': table_id,
+                                        'label': table_name,
+                                        'nodeType': 'table',
+                                        'schema': 'public',
+                                        'catalog': catalog_name,
+                                        'columnCount': 5
+                                    }
+                                })
+                                node_ids.add(table_id)
+                                
+                                # Add edge from schema to table
+                                elements['edges'].append({
+                                    'data': {
+                                        'id': f"{schema_id}-to-{table_id}",
+                                        'source': schema_id,
+                                        'target': table_id,
+                                        'edgeType': 'table-connection'
+                                    }
+                                })
+                
+                # Update catalogs in cluster info
+                cluster_info[cluster_name]['catalogs'] = catalog_list
+        
+        # Convert node/edge lists to format expected by Cytoscape
+        cytoscape_elements = []
+        for node in elements['nodes']:
+            cytoscape_elements.append(node)
+        for edge in elements['edges']:
+            cytoscape_elements.append(edge)
+            
+        # Return data as JSON
+        return jsonify({
+            'elements': cytoscape_elements,
+            'clusterInfo': cluster_info
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating topology data: {str(e)}")
+        return jsonify({
+            'error': str(e),
+            'elements': [],
+            'clusterInfo': {
+                'cluster1': {'running': False, 'nodeCount': 0, 'catalogs': []},
+                'cluster2': {'running': False, 'nodeCount': 0, 'catalogs': []}
+            }
+        }), 500
+        config['catalogs']['tpch']['enabled'] = True
+        
     # Get list of catalogs
     catalogs = [catalog for catalog, settings in config['catalogs'].items() if settings['enabled']]
     
