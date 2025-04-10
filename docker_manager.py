@@ -314,26 +314,66 @@ class DockerManager:
                             "POSTGRES_DB": postgres_config.get('database', 'postgres')
                         }
                         
-                        # Start PostgreSQL container
+                        # Start PostgreSQL container with improved stability
                         pg_container = self.client.containers.run(
                             "postgres:13",  # Standard PostgreSQL image
                             name=postgres_container_name,
                             environment=pg_env,
                             ports={'5432/tcp': None},  # Let Docker assign a random host port
-                            detach=True
+                            detach=True,
+                            # Add health check with retries to ensure container stays running
+                            healthcheck={
+                                "test": ["CMD-SHELL", "pg_isready -U postgres"],
+                                "interval": 2000000000,  # 2 seconds in nanoseconds
+                                "timeout": 1000000000,   # 1 second in nanoseconds
+                                "retries": 5,
+                                "start_period": 5000000000  # 5 seconds in nanoseconds
+                            },
+                            # Add host mounts for data persistence
+                            volumes={
+                                f"{postgres_container_name}-data": {"bind": "/var/lib/postgresql/data", "mode": "rw"}
+                            },
+                            # Ensure the container is restarted if it fails
+                            restart_policy={"Name": "on-failure", "MaximumRetryCount": 5}
                         )
                         
                         logger.info(f"Started PostgreSQL container {postgres_container_name}")
                         
-                        # Get the assigned host port
-                        pg_container.reload()
-                        host_port_config = pg_container.attrs['NetworkSettings']['Ports']['5432/tcp'][0]
-                        postgres_port = int(host_port_config['HostPort'])
+                        # Wait a moment to let the container initialize
+                        time.sleep(2)
                         
-                        logger.info(f"PostgreSQL container {postgres_container_name} is running on port {postgres_port}")
+                        # Get the assigned host port - retry a few times if needed
+                        retry_count = 0
+                        max_retries = 5
+                        postgres_port = None
+                        
+                        while retry_count < max_retries:
+                            try:
+                                pg_container.reload()
+                                host_port_config = pg_container.attrs['NetworkSettings']['Ports']['5432/tcp'][0]
+                                postgres_port = int(host_port_config['HostPort'])
+                                logger.info(f"PostgreSQL container {postgres_container_name} is running on port {postgres_port}")
+                                break
+                            except (KeyError, IndexError, TypeError) as e:
+                                retry_count += 1
+                                logger.warning(f"Error getting port for PostgreSQL container (attempt {retry_count}/{max_retries}): {str(e)}")
+                                time.sleep(2)
+                        
+                        if postgres_port is None:
+                            logger.error(f"Failed to get port for PostgreSQL container {postgres_container_name}")
+                            raise RuntimeError(f"Failed to get port for PostgreSQL container {postgres_container_name}")
+                        
+                        # Verify the container is still running
+                        pg_container.reload()
+                        if pg_container.status != 'running':
+                            logger.error(f"PostgreSQL container {postgres_container_name} stopped unexpectedly with status: {pg_container.status}")
+                            # Check container logs for the cause
+                            logs = pg_container.logs().decode('utf-8')
+                            logger.error(f"PostgreSQL container logs: {logs}")
+                            raise RuntimeError(f"PostgreSQL container {postgres_container_name} stopped unexpectedly")
                         
                         # Wait for PostgreSQL to be ready (simple exponential backoff)
-                        self._wait_for_postgres_ready(pg_container, postgres_container_name)
+                        self._wait_for_postgres_ready(pg_container, postgres_container_name, max_attempts=15)
                         
                         # Seed the PostgreSQL container with sample data
                         self._seed_postgres_container(pg_container, postgres_container_name, 
@@ -590,35 +630,67 @@ class DockerManager:
         if not self.docker_available:
             return
             
-        # Prepare the pg_isready command
-        cmd = ["pg_isready"]
-        
-        # Try to connect
+        # Try to connect using both pg_isready and a direct psql connection check
+        # This provides more robust readiness detection
         attempt = 0
         while attempt < max_attempts:
             try:
-                # Run pg_isready inside the container
-                exit_code, output = container.exec_run(cmd)
+                # First ensure the container is still running
+                container.reload()
+                if container.status != 'running':
+                    logger.error(f"PostgreSQL container {container_name} is not running (status: {container.status})")
+                    logs = container.logs().decode('utf-8')
+                    logger.error(f"Container logs: {logs[:1000]}...")  # Show first 1000 chars to avoid log flooding
+                    time.sleep(2)
+                    attempt += 1
+                    continue
+                
+                # Try pg_isready first - simplest check
+                pg_isready_cmd = ["pg_isready"]
+                exit_code, output = container.exec_run(pg_isready_cmd)
                 
                 # Check if PostgreSQL is ready (exit code 0)
                 if exit_code == 0:
-                    logger.info(f"PostgreSQL container {container_name} is ready for connections")
-                    return True
+                    logger.info(f"PostgreSQL container {container_name} is ready for connections (pg_isready check passed)")
+                    
+                    # Double-check with a basic psql command 
+                    psql_check_cmd = ["psql", "-U", "postgres", "-c", "SELECT 1"]
+                    exit_code, output = container.exec_run(psql_check_cmd)
+                    
+                    if exit_code == 0:
+                        logger.info(f"PostgreSQL container {container_name} passed connection test with psql")
+                        return True
+                    else:
+                        logger.warning(f"pg_isready passed but psql check failed: {output.decode('utf-8').strip()}")
                 
-                # Log the attempt
-                logger.info(f"PostgreSQL not ready yet (attempt {attempt+1}/{max_attempts}): {output.decode('utf-8').strip()}")
+                # More detailed readiness check if pg_isready fails
+                else:
+                    logger.info(f"PostgreSQL not ready yet (attempt {attempt+1}/{max_attempts}): {output.decode('utf-8').strip()}")
+                    
+                    # Check container logs for startup progress or errors
+                    if attempt % 2 == 0:  # Only check logs every other attempt to avoid log flooding
+                        logs = container.logs(tail=20).decode('utf-8')
+                        logger.info(f"Recent container logs: {logs}")
                 
-                # Wait with exponential backoff
-                wait_time = 2 ** attempt
+                # Wait with exponential backoff (capped at 10 seconds max wait)
+                wait_time = min(2 ** attempt, 10)
                 time.sleep(wait_time)
                 attempt += 1
                 
             except Exception as e:
                 logger.error(f"Error checking PostgreSQL readiness: {str(e)}")
-                time.sleep(2 ** attempt)
+                time.sleep(min(2 ** attempt, 10))
                 attempt += 1
                 
         logger.warning(f"Timed out waiting for PostgreSQL container {container_name} to be ready after {max_attempts} attempts")
+        
+        # Last resort: show the container logs to help diagnose the issue
+        try:
+            logs = container.logs().decode('utf-8')
+            logger.error(f"PostgreSQL container logs after timeout: {logs}")
+        except Exception as e:
+            logger.error(f"Error getting logs from failed container: {str(e)}")
+            
         return False
     
     def _seed_postgres_container(self, container, container_name, user, password, database):
