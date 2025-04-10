@@ -314,12 +314,23 @@ class DockerManager:
                             "POSTGRES_DB": postgres_config.get('database', 'postgres')
                         }
                         
+                        # Determine a suggested port based on container name to avoid conflicts
+                        # This helps distinguish between PostgreSQL containers for different Trino instances
+                        suggested_pg_port = None
+                        if "2" in postgres_container_name:
+                            suggested_pg_port = 5433  # Use 5433 for second cluster's PostgreSQL
+                        else:
+                            suggested_pg_port = 5432  # Use 5432 for first cluster's PostgreSQL
+                            
+                        # But still allow Docker to reassign if these are also in use
+                        pg_ports = {'5432/tcp': suggested_pg_port}
+                        
                         # Start PostgreSQL container with improved stability
                         pg_container = self.client.containers.run(
                             "postgres:13",  # Standard PostgreSQL image
                             name=postgres_container_name,
                             environment=pg_env,
-                            ports={'5432/tcp': None},  # Let Docker assign a random host port
+                            ports=pg_ports,  # Use our cluster-specific suggested port
                             detach=True,
                             # Add health check with retries to ensure container stays running
                             healthcheck={
@@ -388,12 +399,42 @@ class DockerManager:
             # Always set different internal HTTP ports for each container to avoid conflicts
             internal_http_port = 8081 if "2" in container_name else 8080
             
+            # Also use different external ports for each Trino cluster to avoid conflicts
+            # If the user didn't specify a port, or if we're running the second cluster with the same port
+            # as the first one, assign a different port
+            if "2" in container_name and port <= 8080:
+                # Second cluster should use a higher port if not specifically set otherwise
+                port = 8081
+            
+            # For logging
+            logger.info(f"Starting Trino container {container_name} with port mapping {internal_http_port} (internal) -> {port} (external)") 
+            
+            # Check if the port is already in use - if so, try to find a free port
+            # This helps when multiple instances are being started
+            if self.docker_available:
+                try:
+                    # Try to find existing containers using the same port
+                    existing_containers = self.client.containers.list(all=True, filters={'expose': f'{port}/tcp'})
+                    if existing_containers:
+                        container_names = [c.name for c in existing_containers if c.name != container_name]
+                        if container_names:
+                            logger.warning(f"Port {port} is already in use by containers: {', '.join(container_names)}")
+                            # Find a free port starting from our default + 10
+                            for test_port in range(port + 10, port + 100):
+                                existing = self.client.containers.list(all=True, filters={'expose': f'{test_port}/tcp'})
+                                if not existing:
+                                    port = test_port
+                                    logger.info(f"Using alternative port {port} to avoid conflicts")
+                                    break
+                except Exception as e:
+                    logger.warning(f"Error checking for port conflicts: {str(e)}")
+            
             # Always use bridge networking with explicit port mapping for both containers
             # This ensures that Docker shows the port mappings in container list
             container = self.client.containers.run(
                 f"trinodb/trino:{version}",
                 name=container_name,
-                ports={f'{internal_http_port}/tcp': port},  # Explicit port mapping
+                ports={f'{internal_http_port}/tcp': port},  # Explicit port mapping with our conflict resolution
                 volumes={
                     config_dir: {'bind': '/etc/trino', 'mode': 'rw'}
                 },
