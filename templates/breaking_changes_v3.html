@@ -13,6 +13,11 @@ window.hideLoading = function() {
     console.log("Hide loading function disabled"); 
     return false; 
 };
+// Override the setButtonLoading function to prevent any button spinners
+window.setButtonLoading = function() {
+    console.log("Button loading disabled");
+    return false;
+};
 
 // Remove any existing spinner elements
 $(document).ready(function() {
