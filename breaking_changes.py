@@ -294,7 +294,7 @@ def fetch_trino_changes(from_version, to_version):
         for version in versions:
             try:
                 # Form the URL for this version's release notes
-                release_url = f"{base_url}/{version}.html"
+                release_url = f"{base_url}/release-{version}.html"
                 response = requests.get(release_url, timeout=10)
                 
                 if response.status_code == 200:
