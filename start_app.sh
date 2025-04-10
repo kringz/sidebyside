@@ -57,8 +57,8 @@ else
 fi
 
 echo -e "\n${GREEN}2. Installing required dependencies...${NC}"
-pip install --upgrade pip
-pip install flask flask-sqlalchemy gunicorn pyyaml docker trafilatura trino email-validator beautifulsoup4 requests
+# Run the dependency installer script directly
+python install_dependencies.py
 
 echo -e "\n${GREEN}3. Initializing the database...${NC}"
 # Set DATABASE_URL environment variable to use SQLite if not set

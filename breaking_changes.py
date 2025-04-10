@@ -9,13 +9,35 @@ from distutils.version import LooseVersion
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Try to import BeautifulSoup, providing a graceful fallback if not available
+# Global flag to track if BeautifulSoup is available
+BEAUTIFULSOUP_AVAILABLE = False
+
+# Define dummy BeautifulSoup class for when the actual package is not available
+class DummyBeautifulSoup:
+    def __init__(self, *args, **kwargs):
+        pass
+        
+    def find(self, *args, **kwargs):
+        return None
+        
+    def find_next(self, *args, **kwargs):
+        return None
+        
+    def find_all(self, *args, **kwargs):
+        return []
+        
+    def get_text(self, *args, **kwargs):
+        return ""
+
+# Try to import BeautifulSoup, but fall back to dummy implementation if not available
 try:
     from bs4 import BeautifulSoup
     BEAUTIFULSOUP_AVAILABLE = True
+    logger.info("BeautifulSoup4 is available for web scraping.")
 except ImportError:
     logger.warning("BeautifulSoup4 is not installed. Web scraping functionality will be limited.")
-    BEAUTIFULSOUP_AVAILABLE = False
+    # Use our dummy implementation instead
+    BeautifulSoup = DummyBeautifulSoup
 
 from models import db, BreakingChange, FeatureChange, TrinoVersion
 
