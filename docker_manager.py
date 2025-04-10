@@ -299,61 +299,19 @@ class DockerManager:
                             # If version can't be converted to int, assume older version
                             pass
                             
-                        # For Trino 474+, we need a completely different configuration
-                        if version_num >= 474:
-                            logger.info(f"Trino version {version} >= 474, using new Iceberg catalog configuration")
-                            
-                            with open(catalog_file_path, "w") as f:
-                                # For Trino 474+, use a simpler configuration focusing only on REST catalog
-                                # without any S3 or Hadoop settings directly in the catalog properties
-                                f.write("connector.name=iceberg\n")
-                                f.write("iceberg.catalog.type=rest\n")
-                                f.write(f"iceberg.rest-catalog.uri=http://{iceberg_rest_host}:8181\n")
-                                f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
-                                
-                                # Keep it simple - for 474+ all AWS credentials are handled by the Iceberg REST service
-                                # We don't need any additional properties beyond the catalog type and URI
+                        # Use a simplified, common configuration for all Trino versions
+                        # Let the Iceberg REST service handle S3 connectivity
+                        logger.info(f"Creating simplified Iceberg catalog configuration for Trino {version}")
                         
-                        # For Trino versions 458-473, use intermediate configuration
-                        elif version_num >= 458:
-                            logger.info(f"Trino version {version} >= 458 and < 474, using intermediate S3 configuration")
+                        with open(catalog_file_path, "w") as f:
+                            # The minimal configuration that works across all versions
+                            f.write("connector.name=iceberg\n")
+                            f.write("iceberg.catalog.type=rest\n")
+                            f.write(f"iceberg.rest-catalog.uri=http://{iceberg_rest_host}:8181\n")
                             
-                            with open(catalog_file_path, "w") as f:
-                                f.write("connector.name=iceberg\n")
-                                f.write("iceberg.catalog.type=rest\n")
-                                f.write(f"iceberg.rest-catalog.uri=http://{iceberg_rest_host}:8181\n")
-                                f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
-                                
-                                # Native S3 filesystem properties for Trino versions 458-473
-                                f.write("s3.endpoint=http://s3.us-east-1.minio.com:9000\n")
-                                f.write("s3.aws-access-key=access-key\n")
-                                f.write("s3.aws-secret-key=secret-key\n")
-                                f.write("s3.path-style-access=true\n")
-                                f.write("s3.region=us-east-1\n")
-                                # Version 473 specifically doesn't support s3.ssl.enabled
-                                try:
-                                    # Only include this property for versions below 473
-                                    if version_num < 473:
-                                        f.write("s3.ssl.enabled=false\n")
-                                except:
-                                    # In case of an error, omit the property
-                                    pass
-                                f.write("fs.native-s3.enabled=true\n")
-                        
-                        # For older Trino versions, use the legacy Hive S3 configuration
-                        else:
-                            logger.info(f"Trino version {version} < 458, using legacy Hive S3 configuration")
-                            
-                            with open(catalog_file_path, "w") as f:
-                                f.write("connector.name=iceberg\n")
-                                f.write("iceberg.catalog.type=rest\n")
-                                f.write(f"iceberg.rest-catalog.uri=http://{iceberg_rest_host}:8181\n")
-                                f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
-                                f.write("hive.s3.endpoint=http://s3.us-east-1.minio.com:9000\n")
-                                f.write("hive.s3.region=us-east-1\n")
-                                f.write("hive.s3.aws-access-key=access-key\n")
-                                f.write("hive.s3.aws-secret-key=secret-key\n")
-                                f.write("hive.s3.path-style-access=true\n")
+                            # Only include warehouse property - let the REST service handle S3 connectivity
+                            # This is the minimal set that works across all Trino versions including 474+
+                            f.write("iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n")
 
                                 
                         logger.info(f"Created Iceberg catalog configuration at {catalog_file_path}")
