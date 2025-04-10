@@ -69,9 +69,25 @@ function setupImagePullTracking() {
     const activePulls = new Set();
     
     // Create or update a progress bar for a specific version
-    function createOrUpdateProgressBar(version, progress) {
+    function createOrUpdateProgressBar(version, progress, bytesDownloaded, totalBytes) {
         const progressBarsContainer = document.getElementById('imagePullProgressBars');
+        if (!progressBarsContainer) {
+            console.error('Progress bars container not found!');
+            return;
+        }
+        
         let progressBarContainer = document.getElementById(`progress-${version}`);
+        
+        // Format display text to show MB downloaded
+        let displayText;
+        if (bytesDownloaded !== undefined && totalBytes !== undefined && 
+            bytesDownloaded !== null && totalBytes !== null && totalBytes > 0) {
+            const downloadedMB = (bytesDownloaded / (1024 * 1024)).toFixed(1);
+            const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
+            displayText = `${downloadedMB} MB / ${totalMB} MB`;
+        } else {
+            displayText = `${Math.floor(progress * 100)}%`;
+        }
         
         if (!progressBarContainer) {
             // Create new progress bar if it doesn't exist
@@ -81,7 +97,7 @@ function setupImagePullTracking() {
             
             const label = document.createElement('div');
             label.className = 'mb-1';
-            label.innerHTML = `<strong>Trino ${version}:</strong> <span class="progress-percent">0%</span>`;
+            label.innerHTML = `<strong>Trino ${version}:</strong> <span class="progress-percent">${displayText}</span>`;
             
             const progressBarWrapper = document.createElement('div');
             progressBarWrapper.className = 'progress';
@@ -107,7 +123,7 @@ function setupImagePullTracking() {
         
         progressBar.style.width = `${percentValue}%`;
         progressBar.setAttribute('aria-valuenow', percentValue);
-        percentText.textContent = `${percentValue}%`;
+        percentText.textContent = displayText;
         
         // If progress is complete, mark it as success after a delay
         if (progress >= 1) {
@@ -223,22 +239,48 @@ function setupImagePullTracking() {
                     if (data.progress) {
                         let allComplete = true;
                         
-                        Object.entries(data.progress).forEach(([version, progress]) => {
-                            console.log(`Progress for ${version}: ${progress * 100}%`);
-                            
-                            if (activePulls.has(version)) {
-                                // Ensure progress element is visible
-                                document.getElementById('imagePullProgress').classList.remove('d-none');
+                        if (data.progress_details) {
+                            // Use detailed progress information including bytes
+                            Object.entries(data.progress_details).forEach(([version, detail]) => {
+                                console.log(`Progress for ${version}: ${detail.progress * 100}% (${Math.round(detail.current_bytes / (1024 * 1024))} MB / ${Math.round(detail.total_bytes / (1024 * 1024))} MB)`);
                                 
-                                // Update the progress bar
-                                createOrUpdateProgressBar(version, progress);
-                                
-                                // Check if this pull is still in progress
-                                if (progress < 1) {
-                                    allComplete = false;
+                                if (activePulls.has(version)) {
+                                    // Ensure progress element is visible
+                                    document.getElementById('imagePullProgress').classList.remove('d-none');
+                                    
+                                    // Update the progress bar with byte information
+                                    createOrUpdateProgressBar(
+                                        version, 
+                                        detail.progress, 
+                                        detail.current_bytes, 
+                                        detail.total_bytes
+                                    );
+                                    
+                                    // Check if this pull is still in progress
+                                    if (detail.progress < 1) {
+                                        allComplete = false;
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        } else {
+                            // Fallback to simple progress information
+                            Object.entries(data.progress).forEach(([version, progress]) => {
+                                console.log(`Progress for ${version}: ${progress * 100}%`);
+                                
+                                if (activePulls.has(version)) {
+                                    // Ensure progress element is visible
+                                    document.getElementById('imagePullProgress').classList.remove('d-none');
+                                    
+                                    // Update the progress bar
+                                    createOrUpdateProgressBar(version, progress);
+                                    
+                                    // Check if this pull is still in progress
+                                    if (progress < 1) {
+                                        allComplete = false;
+                                    }
+                                }
+                            });
+                        }
                         
                         // If all pulls are complete, stop polling
                         if (allComplete && activePulls.size > 0) {

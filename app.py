@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 import yaml
 import time
 import traceback
@@ -265,8 +265,53 @@ def check_pull_progress():
     
     if 'image_pull_progress' not in globals():
         image_pull_progress = {}
+    
+    # Add extended information for progress display
+    progress_with_bytes = {}
+    for version, progress in image_pull_progress.items():
+        # Check if we have detailed information in session
+        if 'pull_details' not in session:
+            session['pull_details'] = {}
+            
+        if version not in session['pull_details']:
+            session['pull_details'][version] = {
+                'current_bytes': 0,
+                'total_bytes': 0
+            }
+            
+        # For simplicity in demo mode, use simulated values
+        if not docker_available:
+            # Simulate download sizes - approximately 500MB images
+            total_bytes = 500 * 1024 * 1024
+            current_bytes = int(progress * total_bytes)
+            
+            # Store these in the session for consistency
+            session['pull_details'][version]['current_bytes'] = current_bytes
+            session['pull_details'][version]['total_bytes'] = total_bytes
+        else:
+            # Get detailed information from the session if available
+            current_bytes = session['pull_details'][version].get('current_bytes', 0)
+            total_bytes = session['pull_details'][version].get('total_bytes', 0)
+            
+            # If we have a progress value but no bytes (shouldn't happen),
+            # simulate it for display purposes
+            if progress > 0 and total_bytes == 0:
+                total_bytes = 500 * 1024 * 1024  # Assume ~500MB image
+                current_bytes = int(progress * total_bytes)
+                session['pull_details'][version]['current_bytes'] = current_bytes
+                session['pull_details'][version]['total_bytes'] = total_bytes
         
-    return jsonify({'progress': image_pull_progress})
+        # Add extended information to response
+        progress_with_bytes[version] = {
+            'progress': progress,
+            'current_bytes': current_bytes,
+            'total_bytes': total_bytes
+        }
+    
+    return jsonify({
+        'progress': image_pull_progress,
+        'progress_details': progress_with_bytes
+    })
 
 @app.route('/start_clusters', methods=['POST'])
 def start_clusters():
