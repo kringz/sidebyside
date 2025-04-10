@@ -149,15 +149,33 @@
 {% block custom_scripts %}
 <script>
 $(document).ready(function() {
+    // Immediately remove any legacy loaders when page loads
+    {% if use_v2_loading_only %}
+    console.log("Initializing v2 page: removing any existing loading spinners");
+    $('#loading').remove();
+    $('.modal-like-overlay').not('#trino-v2-loading-modal').remove();
+    $('#trino-v2-loading-modal').hide();
+    {% endif %}
     // Handle form submission
     $('#version-comparison-form').on('submit', function(e) {
         e.preventDefault();
         
-        // Clear any existing loading spinners and show our v2 loading spinner
+        {% if use_v2_loading_only %}
+        // Use only the v2 loading mechanism - completely remove any other loaders
+        console.log("Showing v2 loading spinner only (conflict fix)");
+        // First, make sure any legacy spinners or overlays are entirely removed
+        $('#loading').remove(); 
+        $('.modal-like-overlay').not('#trino-v2-loading-modal').remove();
+        // Now show our specific modal
+        $('#trino-v2-loading-modal').show();
+        {% else %}
+        // Backward compatibility mode
         console.log("Showing loading spinner v2");
         $('#loading').hide(); // Hide legacy spinner
         $('.modal-like-overlay').hide(); // Hide any other overlays first
         $('#trino-v2-loading-modal').show(); // Show our specific modal
+        {% endif %}
+        
         $('#results-content').hide();
         $('#error-message').hide();
         $('#version-range-info').hide();
@@ -193,10 +211,18 @@ $(document).ready(function() {
                 clearInterval(progressInterval);
                 $('#loading-progress-bar').css('width', '100%');
                 
-                // Hide loading spinner immediately and ensure all loading elements are hidden
-                console.log("Success: hiding loading spinner");
+                // Completely remove all spinners to prevent any hanging overlays
+                console.log("Success: removing all loading spinners");
+                {% if use_v2_loading_only %}
+                // For v2 mode, completely remove all loaders
+                $('#loading').remove();
+                $('.modal-like-overlay').not('#trino-v2-loading-modal').remove();
+                $('#trino-v2-loading-modal').hide();
+                {% else %}
+                // Backward compatibility mode
                 $('#loading').hide();
                 $('.modal-like-overlay').hide();
+                {% endif %}
                 
                 if (!response.success) {
                     $('#error-text').text(response.message || 'An error occurred while comparing versions.');
@@ -400,10 +426,18 @@ $(document).ready(function() {
                 // Stop progress ticker
                 clearInterval(progressInterval);
                 
-                // Hide loading spinner and show error, ensure all loading overlays are gone
-                console.log("Error: hiding all loading spinners");
+                // Completely remove all spinners to prevent any hanging overlays
+                console.log("Error: removing all loading spinners");
+                {% if use_v2_loading_only %}
+                // For v2 mode, completely remove all loaders
+                $('#loading').remove();
+                $('.modal-like-overlay').not('#trino-v2-loading-modal').remove();
+                $('#trino-v2-loading-modal').hide();
+                {% else %}
+                // Backward compatibility mode
                 $('#loading').hide();
                 $('.modal-like-overlay').hide();
+                {% endif %}
                 $('#error-text').text('Error loading version comparison data: ' + error);
                 $('#error-message').show();
             }
