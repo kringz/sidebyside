@@ -10,8 +10,7 @@ from docker_manager import DockerManager
 from trino_client import TrinoClient
 from models import db, QueryHistory, TrinoVersion, CatalogCompatibility, BreakingChange, FeatureChange
 from datetime import datetime, date
-import requests
-from bs4 import BeautifulSoup
+from breaking_changes import register_breaking_changes_routes
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -770,6 +769,9 @@ def seed_catalog_compatibility():
         db.session.commit()
         logger.info("Seeded initial catalog compatibility data")
 
+# Register the breaking changes routes
+register_breaking_changes_routes(app)
+
 # Initialize application
 # Flask 2.x doesn't have before_first_request anymore
 # Use with app.app_context() instead
@@ -781,6 +783,9 @@ with app.app_context():
     if not os.path.exists('config/config.yaml'):
         default_config = get_default_config()
         save_config(default_config)
+    
+    # Set the current config for breaking_changes module to access
+    app.config['CURRENT_CONFIG'] = load_config()
     
     # Seed initial data if database is available
     if DATABASE_URL:
