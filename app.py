@@ -859,12 +859,7 @@ def save_catalog_config():
                     config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '3306')
                     config['catalogs'][catalog]['user'] = request.form.get(f'{catalog}_user', 'root')
                     config['catalogs'][catalog]['password'] = request.form.get(f'{catalog}_password', '')
-                elif catalog == 'postgres':
-                    config['catalogs'][catalog]['host'] = request.form.get(f'{catalog}_host', 'localhost')
-                    config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '5432')
-                    config['catalogs'][catalog]['database'] = request.form.get(f'{catalog}_database', 'postgres')
-                    config['catalogs'][catalog]['user'] = request.form.get(f'{catalog}_user', 'postgres')
-                    config['catalogs'][catalog]['password'] = request.form.get(f'{catalog}_password', '')
+                # PostgreSQL catalog is handled in the special case above
                 elif catalog == 'sqlserver':
                     config['catalogs'][catalog]['host'] = request.form.get(f'{catalog}_host', 'localhost')
                     config['catalogs'][catalog]['port'] = request.form.get(f'{catalog}_port', '1433')
@@ -893,6 +888,55 @@ def save_catalog_config():
         
         save_config(config)
         flash('Catalog configuration saved!', 'success')
+        
+        # Restart clusters if Postgres config changed and clusters are running
+        if postgres_config_changed and clusters_running and docker_available:
+            logger.info("PostgreSQL configuration changed. Restarting Trino clusters...")
+            flash('PostgreSQL configuration changed. Restarting Trino clusters...', 'info')
+            
+            try:
+                # Stop clusters
+                docker_manager.stop_trino_cluster(config['cluster1']['container_name'])
+                docker_manager.stop_trino_cluster(config['cluster2']['container_name'])
+                
+                # Start clusters again
+                docker_manager.start_trino_cluster(
+                    config['cluster1']['container_name'],
+                    config['cluster1']['version'],
+                    config['cluster1']['port'],
+                    config['catalogs']
+                )
+                
+                docker_manager.start_trino_cluster(
+                    config['cluster2']['container_name'],
+                    config['cluster2']['version'],
+                    config['cluster2']['port'],
+                    config['catalogs']
+                )
+                
+                # Wait for clusters to initialize
+                time.sleep(5)
+                
+                # Initialize Trino clients using the configured host
+                trino_host = config.get('docker', {}).get('trino_connect_host', 'localhost')
+                trino_clients['cluster1'] = TrinoClient(
+                    host=trino_host,
+                    port=config['cluster1']['port'],
+                    user='trino',
+                    cluster_name=f"Trino {config['cluster1']['version']}"
+                )
+                
+                trino_clients['cluster2'] = TrinoClient(
+                    host=trino_host,
+                    port=config['cluster2']['port'],
+                    user='trino',
+                    cluster_name=f"Trino {config['cluster2']['version']}"
+                )
+                
+                flash('Trino clusters restarted successfully with PostgreSQL catalog!', 'success')
+            except Exception as e:
+                logger.error(f"Error restarting clusters: {str(e)}")
+                flash(f'Error restarting clusters: {str(e)}', 'danger')
     except Exception as e:
         logger.error(f"Error saving catalog configuration: {str(e)}")
         flash(f'Error saving catalog configuration: {str(e)}', 'danger')
