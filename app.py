@@ -619,7 +619,16 @@ def run_query():
         explain_queue = queue.Queue()
         
         # Prepare EXPLAIN query
-        explain_query = f"EXPLAIN {query}"
+        # Some queries like SHOW CATALOGS can't be explained, so we need to handle this
+        query_lower = query.lower().strip()
+        if (query_lower.startswith('show ') or 
+            query_lower.startswith('describe ') or 
+            query_lower.startswith('use ') or 
+            'help' in query_lower):
+            # These commands can't be explained, so we'll provide a placeholder
+            explain_query = None
+        else:
+            explain_query = f"EXPLAIN {query}"
         
         # Define worker function to execute regular queries
         def execute_cluster_query(cluster_name):
@@ -752,8 +761,31 @@ def run_query():
             container_name = config[cluster_name]['container_name']
             cluster_result = {}
             
+            # If explain_query is None (for commands that can't be explained), provide placeholder
+            if explain_query is None:
+                # Create a placeholder explanation for commands that can't be explained
+                mock_columns = ['Query Plan']
+                mock_rows = [
+                    ["Query type cannot be explained"],
+                    ["Commands like SHOW, DESCRIBE, USE, and HELP cannot be explained."],
+                    ["Try a SELECT query to see an actual query plan."]
+                ]
+                
+                explain_result = {
+                    'columns': mock_columns,
+                    'rows': mock_rows,
+                    'stats': {
+                        'info': 'No execution metrics available for this query type'
+                    }
+                }
+                
+                cluster_result = {
+                    'cluster_name': cluster_name,
+                    'result': explain_result,
+                    'timing': 0.0
+                }
             # Special handling for demo mode
-            if is_demo_mode:
+            elif is_demo_mode:
                 start_time = time.time()
                 time.sleep(0.3)  # Simulate explain execution time
                 end_time = time.time()
