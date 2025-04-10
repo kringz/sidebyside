@@ -65,6 +65,12 @@
                     <ul class="list-unstyled">
                         <li style="margin-bottom: 15px;">
                             <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
+                                <input type="checkbox" name="enabled_catalogs" value="tpch" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs.tpch.enabled %}checked{% endif %}>
+                                TPC-H
+                            </label>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <label style="cursor: pointer; font-weight: bold; margin-bottom: 0;">
                                 <input type="checkbox" name="enabled_catalogs" value="clickhouse" style="transform: scale(1.5); margin-right: 8px; position: relative; top: 2px;" {% if config.catalogs.clickhouse.enabled %}checked{% endif %}>
                                 ClickHouse
                             </label>

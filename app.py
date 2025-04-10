@@ -5,6 +5,7 @@ import yaml
 import time
 import traceback
 import json
+import random
 
 from config import load_config, save_config, get_default_config
 from docker_manager import DockerManager
@@ -58,6 +59,16 @@ docker_manager = DockerManager(
 docker_available = docker_manager.docker_available
 if not docker_available:
     logger.warning("Docker is not available. Running in demo mode.")
+    
+    # Force enable TPC-H catalog in demo mode
+    try:
+        config = load_config()
+        if 'tpch' in config['catalogs']:
+            config['catalogs']['tpch']['enabled'] = True
+            save_config(config)
+            logger.info("TPC-H catalog enabled for demo mode")
+    except Exception as e:
+        logger.error(f"Error enabling TPC-H in demo mode: {str(e)}")
 
 # Initialize Trino clients (will be set up when clusters are started)
 trino_clients = {
@@ -158,7 +169,7 @@ def save_configuration():
         
         # Save catalog configurations (both forms include this)
         enabled_catalogs = []
-        for catalog in ['hive', 'iceberg', 'delta-lake', 'mysql', 'mariadb', 'postgres', 'sqlserver', 'db2', 'clickhouse', 'pinot', 'elasticsearch']:
+        for catalog in ['tpch', 'hive', 'iceberg', 'delta-lake', 'mysql', 'mariadb', 'postgres', 'sqlserver', 'db2', 'clickhouse', 'pinot', 'elasticsearch']:
             # Check both methods of enabling catalogs (checkbox name or direct name)
             if catalog in request.form or catalog in request.form.getlist('enabled_catalogs'):
                 enabled_catalogs.append(catalog)
@@ -312,6 +323,10 @@ def query_page():
     cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
     cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
     
+    # Force-enable TPC-H in demo mode
+    if not docker_available and 'tpch' in config['catalogs']:
+        config['catalogs']['tpch']['enabled'] = True
+        
     # Get list of catalogs
     catalogs = [catalog for catalog, settings in config['catalogs'].items() if settings['enabled']]
     
@@ -485,6 +500,10 @@ def save_catalog_config():
     """Save catalog configurations"""
     try:
         config = load_config()
+        
+        # Always enable TPC-H in demo mode
+        if not docker_available:
+            config['catalogs']['tpch']['enabled'] = True
         
         for catalog in config['catalogs']:
             if catalog in request.form:
