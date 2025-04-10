@@ -241,6 +241,9 @@ class DockerManager:
                     # Ensure that we're always using the secure default if not explicitly configured
                     # This ensures consistency with the PostgreSQL container setup
                     password = catalog_config.get('password') if catalog_config.get('password') else 'postgres123'
+                    
+                    # Log the PostgreSQL catalog settings for debugging
+                    logger.info(f"PostgreSQL catalog settings for container {container_name}: host={host}, port={port}, user={user}, database={database}")
                 
                 # If we have a dedicated PostgreSQL container for this Trino cluster,
                 # use its container_name and port
@@ -261,7 +264,7 @@ class DockerManager:
                     f.write(f"connection-user={user}\n")
                     f.write(f"connection-password={password}\n")
                     
-                logger.info(f"Created PostgreSQL catalog configuration with host {host} and user {user}")
+                logger.info(f"Created PostgreSQL catalog configuration at {catalog_file_path} with host {host}, port {port}, database {database}, and user {user}")
                 
             elif catalog_name == 'tpch':
                 with open(catalog_file_path, "w") as f:
