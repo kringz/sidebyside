@@ -25,12 +25,12 @@ def get_default_config():
                     'auto_pull_images': True  # Whether to auto-pull images when versions change
                 },
                 'cluster1': {
-                    'version': '405',
+                    'version': '401',
                     'port': 8001,
                     'container_name': 'trino1'
                 },
                 'cluster2': {
-                    'version': '406',
+                    'version': '407',
                     'port': 8002,
                     'container_name': 'trino2'
                 },

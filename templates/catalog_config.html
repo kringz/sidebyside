@@ -215,44 +215,16 @@
                             </div>
                         </div>
                         <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="postgres_host" class="form-label">Host</label>
-                                        <input type="text" class="form-control" id="postgres_host" name="postgres_host" value="{{ config.catalogs.postgres.host }}">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="postgres_port" class="form-label">Port</label>
-                                        <input type="text" class="form-control" id="postgres_port" name="postgres_port" value="{{ config.catalogs.postgres.port }}">
-                                    </div>
-                                </div>
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>Auto-configured:</strong> This catalog is automatically configured to use the system PostgreSQL database available in the environment. No manual configuration is needed. When enabled, PostgreSQL connections will be available to both Trino clusters.
                             </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label for="postgres_database" class="form-label">Database</label>
-                                        <input type="text" class="form-control" id="postgres_database" name="postgres_database" value="{{ config.catalogs.postgres.database }}">
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label for="postgres_user" class="form-label">User</label>
-                                        <input type="text" class="form-control" id="postgres_user" name="postgres_user" value="{{ config.catalogs.postgres.user }}">
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label for="postgres_password" class="form-label">Password</label>
-                                        <input type="password" class="form-control" id="postgres_password" name="postgres_password" value="{{ config.catalogs.postgres.password }}">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle me-2"></i>
-                                <strong>Auto-configuration:</strong> When enabled, this catalog will automatically use the system PostgreSQL database credentials from environment variables. Changes to PostgreSQL settings will automatically restart the Trino clusters to apply the configuration.
-                            </div>
+                            <!-- Hidden fields to preserve the values -->
+                            <input type="hidden" id="postgres_host" name="postgres_host" value="{{ config.catalogs.postgres.host }}">
+                            <input type="hidden" id="postgres_port" name="postgres_port" value="{{ config.catalogs.postgres.port }}">
+                            <input type="hidden" id="postgres_database" name="postgres_database" value="{{ config.catalogs.postgres.database }}">
+                            <input type="hidden" id="postgres_user" name="postgres_user" value="{{ config.catalogs.postgres.user }}">
+                            <input type="hidden" id="postgres_password" name="postgres_password" value="{{ config.catalogs.postgres.password }}">
                         </div>
                     </div>
                     
@@ -474,7 +446,7 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-1"></i> Save Catalog Configuration
                         </button>
-                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                        <a href="{{ url_for('landing') }}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-1"></i> Back to Home
                         </a>
                     </div>

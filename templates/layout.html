@@ -62,12 +62,6 @@
                     </li>
                     
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path == url_for('topology') %}active{% endif %}" href="{{ url_for('topology') }}">
-                            <i class="fas fa-network-wired me-1"></i> Topology
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
                         <a class="nav-link {% if request.path == url_for('breaking_changes') %}active{% endif %}" href="{{ url_for('breaking_changes') }}">
                             <i class="fas fa-exclamation-triangle me-1"></i> Release Changes
                         </a>
