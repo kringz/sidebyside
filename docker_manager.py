@@ -237,11 +237,11 @@ class DockerManager:
             # Start Trino container
             logger.info(f"Starting Trino {version} container {container_name} on port {port}...")
             
-            # Determine network mode based on catalogs
+            # Determine network mode based on catalogs_config parameter
             # Use host networking if PostgreSQL is enabled to allow direct access to the host's PostgreSQL
             use_host_network = False
-            if catalogs:  # Check if catalogs is not None
-                for catalog_name, catalog_config in catalogs.items():
+            if catalogs_config:  # Check if catalogs_config is not None
+                for catalog_name, catalog_config in catalogs_config.items():
                     if catalog_name == 'postgres' and catalog_config.get('enabled', False):
                         use_host_network = True
                         logger.info("PostgreSQL catalog enabled - using host networking for container")
