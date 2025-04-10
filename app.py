@@ -218,6 +218,13 @@ def start_clusters():
         if not docker_available:
             flash('Docker is not available in this environment. Cluster startup is disabled.', 'warning')
             return redirect(url_for('index'))
+        
+        # Always ensure TPC-H is enabled before starting clusters
+        if 'tpch' in config['catalogs'] and not config['catalogs']['tpch']['enabled']:
+            config['catalogs']['tpch']['enabled'] = True
+            config['catalogs']['tpch']['column_naming'] = 'SIMPLIFIED'  # Use simplified naming
+            save_config(config)
+            logger.info("TPC-H catalog enabled for cluster start")
             
         # First, ensure images are pulled to avoid timeouts
         flash('Preparing Trino images...', 'info')

@@ -122,6 +122,17 @@ class DockerManager:
             raise RuntimeError("Docker is not available in this environment")
             
         try:
+            # Always ensure TPC-H catalog is enabled
+            if 'tpch' not in catalogs_config:
+                logger.info(f"Adding missing TPC-H catalog to configuration for {container_name}")
+                catalogs_config['tpch'] = {
+                    'enabled': True,
+                    'column_naming': 'SIMPLIFIED'
+                }
+            elif not catalogs_config['tpch'].get('enabled', False):
+                logger.info(f"Enabling TPC-H catalog for {container_name}")
+                catalogs_config['tpch']['enabled'] = True
+                
             # Check if container already exists
             try:
                 container = self.client.containers.get(container_name)
