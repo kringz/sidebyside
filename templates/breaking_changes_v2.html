@@ -1,0 +1,406 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list-ul me-2"></i>Trino Release Changes
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="version-comparison-form" method="post" action="{{ url_for('compare_versions_v2') }}" class="mb-4" data-loading-message="Loading all changes between versions... This may take a moment.">
+                    <div class="row align-items-end">
+                        <div class="col-md-5 mb-3">
+                            <label for="from_version" class="form-label">From Version:</label>
+                            <select id="from_version" name="from_version" class="form-select">
+                                {% for version in available_versions %}
+                                <option value="{{ version.version }}" {% if version.version == cluster2_version %}selected{% endif %}>
+                                    {{ version.version }} {% if version.is_lts %}(LTS){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-5 mb-3">
+                            <label for="to_version" class="form-label">To Version:</label>
+                            <select id="to_version" name="to_version" class="form-select">
+                                {% for version in available_versions %}
+                                <option value="{{ version.version }}" {% if version.version == cluster1_version %}selected{% endif %}>
+                                    {{ version.version }} {% if version.is_lts %}(LTS){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-1"></i> Compare
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                
+                <div id="version-range-info" class="alert alert-info" style="display: none;">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Showing changes for versions <span id="version-range-text"></span>
+                </div>
+                
+                <div id="comparison-results" class="mt-4">
+                    <div class="text-center py-5" id="loading" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading changes between versions...</p>
+                        <p class="text-muted small">This may take a moment as we process each release page.</p>
+                    </div>
+                    
+                    <div id="results-content" style="display: none;">
+                        <ul class="nav nav-tabs" id="resultTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="connector-tab" data-bs-toggle="tab" data-bs-target="#connector" type="button" role="tab" aria-controls="connector" aria-selected="true">
+                                    <i class="fas fa-plug me-1"></i> Connector Changes <span id="connector-count" class="badge bg-primary ms-1">0</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button" role="tab" aria-controls="general" aria-selected="false">
+                                    <i class="fas fa-cogs me-1"></i> General Changes <span id="general-count" class="badge bg-secondary ms-1">0</span>
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content p-3 border border-top-0 rounded-bottom" id="resultTabsContent">
+                            <!-- Connector Changes Tab -->
+                            <div class="tab-pane fade show active" id="connector" role="tabpanel" aria-labelledby="connector-tab">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <div>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                            <input type="text" id="connector-search" class="form-control" placeholder="Search connector changes...">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <button id="connector-expand-all" class="btn btn-sm btn-outline-primary me-2">
+                                            <i class="fas fa-expand-alt me-1"></i> Expand All
+                                        </button>
+                                        <button id="connector-collapse-all" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-compress-alt me-1"></i> Collapse All
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-info mb-3" id="no-connector-changes" style="display: none;">
+                                    <i class="fas fa-info-circle me-2"></i> No connector changes found between these versions.
+                                </div>
+                                
+                                <div id="connector-changes-list" class="accordion"></div>
+                            </div>
+                            
+                            <!-- General Changes Tab -->
+                            <div class="tab-pane fade" id="general" role="tabpanel" aria-labelledby="general-tab">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <div>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                            <input type="text" id="general-search" class="form-control" placeholder="Search general changes...">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <button id="general-expand-all" class="btn btn-sm btn-outline-primary me-2">
+                                            <i class="fas fa-expand-alt me-1"></i> Expand All
+                                        </button>
+                                        <button id="general-collapse-all" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-compress-alt me-1"></i> Collapse All
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-info mb-3" id="no-general-changes" style="display: none;">
+                                    <i class="fas fa-info-circle me-2"></i> No general changes found between these versions.
+                                </div>
+                                
+                                <div id="general-changes-list" class="accordion"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="error-message" class="alert alert-danger mt-3" style="display: none;">
+                        <i class="fas fa-exclamation-circle me-2"></i> <span id="error-text"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block custom_scripts %}
+<script>
+$(document).ready(function() {
+    // Handle form submission
+    $('#version-comparison-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        // Show loading spinner
+        $('#loading').show();
+        $('#results-content').hide();
+        $('#error-message').hide();
+        $('#version-range-info').hide();
+        
+        // Get selected versions
+        const fromVersion = $('#from_version').val();
+        const toVersion = $('#to_version').val();
+        
+        // Submit form via AJAX
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(response) {
+                // Hide loading spinner
+                $('#loading').hide();
+                
+                if (!response.success) {
+                    $('#error-text').text(response.message || 'An error occurred while comparing versions.');
+                    $('#error-message').show();
+                    return;
+                }
+                
+                // Update version range info
+                $('#version-range-text').text(`${response.from_version} to ${response.to_version}`);
+                $('#version-range-info').show();
+                
+                // Reset counters and clear content
+                $('#connector-count').text('0');
+                $('#general-count').text('0');
+                
+                $('#connector-changes-list').empty();
+                $('#general-changes-list').empty();
+                
+                // Process connector changes
+                if (response.connector_changes && response.connector_changes.length > 0) {
+                    $('#connector-count').text(response.connector_changes.length);
+                    $('#no-connector-changes').hide();
+                    
+                    // Group changes by version and category
+                    const groupedChanges = {};
+                    response.connector_changes.forEach(function(change) {
+                        const version = change.version;
+                        const category = change.category || 'Uncategorized';
+                        
+                        if (!groupedChanges[version]) {
+                            groupedChanges[version] = {};
+                        }
+                        if (!groupedChanges[version][category]) {
+                            groupedChanges[version][category] = [];
+                        }
+                        
+                        groupedChanges[version][category].push(change);
+                    });
+                    
+                    // Sort versions in descending order
+                    const sortedVersions = Object.keys(groupedChanges).sort((a, b) => parseInt(b) - parseInt(a));
+                    
+                    // Create accordion items for each version
+                    sortedVersions.forEach(function(version, vIndex) {
+                        const versionId = `connector-v${version}`;
+                        const versionDiv = $(`
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading-${versionId}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                            data-bs-target="#collapse-${versionId}" aria-expanded="false" aria-controls="collapse-${versionId}">
+                                        <strong>Version ${version}</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapse-${versionId}" class="accordion-collapse collapse" 
+                                     aria-labelledby="heading-${versionId}">
+                                    <div class="accordion-body p-0">
+                                        <div class="list-group list-group-flush" id="categories-${versionId}"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `);
+                        
+                        $('#connector-changes-list').append(versionDiv);
+                        
+                        // Add categories and changes
+                        const categories = Object.keys(groupedChanges[version]).sort();
+                        categories.forEach(function(category) {
+                            const changes = groupedChanges[version][category];
+                            
+                            const categoryItem = $(`
+                                <div class="list-group-item">
+                                    <h5 class="mb-2">${category}</h5>
+                                    <ul class="list-unstyled mb-0"></ul>
+                                </div>
+                            `);
+                            
+                            const changesList = categoryItem.find('ul');
+                            
+                            changes.forEach(function(change) {
+                                changesList.append(`<li class="change-item mb-2">${change.text}</li>`);
+                            });
+                            
+                            $(`#categories-${versionId}`).append(categoryItem);
+                        });
+                    });
+                } else {
+                    $('#no-connector-changes').show();
+                }
+                
+                // Process general changes
+                if (response.general_changes && response.general_changes.length > 0) {
+                    $('#general-count').text(response.general_changes.length);
+                    $('#no-general-changes').hide();
+                    
+                    // Group changes by version and category
+                    const groupedChanges = {};
+                    response.general_changes.forEach(function(change) {
+                        const version = change.version;
+                        const category = change.category || 'Uncategorized';
+                        
+                        if (!groupedChanges[version]) {
+                            groupedChanges[version] = {};
+                        }
+                        if (!groupedChanges[version][category]) {
+                            groupedChanges[version][category] = [];
+                        }
+                        
+                        groupedChanges[version][category].push(change);
+                    });
+                    
+                    // Sort versions in descending order
+                    const sortedVersions = Object.keys(groupedChanges).sort((a, b) => parseInt(b) - parseInt(a));
+                    
+                    // Create accordion items for each version
+                    sortedVersions.forEach(function(version, vIndex) {
+                        const versionId = `general-v${version}`;
+                        const versionDiv = $(`
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading-${versionId}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                            data-bs-target="#collapse-${versionId}" aria-expanded="false" aria-controls="collapse-${versionId}">
+                                        <strong>Version ${version}</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapse-${versionId}" class="accordion-collapse collapse" 
+                                     aria-labelledby="heading-${versionId}">
+                                    <div class="accordion-body p-0">
+                                        <div class="list-group list-group-flush" id="categories-${versionId}"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `);
+                        
+                        $('#general-changes-list').append(versionDiv);
+                        
+                        // Add categories and changes
+                        const categories = Object.keys(groupedChanges[version]).sort();
+                        categories.forEach(function(category) {
+                            const changes = groupedChanges[version][category];
+                            
+                            const categoryItem = $(`
+                                <div class="list-group-item">
+                                    <h5 class="mb-2">${category}</h5>
+                                    <ul class="list-unstyled mb-0"></ul>
+                                </div>
+                            `);
+                            
+                            const changesList = categoryItem.find('ul');
+                            
+                            changes.forEach(function(change) {
+                                changesList.append(`<li class="change-item mb-2">${change.text}</li>`);
+                            });
+                            
+                            $(`#categories-${versionId}`).append(categoryItem);
+                        });
+                    });
+                } else {
+                    $('#no-general-changes').show();
+                }
+                
+                // Show results
+                $('#results-content').show();
+            },
+            error: function(xhr, status, error) {
+                console.error(error);
+                
+                // Hide loading spinner and show error
+                $('#loading').hide();
+                $('#error-text').text('Error loading version comparison data. Please try again.');
+                $('#error-message').show();
+            }
+        });
+    });
+    
+    // Search functionality for connector changes
+    $('#connector-search').on('keyup', function() {
+        const searchText = $(this).val().toLowerCase();
+        filterChanges('#connector-changes-list', searchText);
+    });
+    
+    // Search functionality for general changes
+    $('#general-search').on('keyup', function() {
+        const searchText = $(this).val().toLowerCase();
+        filterChanges('#general-changes-list', searchText);
+    });
+    
+    // Function to filter changes based on search text
+    function filterChanges(containerSelector, searchText) {
+        if (!searchText) {
+            // If search is empty, show all items and collapse accordions
+            $(`${containerSelector} .change-item`).show();
+            $(`${containerSelector} .accordion-collapse`).removeClass('show');
+            return;
+        }
+        
+        // Process each accordion item
+        $(`${containerSelector} .accordion-item`).each(function() {
+            const $accordionItem = $(this);
+            const $accordionBody = $accordionItem.find('.accordion-collapse');
+            let hasMatch = false;
+            
+            // Check each change item
+            $accordionItem.find('.change-item').each(function() {
+                const $changeItem = $(this);
+                const changeText = $changeItem.text().toLowerCase();
+                
+                if (changeText.includes(searchText)) {
+                    $changeItem.show();
+                    hasMatch = true;
+                } else {
+                    $changeItem.hide();
+                }
+            });
+            
+            // Show/expand accordion if it has matches
+            if (hasMatch) {
+                $accordionBody.addClass('show');
+            } else {
+                $accordionBody.removeClass('show');
+            }
+        });
+    }
+    
+    // Expand/Collapse buttons for connector changes
+    $('#connector-expand-all').click(function() {
+        $('#connector-changes-list .accordion-collapse').addClass('show');
+    });
+    
+    $('#connector-collapse-all').click(function() {
+        $('#connector-changes-list .accordion-collapse').removeClass('show');
+    });
+    
+    // Expand/Collapse buttons for general changes
+    $('#general-expand-all').click(function() {
+        $('#general-changes-list .accordion-collapse').addClass('show');
+    });
+    
+    $('#general-collapse-all').click(function() {
+        $('#general-changes-list .accordion-collapse').removeClass('show');
+    });
+    
+    // Auto-submit on page load to show the initial comparison
+    $('#version-comparison-form').submit();
+});
+</script>
+{% endblock %}
