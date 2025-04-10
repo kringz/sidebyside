@@ -80,8 +80,37 @@ trino_clients = {
 }
 
 @app.route('/')
-def index():
-    """Main page with cluster status and management and catalog configuration"""
+def landing():
+    """Landing page for selecting software to compare"""
+    # Get selected software from session or set default
+    selected_software = session.get('selected_software', 'trino')
+    
+    # List of available software options
+    software_options = [
+        {'id': 'trino', 'name': 'Trino:Trino', 'description': 'Compare different versions of Trino distributed SQL query engine'},
+        # Future options will be added here
+        {'id': 'spark', 'name': 'Spark:Spark', 'description': 'Compare different versions of Apache Spark (Coming Soon)', 'disabled': True},
+        {'id': 'kafka', 'name': 'Kafka:Kafka', 'description': 'Compare different versions of Apache Kafka (Coming Soon)', 'disabled': True}
+    ]
+    
+    return render_template('landing.html', 
+                          software_options=software_options,
+                          selected_software=selected_software)
+
+@app.route('/select_software', methods=['POST'])
+def select_software():
+    """Handle software selection from the landing page"""
+    software = request.form.get('software')
+    if software:
+        session['selected_software'] = software
+        flash(f'Selected {software} for comparison', 'success')
+    
+    # Currently we only have Trino implemented, so always redirect to trino_dashboard
+    return redirect(url_for('trino_dashboard'))
+
+@app.route('/trino')
+def trino_dashboard():
+    """Main page with Trino cluster status and management and catalog configuration"""
     config = load_config()
     cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
     cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
@@ -252,7 +281,7 @@ def save_configuration():
         else:
             # Return regular response with flash message
             flash('Configuration saved successfully!', 'success')
-            return redirect(url_for('index'))
+            return redirect(url_for('trino_dashboard'))
             
     except Exception as e:
         logger.error(f"Error saving configuration: {str(e)}")
@@ -261,7 +290,7 @@ def save_configuration():
             return jsonify({'success': False, 'message': f'Error saving configuration: {str(e)}'})
         else:
             flash(f'Error saving configuration: {str(e)}', 'danger')
-            return redirect(url_for('index'))
+            return redirect(url_for('trino_dashboard'))
 
 @app.route('/reset_config', methods=['POST'])
 def reset_config():
@@ -274,7 +303,7 @@ def reset_config():
         logger.error(f"Error resetting configuration: {str(e)}")
         flash(f'Error resetting configuration: {str(e)}', 'danger')
     
-    return redirect(url_for('index'))
+    return redirect(url_for('trino_dashboard'))
 
 @app.route('/check_pull_progress')
 def check_pull_progress():
@@ -339,7 +368,7 @@ def start_clusters():
         
         if not docker_available:
             flash('Docker is not available in this environment. Cluster startup is disabled.', 'warning')
-            return redirect(url_for('index'))
+            return redirect(url_for('trino_dashboard'))
         
         # Always ensure TPC-H is enabled before starting clusters
         if 'tpch' in config['catalogs'] and not config['catalogs']['tpch']['enabled']:
@@ -409,7 +438,7 @@ def start_clusters():
         logger.error(traceback.format_exc())
         flash(f'Error starting clusters: {str(e)}', 'danger')
     
-    return redirect(url_for('index'))
+    return redirect(url_for('trino_dashboard'))
 
 @app.route('/stop_clusters', methods=['POST'])
 def stop_clusters():
@@ -429,7 +458,7 @@ def stop_clusters():
         logger.error(f"Error stopping clusters: {str(e)}")
         flash(f'Error stopping clusters: {str(e)}', 'danger')
     
-    return redirect(url_for('index'))
+    return redirect(url_for('trino_dashboard'))
 
 @app.route('/restart_clusters', methods=['POST'])
 def restart_clusters():
@@ -443,7 +472,7 @@ def restart_clusters():
         logger.error(f"Error restarting clusters: {str(e)}")
         flash(f'Error restarting clusters: {str(e)}', 'danger')
     
-    return redirect(url_for('index'))
+    return redirect(url_for('trino_dashboard'))
 
 @app.route('/query')
 def query_page():
