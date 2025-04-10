@@ -810,7 +810,15 @@ def run_query():
                         ["- StatementRewrite"],
                         ["    - Statement: EXPLAIN " + query]
                     ]
-                    if 'show' in query_lower:
+                    
+                    # Special case for SHOW CATALOGS
+                    if 'show catalogs' in query_lower:
+                        mock_rows = [
+                            ["- Output[catalog]"],
+                            ["    - ShowCatalogs"],
+                            ["        - ListCatalogs: [system, tpch, postgresql]"]
+                        ]
+                    elif 'show' in query_lower:
                         mock_rows.append(["    - Metadata query for displaying available objects"])
                     elif 'describe' in query_lower:
                         mock_rows.append(["    - Metadata query for describing object structure"])
