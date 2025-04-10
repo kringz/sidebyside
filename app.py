@@ -63,15 +63,22 @@ docker_available = docker_manager.docker_available
 if not docker_available:
     logger.warning("Docker is not available. Running in demo mode.")
     
-    # Force enable TPC-H catalog in demo mode
+    # Force enable TPC-H and PostgreSQL catalogs in demo mode
     try:
         config = load_config()
+        # Enable TPC-H
         if 'tpch' in config['catalogs']:
             config['catalogs']['tpch']['enabled'] = True
-            save_config(config)
             logger.info("TPC-H catalog enabled for demo mode")
+            
+        # Enable PostgreSQL
+        if 'postgres' in config['catalogs']:
+            config['catalogs']['postgres']['enabled'] = True
+            logger.info("PostgreSQL catalog enabled for demo mode")
+            
+        save_config(config)
     except Exception as e:
-        logger.error(f"Error enabling TPC-H in demo mode: {str(e)}")
+        logger.error(f"Error enabling catalogs in demo mode: {str(e)}")
 else:
     # Check for and clean up stale containers on startup
     try:

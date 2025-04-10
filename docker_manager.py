@@ -315,6 +315,16 @@ class DockerManager:
                         postgres_port = int(host_port_config['HostPort'])
                         
                         logger.info(f"PostgreSQL container {postgres_container_name} is running on port {postgres_port}")
+                        
+                        # Wait for PostgreSQL to be ready (simple exponential backoff)
+                        self._wait_for_postgres_ready(pg_container, postgres_container_name)
+                        
+                        # Seed the PostgreSQL container with sample data
+                        self._seed_postgres_container(pg_container, postgres_container_name, 
+                                                     postgres_config.get('user', 'postgres'),
+                                                     postgres_config.get('password', 'postgres'),
+                                                     postgres_config.get('database', 'postgres'))
+                        
                 except Exception as e:
                     logger.error(f"Error starting PostgreSQL container: {str(e)}")
                     # Continue anyway, as we might be able to connect to an existing PostgreSQL instance
@@ -546,6 +556,238 @@ class DockerManager:
                 logger.error(f"Error cleaning up stale container {name}: {str(e)}")
         
         return cleaned
+    
+    def _wait_for_postgres_ready(self, container, container_name, max_attempts=10):
+        """Wait for PostgreSQL container to be ready to accept connections
+        
+        Args:
+            container: The Docker container object
+            container_name: The name of the PostgreSQL container
+            max_attempts: Maximum number of connection attempts
+        """
+        logger.info(f"Waiting for PostgreSQL container {container_name} to be ready...")
+        
+        # We'll do a simple retry with exponential backoff
+        import time
+        
+        # Don't wait if Docker is not available (demo mode)
+        if not self.docker_available:
+            return
+            
+        # Prepare the pg_isready command
+        cmd = ["pg_isready"]
+        
+        # Try to connect
+        attempt = 0
+        while attempt < max_attempts:
+            try:
+                # Run pg_isready inside the container
+                exit_code, output = container.exec_run(cmd)
+                
+                # Check if PostgreSQL is ready (exit code 0)
+                if exit_code == 0:
+                    logger.info(f"PostgreSQL container {container_name} is ready for connections")
+                    return True
+                
+                # Log the attempt
+                logger.info(f"PostgreSQL not ready yet (attempt {attempt+1}/{max_attempts}): {output.decode('utf-8').strip()}")
+                
+                # Wait with exponential backoff
+                wait_time = 2 ** attempt
+                time.sleep(wait_time)
+                attempt += 1
+                
+            except Exception as e:
+                logger.error(f"Error checking PostgreSQL readiness: {str(e)}")
+                time.sleep(2 ** attempt)
+                attempt += 1
+                
+        logger.warning(f"Timed out waiting for PostgreSQL container {container_name} to be ready after {max_attempts} attempts")
+        return False
+    
+    def _seed_postgres_container(self, container, container_name, user, password, database):
+        """Seed a PostgreSQL container with sample data
+        
+        Args:
+            container: The Docker container object
+            container_name: The name of the PostgreSQL container
+            user: PostgreSQL username
+            password: PostgreSQL password
+            database: PostgreSQL database name
+        """
+        logger.info(f"Seeding PostgreSQL container {container_name} with sample data...")
+        
+        # Don't seed if Docker is not available (demo mode)
+        if not self.docker_available:
+            return
+            
+        try:
+            # Create a script with sample data
+            seed_sql = """
+            -- Create a sample schema
+            CREATE SCHEMA IF NOT EXISTS sample;
+            
+            -- Create a users table
+            CREATE TABLE IF NOT EXISTS sample.users (
+                user_id SERIAL PRIMARY KEY,
+                username VARCHAR(50) NOT NULL,
+                email VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            -- Create a products table
+            CREATE TABLE IF NOT EXISTS sample.products (
+                product_id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                price DECIMAL(10, 2) NOT NULL,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            -- Create an orders table
+            CREATE TABLE IF NOT EXISTS sample.orders (
+                order_id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES sample.users(user_id),
+                total_amount DECIMAL(10, 2) NOT NULL,
+                status VARCHAR(20) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            -- Create an order_items table
+            CREATE TABLE IF NOT EXISTS sample.order_items (
+                item_id SERIAL PRIMARY KEY,
+                order_id INTEGER REFERENCES sample.orders(order_id),
+                product_id INTEGER REFERENCES sample.products(product_id),
+                quantity INTEGER NOT NULL,
+                price DECIMAL(10, 2) NOT NULL
+            );
+            
+            -- Insert sample users
+            INSERT INTO sample.users (username, email) VALUES
+                ('johndoe', 'john.doe@example.com'),
+                ('janedoe', 'jane.doe@example.com'),
+                ('bobsmith', 'bob.smith@example.com'),
+                ('alicejones', 'alice.jones@example.com'),
+                ('michaelbrown', 'michael.brown@example.com')
+            ON CONFLICT (user_id) DO NOTHING;
+            
+            -- Insert sample products
+            INSERT INTO sample.products (name, price, description) VALUES
+                ('Laptop', 1299.99, 'High-performance laptop with 16GB RAM'),
+                ('Smartphone', 799.99, 'Latest model with 128GB storage'),
+                ('Headphones', 199.99, 'Noise-cancelling wireless headphones'),
+                ('Tablet', 499.99, '10-inch tablet with 64GB storage'),
+                ('Monitor', 349.99, '27-inch 4K monitor')
+            ON CONFLICT (product_id) DO NOTHING;
+            
+            -- Insert sample orders
+            INSERT INTO sample.orders (user_id, total_amount, status) VALUES
+                (1, 1299.99, 'completed'),
+                (2, 999.98, 'completed'),
+                (3, 199.99, 'processing'),
+                (4, 849.98, 'shipped'),
+                (1, 349.99, 'pending')
+            ON CONFLICT (order_id) DO NOTHING;
+            
+            -- Insert sample order items
+            INSERT INTO sample.order_items (order_id, product_id, quantity, price) VALUES
+                (1, 1, 1, 1299.99),
+                (2, 2, 1, 799.99),
+                (2, 3, 1, 199.99),
+                (3, 3, 1, 199.99),
+                (4, 2, 1, 799.99),
+                (4, 4, 1, 49.99),
+                (5, 5, 1, 349.99)
+            ON CONFLICT (item_id) DO NOTHING;
+            
+            -- Create another schema for a different dataset
+            CREATE SCHEMA IF NOT EXISTS analytics;
+            
+            -- Create a sales table in the analytics schema
+            CREATE TABLE IF NOT EXISTS analytics.sales (
+                sale_id SERIAL PRIMARY KEY,
+                product_name VARCHAR(100) NOT NULL,
+                category VARCHAR(50) NOT NULL,
+                amount DECIMAL(10, 2) NOT NULL,
+                sale_date DATE NOT NULL
+            );
+            
+            -- Insert sample sales data
+            INSERT INTO analytics.sales (product_name, category, amount, sale_date) VALUES
+                ('Laptop Pro', 'Electronics', 1499.99, '2025-01-15'),
+                ('Smartphone X', 'Electronics', 899.99, '2025-01-16'),
+                ('Desk Chair', 'Furniture', 199.99, '2025-01-17'),
+                ('Coffee Table', 'Furniture', 299.99, '2025-01-18'),
+                ('Bluetooth Speaker', 'Electronics', 79.99, '2025-01-19'),
+                ('Tablet Air', 'Electronics', 599.99, '2025-01-20'),
+                ('Sofa', 'Furniture', 899.99, '2025-01-21'),
+                ('Headphones Pro', 'Electronics', 249.99, '2025-01-22'),
+                ('Dining Table', 'Furniture', 499.99, '2025-01-23'),
+                ('Smart Watch', 'Electronics', 349.99, '2025-01-24'),
+                ('Bookshelf', 'Furniture', 149.99, '2025-01-25'),
+                ('Laptop Pro', 'Electronics', 1499.99, '2025-02-15'),
+                ('Smartphone X', 'Electronics', 899.99, '2025-02-16'),
+                ('Desk Chair', 'Furniture', 199.99, '2025-02-17'),
+                ('Coffee Table', 'Furniture', 299.99, '2025-02-18'),
+                ('Bluetooth Speaker', 'Electronics', 79.99, '2025-02-19'),
+                ('Tablet Air', 'Electronics', 599.99, '2025-02-20'),
+                ('Sofa', 'Furniture', 899.99, '2025-02-21'),
+                ('Headphones Pro', 'Electronics', 249.99, '2025-02-22'),
+                ('Dining Table', 'Furniture', 499.99, '2025-02-23')
+            ON CONFLICT (sale_id) DO NOTHING;
+            
+            -- Create a view to show total sales by category
+            CREATE OR REPLACE VIEW analytics.sales_by_category AS
+            SELECT 
+                category,
+                SUM(amount) as total_sales,
+                COUNT(*) as num_sales
+            FROM analytics.sales
+            GROUP BY category;
+            
+            -- Create a view to show monthly sales
+            CREATE OR REPLACE VIEW analytics.monthly_sales AS
+            SELECT 
+                EXTRACT(YEAR FROM sale_date) as year,
+                EXTRACT(MONTH FROM sale_date) as month,
+                SUM(amount) as total_sales,
+                COUNT(*) as num_sales
+            FROM analytics.sales
+            GROUP BY year, month
+            ORDER BY year, month;
+            """
+            
+            # Write the SQL script to a file inside the container
+            # We'll use a temporary file approach
+            script_path = "/tmp/seed_data.sql"
+            cmd = f'bash -c "echo \'{seed_sql}\' > {script_path}"'
+            exit_code, output = container.exec_run(cmd, privileged=True)
+            
+            if exit_code != 0:
+                logger.error(f"Failed to create seed script: {output.decode('utf-8')}")
+                return
+                
+            # Execute the script
+            psql_cmd = f'bash -c "PGPASSWORD={password} psql -U {user} -d {database} -f {script_path}"'
+            exit_code, output = container.exec_run(psql_cmd)
+            
+            if exit_code != 0:
+                logger.error(f"Failed to seed database: {output.decode('utf-8')}")
+                return
+                
+            logger.info(f"Successfully seeded PostgreSQL container {container_name} with sample data")
+            
+            # Verify the data was loaded by counting tables
+            verify_cmd = f'bash -c "PGPASSWORD={password} psql -U {user} -d {database} -c \'SELECT COUNT(*) FROM sample.users;\'"'
+            exit_code, output = container.exec_run(verify_cmd)
+            
+            if exit_code == 0:
+                logger.info(f"Verification successful: {output.decode('utf-8').strip()}")
+            else:
+                logger.warning(f"Verification failed: {output.decode('utf-8')}")
+                
+        except Exception as e:
+            logger.error(f"Error seeding PostgreSQL container {container_name}: {str(e)}")
     
     def stop_trino_cluster(self, container_name):
         """Stop and remove a Trino cluster and its associated PostgreSQL container if any"""

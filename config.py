@@ -69,12 +69,12 @@ def get_default_config():
                         'password': ''
                     },
                     'postgres': {
-                        'enabled': False,
+                        'enabled': True,
                         'host': 'localhost',
                         'port': '5432',
                         'database': 'postgres',
                         'user': 'postgres',
-                        'password': ''
+                        'password': 'postgres'
                     },
                     'sqlserver': {
                         'enabled': False,
