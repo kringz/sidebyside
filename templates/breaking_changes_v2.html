@@ -51,7 +51,12 @@
                             <span class="visually-hidden">Loading...</span>
                         </div>
                         <p class="mt-2">Loading changes between versions...</p>
-                        <p class="text-muted small">This may take a moment as we process each release page.</p>
+                        <p class="text-muted small">Processing release notes from multiple versions (limited to 20 max).</p>
+                        <p class="text-muted small">For large version ranges, a representative sample will be shown.</p>
+                        <div class="progress mt-3" style="height: 20px;">
+                            <div id="loading-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%"></div>
+                        </div>
                     </div>
                     
                     <div id="results-content" style="display: none;">

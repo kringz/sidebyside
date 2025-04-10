@@ -71,12 +71,13 @@ def generate_version_range(from_version, to_version):
         logger.warning(f"Non-numeric versions provided: {from_version} to {to_version}")
         return [from_version, to_version]
 
-def scrape_trino_release_page(version):
+def scrape_trino_release_page(version, timeout=5):
     """
     Scrape a Trino release page and extract changes categorized by Connector and General
     
     Args:
         version (str): The Trino version to scrape (e.g., "406")
+        timeout (int): Request timeout in seconds to prevent hanging
         
     Returns:
         dict: A dictionary with two keys: 'connector_changes' and 'general_changes',
@@ -86,8 +87,8 @@ def scrape_trino_release_page(version):
     release_url = f"{base_url}/release-{version}.html"
     
     try:
-        # Fetch the release page
-        response = requests.get(release_url, timeout=10)
+        # Fetch the release page with a short timeout to prevent hanging
+        response = requests.get(release_url, timeout=timeout)
         if response.status_code != 200:
             logger.warning(f"Failed to fetch release page for version {version}: {response.status_code}")
             return {"connector_changes": [], "general_changes": []}
@@ -151,13 +152,14 @@ def scrape_trino_release_page(version):
         logger.error(f"Error scraping release page for version {version}: {str(e)}")
         return {"connector_changes": [], "general_changes": []}
 
-def get_all_changes_between_versions(from_version, to_version):
+def get_all_changes_between_versions(from_version, to_version, max_versions=20):
     """
     Get all changes between two Trino versions, categorized by Connector and General/Other
     
     Args:
         from_version (str): The starting version (lower bound)
         to_version (str): The ending version (upper bound)
+        max_versions (int): Maximum number of versions to process to prevent timeouts
         
     Returns:
         dict: A dictionary with all changes categorized
@@ -168,6 +170,17 @@ def get_all_changes_between_versions(from_version, to_version):
     
     # Generate the list of versions to check
     versions = generate_version_range(from_version, to_version)
+    
+    # Limit the number of versions to process to prevent timeouts
+    if len(versions) > max_versions:
+        logger.warning(f"Too many versions requested ({len(versions)}). Limiting to {max_versions} versions.")
+        # Take versions at regular intervals to get a representative sample
+        if len(versions) > 1:
+            step = max(1, len(versions) // max_versions)
+            versions = versions[::step]
+            # Always include the first and last version
+            if versions[-1] != to_version:
+                versions.append(to_version)
     
     # Initialize result structure
     result = {
@@ -181,12 +194,17 @@ def get_all_changes_between_versions(from_version, to_version):
     # Process each version
     for version in versions:
         logger.info(f"Scraping release page for Trino version {version}")
-        version_changes = scrape_trino_release_page(version)
-        
-        if version_changes["connector_changes"]:
-            result["connector_changes"].extend(version_changes["connector_changes"])
-        
-        if version_changes["general_changes"]:
-            result["general_changes"].extend(version_changes["general_changes"])
+        try:
+            version_changes = scrape_trino_release_page(version)
+            
+            if version_changes["connector_changes"]:
+                result["connector_changes"].extend(version_changes["connector_changes"])
+            
+            if version_changes["general_changes"]:
+                result["general_changes"].extend(version_changes["general_changes"])
+        except Exception as e:
+            logger.error(f"Error scraping version {version}: {str(e)}")
+            # Continue with next version instead of failing completely
+            continue
     
     return result
