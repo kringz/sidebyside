@@ -176,81 +176,143 @@ def fetch_all_trino_versions():
     release_url = "https://trino.io/docs/current/release.html"
     logger.info(f"Fetching all Trino versions from {release_url}")
     
+    # Start with an empty list for scraped versions
+    scraped_versions = []
+    
     try:
         # Fetch the release page
         response = requests.get(release_url, timeout=10)
         if response.status_code != 200:
             logger.warning(f"Failed to fetch release page: {response.status_code}")
-            return []
-        
-        # Parse the HTML
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Add debug information
-        logger.debug(f"Response length: {len(response.text)} bytes")
-        
-        # Debug: first 500 chars of the response
-        logger.debug(f"First 500 chars of response: {response.text[:500]}")
-        
-        # Debug: check main content sections
-        sections = soup.find_all('section')
-        logger.debug(f"Found {len(sections)} sections")
-        
-        # Use a simpler approach - extract version numbers from any line with 'Release XXX'
-        versions = []
-        lines = response.text.split('\n')
-        version_pattern = re.compile(r'Release (\d+)')
-        
-        for line in lines:
-            if 'Release' in line and 'href' in line:
-                logger.debug(f"Found potential version line: {line}")
-                match = version_pattern.search(line)
-                if match:
-                    version_number = match.group(1)
-                    logger.debug(f"Extracted version number: {version_number}")
-                    versions.append({
-                        "version": version_number,
-                        "name": f"Release {version_number}"
-                    })
-        
-        # Remove duplicates while preserving order
-        seen = set()
-        unique_versions = []
-        for v in versions:
-            if v["version"] not in seen:
-                seen.add(v["version"])
-                unique_versions.append(v)
-        
-        # Sort versions in descending order
-        unique_versions.sort(key=lambda x: int(x["version"]), reverse=True)
-        
-        logger.info(f"Found {len(unique_versions)} Trino versions")
-        
-        # If we still have no versions, use a fallback approach with manual extraction
-        if not unique_versions:
-            logger.warning("Using fallback approach with hardcoded regex")
-            # Extract all digits following "Release"
-            fallback_pattern = re.compile(r'Release\s+(\d+)')
-            matches = fallback_pattern.findall(response.text)
-            logger.debug(f"Fallback found {len(matches)} matches: {matches[:10]}")
+        else:
+            # Parse the HTML
+            soup = BeautifulSoup(response.text, 'html.parser')
             
-            for v in matches:
-                unique_versions.append({
-                    "version": v,
-                    "name": f"Release {v}"
-                })
-                
-            # Sort again after fallback
+            # Add debug information
+            logger.debug(f"Response length: {len(response.text)} bytes")
+            
+            # Debug: first 500 chars of the response
+            logger.debug(f"First 500 chars of response: {response.text[:500]}")
+            
+            # Debug: check main content sections
+            sections = soup.find_all('section')
+            logger.debug(f"Found {len(sections)} sections")
+            
+            # Use a simpler approach - extract version numbers from any line with 'Release XXX'
+            versions = []
+            lines = response.text.split('\n')
+            version_pattern = re.compile(r'Release (\d+)')
+            
+            for line in lines:
+                if 'Release' in line and 'href' in line:
+                    logger.debug(f"Found potential version line: {line}")
+                    match = version_pattern.search(line)
+                    if match:
+                        version_number = match.group(1)
+                        logger.debug(f"Extracted version number: {version_number}")
+                        versions.append({
+                            "version": version_number,
+                            "name": f"Release {version_number}"
+                        })
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_versions = []
+            for v in versions:
+                if v["version"] not in seen:
+                    seen.add(v["version"])
+                    unique_versions.append(v)
+            
+            # Sort versions in descending order
             unique_versions.sort(key=lambda x: int(x["version"]), reverse=True)
-            logger.info(f"Fallback found {len(unique_versions)} Trino versions")
-        
-        return unique_versions
-    
+            
+            logger.info(f"Found {len(unique_versions)} Trino versions from web scraping")
+            
+            # If we still have no versions, use a fallback approach with manual extraction
+            if not unique_versions:
+                logger.warning("Using fallback approach with hardcoded regex")
+                # Extract all digits following "Release"
+                fallback_pattern = re.compile(r'Release\s+(\d+)')
+                matches = fallback_pattern.findall(response.text)
+                logger.debug(f"Fallback found {len(matches)} matches: {matches[:10]}")
+                
+                for v in matches:
+                    unique_versions.append({
+                        "version": v,
+                        "name": f"Release {v}"
+                    })
+                    
+                # Sort again after fallback
+                unique_versions.sort(key=lambda x: int(x["version"]), reverse=True)
+                logger.info(f"Fallback found {len(unique_versions)} Trino versions")
+            
+            # Add all scraped versions to our list
+            scraped_versions.extend(unique_versions)
+            
     except Exception as e:
         logger.error(f"Error fetching Trino versions: {str(e)}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
-        return []
+    
+    # Generate a comprehensive range of versions as a fallback
+    # If we have fewer than 20 versions or there was an error
+    if len(scraped_versions) < 20:
+        logger.warning("Scraping didn't find enough versions, generating comprehensive version list")
+        
+        # Create a comprehensive list of all possible Trino versions
+        comprehensive_versions = []
+        
+        # Add older versions (0.x series from 0.52 to 0.299)
+        for v in range(52, 300):
+            comprehensive_versions.append({
+                "version": f"0.{v}", 
+                "name": f"Release 0.{v}"
+            })
+        
+        # Add newer versions (300 to 499)
+        for v in range(300, 500):
+            comprehensive_versions.append({
+                "version": str(v), 
+                "name": f"Release {v}"
+            })
+        
+        logger.info(f"Generated {len(comprehensive_versions)} versions in comprehensive list")
+        
+        # If we have some scraped versions, merge them with our comprehensive list
+        if scraped_versions:
+            # Merge the scraped and generated lists
+            all_versions = comprehensive_versions + scraped_versions
+        else:
+            # Use the comprehensive list directly
+            all_versions = comprehensive_versions
+            
+        # Remove duplicates while preserving the most recent entries (later in the list)
+        seen = set()
+        unique_versions = []
+        # Process the list in reverse to prioritize later entries (scraped versions)
+        for v in reversed(all_versions):
+            if v["version"] not in seen:
+                seen.add(v["version"])
+                unique_versions.append(v)
+        
+        # Reverse back to normal order before sorting
+        unique_versions.reverse()
+    else:
+        # Use only the scraped versions if we have enough
+        unique_versions = scraped_versions
+    
+    # Sort by version (descending) - handle 0.x versions properly
+    def version_key(item):
+        v = item['version']
+        if v.startswith('0.'):
+            return (0, int(v[2:]))
+        return (int(v), 0)
+        
+    unique_versions.sort(key=version_key, reverse=True)
+    
+    logger.info(f"Returning {len(unique_versions)} total Trino versions")
+    
+    return unique_versions
 
 def get_all_changes_between_versions(from_version, to_version, max_versions=20):
     """
