@@ -245,6 +245,23 @@ class DockerManager:
         """
         if not self.docker_available:
             logger.warning(f"Docker not available, cannot pull Trino image {version}")
+            if progress_callback:
+                # Even in demo mode, send some progress
+                import threading
+                import time
+                
+                def simulate_progress():
+                    # Simulate progress in demo mode
+                    for i in range(11):
+                        progress = i / 10.0
+                        progress_callback(progress)
+                        time.sleep(0.5)
+                
+                # Start a thread to simulate progress
+                thread = threading.Thread(target=simulate_progress)
+                thread.daemon = True
+                thread.start()
+                
             return False
             
         try:
@@ -260,18 +277,68 @@ class DockerManager:
             
             # Pull with progress tracking if callback provided
             if progress_callback:
-                # Using low-level API to get progress updates
-                for line in self.client.api.pull(f"trinodb/trino:{version}", stream=True, decode=True):
-                    if 'progress' in line:
-                        # Extract progress percentage if available
-                        if 'progressDetail' in line and 'current' in line['progressDetail'] and 'total' in line['progressDetail']:
-                            current = line['progressDetail']['current']
-                            total = line['progressDetail']['total']
-                            if total > 0:
-                                progress = min(float(current) / float(total), 1.0)
-                                progress_callback(progress)
-                # Final update to ensure 100% is reported
-                progress_callback(1.0)
+                # Send initial progress
+                progress_callback(0.0)
+                
+                try:
+                    # Using low-level API to get progress updates
+                    last_progress = 0.0
+                    total_layers = 0
+                    completed_layers = 0
+                    layer_progress = {}
+                    
+                    for line in self.client.api.pull(f"trinodb/trino:{version}", stream=True, decode=True):
+                        # Skip empty lines
+                        if not line:
+                            continue
+                            
+                        # Log the raw line for debugging
+                        logger.debug(f"Docker pull progress: {line}")
+                        
+                        # Handle status updates
+                        if 'id' in line and 'status' in line:
+                            layer_id = line['id']
+                            status = line['status']
+                            
+                            # Track layer count
+                            if layer_id not in layer_progress:
+                                layer_progress[layer_id] = 0.0
+                                total_layers += 1
+                            
+                            # Update layer progress
+                            if 'progressDetail' in line and 'current' in line['progressDetail'] and 'total' in line['progressDetail']:
+                                current = float(line['progressDetail']['current'])
+                                total = float(line['progressDetail']['total'])
+                                if total > 0:
+                                    layer_progress[layer_id] = current / total
+                            
+                            # Mark completed layers
+                            if status in ['Download complete', 'Pull complete', 'Already exists', 'Verifying Checksum']:
+                                layer_progress[layer_id] = 1.0
+                                completed_layers += 1
+                        
+                        # Calculate overall progress
+                        if total_layers > 0:
+                            if completed_layers == total_layers:
+                                overall_progress = 1.0
+                            else:
+                                # Average progress of all layers
+                                overall_progress = sum(layer_progress.values()) / total_layers
+                            
+                            # Only update if progress has changed significantly
+                            if overall_progress - last_progress >= 0.01 or overall_progress >= 1.0:
+                                last_progress = overall_progress
+                                logger.debug(f"Pull progress for {version}: {overall_progress:.1%}")
+                                progress_callback(overall_progress)
+                    
+                    # Final update to ensure 100% is reported
+                    progress_callback(1.0)
+                    
+                except Exception as e:
+                    logger.error(f"Error tracking pull progress: {str(e)}")
+                    # Continue with standard pull
+                    image = self.client.images.pull(f"trinodb/trino:{version}")
+                    progress_callback(1.0)  # Mark as complete
             else:
                 # Standard pull without progress tracking
                 image = self.client.images.pull(f"trinodb/trino:{version}")
@@ -280,6 +347,9 @@ class DockerManager:
             return True
         except Exception as e:
             logger.error(f"Error pulling Trino image version {version}: {str(e)}")
+            if progress_callback:
+                # Send final error status
+                progress_callback(0.0)  # Reset to 0 to indicate failure
             return False
             
     def get_available_trino_images(self):

@@ -202,10 +202,13 @@ function setupImagePullTracking() {
             clearInterval(pollInterval);
         }
         
+        console.log("Starting progress polling for versions:", Array.from(activePulls));
+        
         // Set up new polling interval (every 1 second)
         pollInterval = setInterval(() => {
             // If no active pulls, stop polling
             if (activePulls.size === 0) {
+                console.log("No active pulls, stopping polling");
                 clearInterval(pollInterval);
                 return;
             }
@@ -214,12 +217,20 @@ function setupImagePullTracking() {
             fetch('/check_pull_progress')
                 .then(response => response.json())
                 .then(data => {
+                    console.log("Received progress data:", data.progress);
+                    
                     // Update progress bars with the latest data
                     if (data.progress) {
                         let allComplete = true;
                         
                         Object.entries(data.progress).forEach(([version, progress]) => {
+                            console.log(`Progress for ${version}: ${progress * 100}%`);
+                            
                             if (activePulls.has(version)) {
+                                // Ensure progress element is visible
+                                document.getElementById('imagePullProgress').classList.remove('d-none');
+                                
+                                // Update the progress bar
                                 createOrUpdateProgressBar(version, progress);
                                 
                                 // Check if this pull is still in progress
@@ -231,13 +242,17 @@ function setupImagePullTracking() {
                         
                         // If all pulls are complete, stop polling
                         if (allComplete && activePulls.size > 0) {
+                            console.log("All pulls complete, stopping polling");
                             clearInterval(pollInterval);
                             
                             // Refresh the page after a delay to show the new images
                             setTimeout(() => {
+                                console.log("Refreshing page to show new images");
                                 window.location.reload();
                             }, 3000);
                         }
+                    } else {
+                        console.log("No progress data received");
                     }
                 })
                 .catch(error => {

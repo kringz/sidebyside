@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev_secret_key")
 
+# Global variable to track image pull progress
+image_pull_progress = {}
+
 # Configure the database
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
