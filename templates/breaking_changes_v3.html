@@ -20,28 +20,7 @@
         padding: 2px 4px;
         border-radius: 3px;
     }
-    /* Loading Modal Styles */
-    #trino-loading-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 1999;
-        display: none;
-    }
-    
-    #trino-loading-modal {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        max-width: 500px;
-        width: 100%;
-        z-index: 2000;
-        display: none;
-    }
+    /* Loading styles completely removed */
 </style>
 {% endblock %}
 
@@ -194,49 +173,22 @@
     </div>
 </div>
 
-<!-- Loading modal -->
-<div id="trino-loading-backdrop"></div>
-<div id="trino-loading-modal">
-    <div class="card shadow">
-        <div class="card-body p-4">
-            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <h5 class="mb-3">Loading changes between versions...</h5>
-            <p class="text-muted mb-2">Processing release notes from multiple versions (limited to 20 max).</p>
-            <p class="text-muted small mb-3">For large version ranges, a representative sample will be shown.</p>
-            <div class="progress" style="height: 15px;">
-                <div id="loading-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                    role="progressbar" style="width: 0%"></div>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Loading modal completely removed -->
 
 {% endblock %}
 
 {% block custom_scripts %}
 <script>
 $(document).ready(function() {
-    // Show loading overlay
+    // Loading overlay functions completely removed
     function showLoadingOverlay() {
-        console.log("Showing loading overlay");
-        // First ensure any previous instances are hidden
-        hideLoadingOverlay();
-        // Then show the overlay with a slight delay to ensure clean rendering
-        setTimeout(function() {
-            $('#trino-loading-backdrop').show();
-            $('#trino-loading-modal').show();
-            $('#loading-progress-bar').css('width', '5%');
-        }, 50);
+        console.log("Loading functionality removed");
+        // Do nothing - loading overlay removed
     }
     
-    // Hide loading overlay
     function hideLoadingOverlay() {
-        console.log("Hiding loading overlay");
-        $('#trino-loading-backdrop').hide();
-        $('#trino-loading-modal').hide();
-        $('#loading-progress-bar').css('width', '0%');
+        console.log("Loading functionality removed");
+        // Do nothing - loading overlay removed
     }
     
     // Handle form submission
@@ -257,13 +209,7 @@ $(document).ready(function() {
         
         console.log("Form submitted with versions:", fromVersion, "to", toVersion);
         
-        // Setup a progress ticker that gradually increases while we wait
-        let progress = 5;
-        const progressInterval = setInterval(function() {
-            progress += 3;
-            if (progress > 90) progress = 90; // Cap at 90% until complete
-            $('#loading-progress-bar').css('width', progress + '%');
-        }, 500);
+        // Progress indicators removed
         
         // Submit form via AJAX
         $.ajax({
@@ -275,9 +221,7 @@ $(document).ready(function() {
                 // Debug info
                 console.log("Response received:", response);
                 
-                // Stop progress ticker and set to 100%
-                clearInterval(progressInterval);
-                $('#loading-progress-bar').css('width', '100%');
+                // Progress indicators removed
                 
                 // Hide loading overlay after a short delay
                 setTimeout(function() {
@@ -483,8 +427,7 @@ $(document).ready(function() {
                 console.error("Status:", status);
                 console.error("Response:", xhr.responseText);
                 
-                // Stop progress ticker
-                clearInterval(progressInterval);
+                // Progress indicators removed
                 
                 // Hide loading overlay
                 hideLoadingOverlay();
