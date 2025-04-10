@@ -394,7 +394,7 @@ def create_breaking_changes_page(versions, app, compare_endpoint):
                     </div>
                     <div class="card-body">
                         <div class="version-select-container">
-                            <form id="version-comparison-form" action="{{ compare_endpoint }}" method="post">
+                            <form id="version-comparison-form" action="/compare_versions_v2" method="post">
                                 <div class="alert alert-info mb-4">
                                     <i class="fas fa-info-circle me-2"></i>
                                     Compare changes between two Trino versions to see what's new, changed, or removed.
@@ -556,10 +556,6 @@ def create_breaking_changes_page(versions, app, compare_endpoint):
                 data: $(this).serialize(),
                 dataType: 'json',
                 success: function(response) {
-                    // Auto-submit it
-                    console.log("Auto-submitting form...");
-                    $('#version-comparison-form').trigger('submit');
-                    
                     // Debug info
                     console.log("Response received:", response);
                     
@@ -843,29 +839,60 @@ def create_breaking_changes_page(versions, app, compare_endpoint):
     @app.route('/compare_versions_v2', methods=['POST'])
     def compare_versions_v2():
         """API endpoint to compare changes between two Trino versions"""
-        from_version = request.form.get('from_version')
-        to_version = request.form.get('to_version')
-        
-        if not from_version or not to_version:
-            return jsonify({
-                'success': False,
-                'message': 'Both from_version and to_version are required'
-            })
-        
         try:
+            logger.info("Received request to /compare_versions_v2")
+            from_version = request.form.get('from_version')
+            to_version = request.form.get('to_version')
+            
+            logger.debug(f"Compare request parameters: from={from_version}, to={to_version}")
+            
+            if not from_version or not to_version:
+                logger.warning("Missing version parameters")
+                return jsonify({
+                    'success': False,
+                    'message': 'Both from_version and to_version are required'
+                })
+            
             # Fetch all changes between versions
+            logger.info(f"Fetching changes between versions {from_version} and {to_version}")
             changes = get_all_changes_between_versions(from_version, to_version)
             
-            return jsonify({
+            # Create a simple response first for debugging
+            result = {
                 'success': True,
                 'from_version': changes['from_version'],
                 'to_version': changes['to_version'],
-                'versions_checked': changes['versions_checked'],
-                'total_versions': len(changes['versions_checked']),
-                'connector_changes': changes['connector_changes'],
-                'general_changes': changes['general_changes'],
-                'processed_count': len(set([change.get('version') for change in changes['connector_changes'] + changes['general_changes']]))
-            })
+                'total_versions': len(changes['versions_checked'])
+            }
+            
+            # Check if we have any changes to process
+            if 'connector_changes' not in changes or not isinstance(changes['connector_changes'], list):
+                logger.warning("No connector_changes found in response or not a list")
+                changes['connector_changes'] = []
+            
+            if 'general_changes' not in changes or not isinstance(changes['general_changes'], list):
+                logger.warning("No general_changes found in response or not a list")
+                changes['general_changes'] = []
+            
+            # Calculate processed count safely
+            processed_versions = set()
+            for change in changes['connector_changes']:
+                if isinstance(change, dict) and 'version' in change:
+                    processed_versions.add(change['version'])
+            
+            for change in changes['general_changes']:
+                if isinstance(change, dict) and 'version' in change:
+                    processed_versions.add(change['version'])
+            
+            result['processed_count'] = len(processed_versions)
+            
+            # Add the more complex data
+            result['versions_checked'] = changes['versions_checked']
+            result['connector_changes'] = changes['connector_changes']
+            result['general_changes'] = changes['general_changes']
+            
+            logger.info(f"Successfully processed comparison between {from_version} and {to_version}")
+            return jsonify(result)
             
         except Exception as e:
             logger.error(f"Error comparing versions: {str(e)}")
