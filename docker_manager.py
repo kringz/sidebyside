@@ -181,12 +181,7 @@ class DockerManager:
                 f.write(f"node.id={container_name}\n")
                 f.write("node.data-dir=/data/trino\n")
             
-            # Create catalog config files
-            for catalog_name, catalog_config in catalogs_config.items():
-                if catalog_config.get('enabled', False):
-                    catalog_file_path = f"{config_dir}/catalog/{catalog_name}.properties"
-                    
-                    # Define postgres_container_name upfront
+            # Define postgres_container_name upfront
             # Will be updated later if a PostgreSQL container is created
             postgres_container_name = None
             
@@ -203,80 +198,86 @@ class DockerManager:
                         logger.info(f"PostgreSQL catalog enabled - will use container {postgres_container_name}")
                         break
             
-            # Generate catalog properties based on catalog type
-            if catalog_name == 'hive':
-                with open(catalog_file_path, "w") as f:
-                    f.write("connector.name=hive\n")
-                    f.write(f"hive.metastore.uri=thrift://{catalog_config.get('metastore_host', 'localhost')}:{catalog_config.get('metastore_port', '9083')}\n")
-                    f.write("hive.allow-drop-table=true\n")
-                    f.write("hive.allow-rename-table=true\n")
-            
-            elif catalog_name == 'mysql':
-                with open(catalog_file_path, "w") as f:
-                    f.write("connector.name=mysql\n")
-                    f.write(f"connection-url=jdbc:mysql://{catalog_config.get('host', 'localhost')}:{catalog_config.get('port', '3306')}\n")
-                    f.write(f"connection-user={catalog_config.get('user', 'root')}\n")
-                    if catalog_config.get('password'):
-                        f.write(f"connection-password={catalog_config.get('password')}\n")
-            
-            elif catalog_name == 'elasticsearch':
-                with open(catalog_file_path, "w") as f:
-                    f.write("connector.name=elasticsearch\n")
-                    f.write(f"elasticsearch.host={catalog_config.get('host', 'localhost')}\n")
-                    f.write(f"elasticsearch.port={catalog_config.get('port', '9200')}\n")
-                    f.write("elasticsearch.default-schema-name=default\n")
-            
-            elif catalog_name == 'postgres':
-                # Special handling for PostgreSQL with our dedicated container
-                # Default fallback values (for when not using Docker)
-                host = catalog_config.get('host', 'localhost')
-                port = catalog_config.get('port', '5432')
-                user = catalog_config.get('user', 'postgres')
-                password = catalog_config.get('password', 'postgres')
-                database = catalog_config.get('database', 'postgres')
-                
-                # If we're using Docker, we need to ensure consistent credentials
-                # across both the PostgreSQL container and the catalog configuration
-                if self.docker_available:
-                    # Ensure that we're always using the secure default if not explicitly configured
-                    # This ensures consistency with the PostgreSQL container setup
-                    password = catalog_config.get('password') if catalog_config.get('password') else 'postgres123'
+            # Create catalog config files
+            for catalog_name, catalog_config in catalogs_config.items():
+                if catalog_config.get('enabled', False):
+                    catalog_file_path = f"{config_dir}/catalog/{catalog_name}.properties"
+                    logger.info(f"Creating catalog file for {catalog_name} at {catalog_file_path}")
                     
-                    # Log the PostgreSQL catalog settings for debugging
-                    logger.info(f"PostgreSQL catalog settings for container {container_name}: host={host}, port={port}, user={user}, database={database}")
-                
-                # If we have a dedicated PostgreSQL container for this Trino cluster,
-                # use its container_name and port
-                if postgres_container_name and "1" in container_name:
-                    # For the first Trino cluster (trino1), use the first PostgreSQL container
-                    host = postgres_container_name
-                    logger.info(f"Updated PostgreSQL connection for {container_name} to use container {host}")
-                elif postgres_container_name and "2" in container_name:
-                    # For the second Trino cluster (trino2), use the second PostgreSQL container
-                    host = postgres_container_name
-                    logger.info(f"Updated PostgreSQL connection for {container_name} to use container {host}")
-                
-                # Create the PostgreSQL catalog config
-                with open(catalog_file_path, "w") as f:
-                    f.write("connector.name=postgresql\n")
-                    # Note: Inside Docker containers, we need to use the Docker container name as the hostname
-                    f.write(f"connection-url=jdbc:postgresql://{host}:{port}/{database}\n")
-                    f.write(f"connection-user={user}\n")
-                    f.write(f"connection-password={password}\n")
+                    # Generate catalog properties based on catalog type
+                    if catalog_name == 'hive':
+                        with open(catalog_file_path, "w") as f:
+                            f.write("connector.name=hive\n")
+                            f.write(f"hive.metastore.uri=thrift://{catalog_config.get('metastore_host', 'localhost')}:{catalog_config.get('metastore_port', '9083')}\n")
+                            f.write("hive.allow-drop-table=true\n")
+                            f.write("hive.allow-rename-table=true\n")
                     
-                logger.info(f"Created PostgreSQL catalog configuration at {catalog_file_path} with host {host}, port {port}, database {database}, and user {user}")
+                    elif catalog_name == 'mysql':
+                        with open(catalog_file_path, "w") as f:
+                            f.write("connector.name=mysql\n")
+                            f.write(f"connection-url=jdbc:mysql://{catalog_config.get('host', 'localhost')}:{catalog_config.get('port', '3306')}\n")
+                            f.write(f"connection-user={catalog_config.get('user', 'root')}\n")
+                            if catalog_config.get('password'):
+                                f.write(f"connection-password={catalog_config.get('password')}\n")
+                    
+                    elif catalog_name == 'elasticsearch':
+                        with open(catalog_file_path, "w") as f:
+                            f.write("connector.name=elasticsearch\n")
+                            f.write(f"elasticsearch.host={catalog_config.get('host', 'localhost')}\n")
+                            f.write(f"elasticsearch.port={catalog_config.get('port', '9200')}\n")
+                            f.write("elasticsearch.default-schema-name=default\n")
+                    
+                    elif catalog_name == 'postgres':
+                        # Special handling for PostgreSQL with our dedicated container
+                        # Default fallback values (for when not using Docker)
+                        host = catalog_config.get('host', 'localhost')
+                        port = catalog_config.get('port', '5432')
+                        user = catalog_config.get('user', 'postgres')
+                        password = catalog_config.get('password', 'postgres')
+                        database = catalog_config.get('database', 'postgres')
                 
-            elif catalog_name == 'tpch':
-                with open(catalog_file_path, "w") as f:
-                    f.write("connector.name=tpch\n")
-                    # Optional configuration for column naming
-                    if catalog_config.get('column_naming'):
-                        f.write(f"tpch.column-naming={catalog_config.get('column_naming')}\n")
-                # Output debug information about the TPC-H catalog creation
-                logger.info(f"Created TPC-H catalog configuration with column naming: {catalog_config.get('column_naming', 'DEFAULT')}")
-                
-            # Log that we created the catalog config
-            logger.info(f"Created catalog config for {catalog_name}")
+                        # If we're using Docker, we need to ensure consistent credentials
+                        # across both the PostgreSQL container and the catalog configuration
+                        if self.docker_available:
+                            # Ensure that we're always using the secure default if not explicitly configured
+                            # This ensures consistency with the PostgreSQL container setup
+                            password = catalog_config.get('password') if catalog_config.get('password') else 'postgres123'
+                            
+                            # Log the PostgreSQL catalog settings for debugging
+                            logger.info(f"PostgreSQL catalog settings for container {container_name}: host={host}, port={port}, user={user}, database={database}")
+                        
+                        # If we have a dedicated PostgreSQL container for this Trino cluster,
+                        # use its container_name and port
+                        if postgres_container_name and "1" in container_name:
+                            # For the first Trino cluster (trino1), use the first PostgreSQL container
+                            host = postgres_container_name
+                            logger.info(f"Updated PostgreSQL connection for {container_name} to use container {host}")
+                        elif postgres_container_name and "2" in container_name:
+                            # For the second Trino cluster (trino2), use the second PostgreSQL container
+                            host = postgres_container_name
+                            logger.info(f"Updated PostgreSQL connection for {container_name} to use container {host}")
+                        
+                        # Create the PostgreSQL catalog config
+                        with open(catalog_file_path, "w") as f:
+                            f.write("connector.name=postgresql\n")
+                            # Note: Inside Docker containers, we need to use the Docker container name as the hostname
+                            f.write(f"connection-url=jdbc:postgresql://{host}:{port}/{database}\n")
+                            f.write(f"connection-user={user}\n")
+                            f.write(f"connection-password={password}\n")
+                            
+                        logger.info(f"Created PostgreSQL catalog configuration at {catalog_file_path} with host {host}, port {port}, database {database}, and user {user}")
+                    
+                    elif catalog_name == 'tpch':
+                        with open(catalog_file_path, "w") as f:
+                            f.write("connector.name=tpch\n")
+                            # Optional configuration for column naming
+                            if catalog_config.get('column_naming'):
+                                f.write(f"tpch.column-naming={catalog_config.get('column_naming')}\n")
+                        # Output debug information about the TPC-H catalog creation
+                        logger.info(f"Created TPC-H catalog configuration with column naming: {catalog_config.get('column_naming', 'DEFAULT')}")
+                    
+                    # Log that we created the catalog config
+                    logger.info(f"Created catalog config for {catalog_name}")
             
             # Start Trino container
             logger.info(f"Starting Trino {version} container {container_name} on port {port}...")
