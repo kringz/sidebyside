@@ -264,6 +264,117 @@
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
+                <!-- Catalog Properties Configuration Section -->
+                <div class="card-header bg-info">
+                    <h2 class="card-title text-white"><i class="fas fa-file-code me-2"></i>Catalog Properties Configuration</h2>
+                </div>
+                <div class="card-body">
+                    {% if not docker_available %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Docker is not available in this environment. Catalog properties cannot be edited.
+                    </div>
+                    {% else %}
+                    <div class="row">
+                        <!-- Cluster 1 Catalog Properties -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header {% if cluster1_status == 'running' %}bg-success{% else %}bg-secondary{% endif %} text-white">
+                                    <h5 class="mb-0">Cluster 1 Catalog Properties</h5>
+                                </div>
+                                <div class="card-body">
+                                    {% if cluster1_status != 'running' %}
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        Cluster 1 is not running. Start the cluster to edit catalog properties.
+                                    </div>
+                                    {% else %}
+                                    <div class="mb-3">
+                                        <label for="cluster1CatalogSelect" class="form-label">Select Catalog:</label>
+                                        <select class="form-select" id="cluster1CatalogSelect">
+                                            <option value="">-- Select Catalog --</option>
+                                            {% for catalog, settings in config.catalogs.items() %}
+                                                {% if settings.enabled %}
+                                                <option value="{{ catalog }}">{{ catalog }}</option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between">
+                                            <button class="btn btn-primary" id="loadCluster1Properties" disabled>
+                                                <i class="fas fa-download me-1"></i> Load Properties
+                                            </button>
+                                            <div>
+                                                <button class="btn btn-success" id="saveCluster1Properties" disabled>
+                                                    <i class="fas fa-save me-1"></i> Save
+                                                </button>
+                                                <button class="btn btn-warning" id="restartCluster1" disabled>
+                                                    <i class="fas fa-redo me-1"></i> Save & Restart
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="properties-editor mb-3 d-none">
+                                        <textarea class="form-control code-editor" id="cluster1PropertiesEditor" rows="15" style="font-family: monospace;"></textarea>
+                                    </div>
+                                    <div id="cluster1PropertiesStatus"></div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Cluster 2 Catalog Properties -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header {% if cluster2_status == 'running' %}bg-success{% else %}bg-secondary{% endif %} text-white">
+                                    <h5 class="mb-0">Cluster 2 Catalog Properties</h5>
+                                </div>
+                                <div class="card-body">
+                                    {% if cluster2_status != 'running' %}
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        Cluster 2 is not running. Start the cluster to edit catalog properties.
+                                    </div>
+                                    {% else %}
+                                    <div class="mb-3">
+                                        <label for="cluster2CatalogSelect" class="form-label">Select Catalog:</label>
+                                        <select class="form-select" id="cluster2CatalogSelect">
+                                            <option value="">-- Select Catalog --</option>
+                                            {% for catalog, settings in config.catalogs.items() %}
+                                                {% if settings.enabled %}
+                                                <option value="{{ catalog }}">{{ catalog }}</option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between">
+                                            <button class="btn btn-primary" id="loadCluster2Properties" disabled>
+                                                <i class="fas fa-download me-1"></i> Load Properties
+                                            </button>
+                                            <div>
+                                                <button class="btn btn-success" id="saveCluster2Properties" disabled>
+                                                    <i class="fas fa-save me-1"></i> Save
+                                                </button>
+                                                <button class="btn btn-warning" id="restartCluster2" disabled>
+                                                    <i class="fas fa-redo me-1"></i> Save & Restart
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="properties-editor mb-3 d-none">
+                                        <textarea class="form-control code-editor" id="cluster2PropertiesEditor" rows="15" style="font-family: monospace;"></textarea>
+                                    </div>
+                                    <div id="cluster2PropertiesStatus"></div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
                 <div class="card-header bg-primary">
                     <h2 class="card-title text-white"><i class="fas fa-cogs me-2"></i>Catalog Configuration</h2>
                 </div>

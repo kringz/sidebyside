@@ -62,6 +62,12 @@
                     </li>
                     
                     <li class="nav-item">
+                        <a class="nav-link {% if request.path == url_for('container_logs_page') %}active{% endif %}" href="{{ url_for('container_logs_page') }}">
+                            <i class="fas fa-terminal me-1"></i> Container Logs
+                        </a>
+                    </li>
+                    
+                    <li class="nav-item">
                         <a class="nav-link {% if request.path == url_for('breaking_changes') %}active{% endif %}" href="{{ url_for('breaking_changes') }}">
                             <i class="fas fa-exclamation-triangle me-1"></i> Release Changes
                         </a>

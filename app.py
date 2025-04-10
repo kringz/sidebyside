@@ -574,6 +574,176 @@ def restart_clusters():
     
     return redirect(url_for('trino_dashboard'))
 
+@app.route('/restart_cluster/<cluster_id>', methods=['POST'])
+def restart_cluster(cluster_id):
+    """Restart a single Trino cluster"""
+    if not docker_manager.docker_available:
+        flash('Docker is not available. Restart operation aborted.', 'warning')
+        return redirect(url_for('trino_dashboard'))
+    
+    config = load_config()
+    
+    # Validate cluster ID
+    if cluster_id not in ['1', '2']:
+        flash('Invalid cluster ID', 'danger')
+        return redirect(url_for('trino_dashboard'))
+    
+    cluster_key = f'cluster{cluster_id}'
+    container_name = config[cluster_key]['container_name']
+    
+    try:
+        logger.info(f"Restarting Trino cluster {cluster_id}...")
+        flash(f'Restarting Trino cluster {cluster_id}...', 'info')
+        
+        # Stop the cluster
+        docker_manager.stop_trino_cluster(container_name)
+        time.sleep(2)
+        
+        # Then start it
+        catalogs_config = {k: v for k, v in config['catalogs'].items() if v.get('enabled', False)}
+        docker_manager.start_trino_cluster(
+            container_name, 
+            config[cluster_key]['version'],
+            config[cluster_key]['port'],
+            catalogs_config
+        )
+        
+        flash(f'Trino cluster {cluster_id} restarted successfully!', 'success')
+    except Exception as e:
+        logger.error(f"Error restarting cluster {cluster_id}: {str(e)}")
+        flash(f'Error restarting cluster {cluster_id}: {str(e)}', 'danger')
+    
+    return redirect(url_for('trino_dashboard'))
+
+@app.route('/get_catalog_properties/<cluster_id>/<catalog_name>')
+def get_catalog_properties(cluster_id, catalog_name):
+    """Get the catalog properties file for a specific cluster and catalog"""
+    if not docker_manager.docker_available:
+        return jsonify({"error": "Docker is not available"}), 400
+    
+    config = load_config()
+    
+    # Validate cluster ID
+    if cluster_id not in ['1', '2']:
+        return jsonify({"error": "Invalid cluster ID"}), 400
+    
+    cluster_key = f'cluster{cluster_id}'
+    container_name = config[cluster_key]['container_name']
+    
+    # Check if the container is running
+    status = docker_manager.get_container_status(container_name)
+    if status != 'running':
+        return jsonify({"error": f"Cluster {cluster_id} is not running"}), 400
+    
+    try:
+        # Get the properties file content from the container
+        client = docker_manager.client
+        container = client.containers.get(container_name)
+        
+        # Execute command to read the properties file
+        file_path = f"/etc/trino/catalog/{catalog_name}.properties"
+        result = container.exec_run(f"cat {file_path}")
+        
+        if result.exit_code != 0:
+            return jsonify({"error": f"Failed to read properties file: {result.output.decode('utf-8')}"}), 400
+        
+        file_content = result.output.decode('utf-8')
+        return jsonify({"content": file_content})
+    
+    except Exception as e:
+        logger.error(f"Error getting catalog properties: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/update_catalog_properties/<cluster_id>/<catalog_name>', methods=['POST'])
+def update_catalog_properties(cluster_id, catalog_name):
+    """Update the catalog properties file for a specific cluster and catalog"""
+    if not docker_manager.docker_available:
+        return jsonify({"error": "Docker is not available"}), 400
+    
+    config = load_config()
+    
+    # Validate cluster ID
+    if cluster_id not in ['1', '2']:
+        return jsonify({"error": "Invalid cluster ID"}), 400
+    
+    cluster_key = f'cluster{cluster_id}'
+    container_name = config[cluster_key]['container_name']
+    
+    # Check if the container is running
+    status = docker_manager.get_container_status(container_name)
+    if status != 'running':
+        return jsonify({"error": f"Cluster {cluster_id} is not running"}), 400
+    
+    try:
+        # Get the new content from the request
+        content = request.json.get('content')
+        if not content:
+            return jsonify({"error": "No content provided"}), 400
+        
+        # Update the properties file in the container
+        client = docker_manager.client
+        container = client.containers.get(container_name)
+        
+        # Write the content to a temporary file
+        temp_file = f"/tmp/{catalog_name}.properties"
+        result = container.exec_run(f"bash -c 'echo -e \"{content}\" > {temp_file}'")
+        
+        if result.exit_code != 0:
+            return jsonify({"error": f"Failed to create temporary file: {result.output.decode('utf-8')}"}), 400
+        
+        # Move the temporary file to the actual properties file
+        file_path = f"/etc/trino/catalog/{catalog_name}.properties"
+        result = container.exec_run(f"bash -c 'mv {temp_file} {file_path}'")
+        
+        if result.exit_code != 0:
+            return jsonify({"error": f"Failed to update properties file: {result.output.decode('utf-8')}"}), 400
+        
+        logger.info(f"Updated {catalog_name}.properties for cluster {cluster_id}")
+        return jsonify({"success": True, "message": f"Updated {catalog_name}.properties for cluster {cluster_id}"})
+    
+    except Exception as e:
+        logger.error(f"Error updating catalog properties: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/container_logs')
+def container_logs_page():
+    """Page for viewing container logs"""
+    config = load_config()
+    
+    cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
+    cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
+    
+    return render_template(
+        'logs.html',
+        config=config,
+        cluster1_status=cluster1_status,
+        cluster2_status=cluster2_status,
+        docker_available=docker_manager.docker_available
+    )
+
+@app.route('/api/container_logs/<container_name>')
+def get_container_logs(container_name):
+    """API endpoint to get container logs"""
+    if not docker_manager.docker_available:
+        return jsonify({"error": "Docker is not available"}), 400
+    
+    try:
+        # Get the logs
+        client = docker_manager.client
+        container = client.containers.get(container_name)
+        
+        # Get the number of lines to tail
+        lines = request.args.get('lines', 100, type=int)
+        
+        # Get the logs from the container
+        logs = container.logs(tail=lines).decode('utf-8')
+        
+        return jsonify({"logs": logs})
+    
+    except Exception as e:
+        logger.error(f"Error getting container logs: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/query')
 def query_page():
     """Page for executing queries against clusters"""
