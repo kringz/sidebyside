@@ -232,21 +232,80 @@ class DockerManager:
             logger.error(f"Error starting Trino container {container_name}: {str(e)}")
             raise RuntimeError(f"Failed to start Trino container: {str(e)}")
     
-    def pull_trino_image(self, version):
-        """Pull a Trino Docker image in advance"""
+    def pull_trino_image(self, version, progress_callback=None):
+        """Pull a Trino Docker image in advance
+        
+        Args:
+            version (str): The Trino version to pull
+            progress_callback (function, optional): A callback function to report progress.
+                The function should accept a float between 0 and 1 representing progress percentage.
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
         if not self.docker_available:
             logger.warning(f"Docker not available, cannot pull Trino image {version}")
             return False
             
         try:
             logger.info(f"Pulling Trino image version {version}...")
-            image = self.client.images.pull(f"trinodb/trino:{version}")
+            
+            # Check if image already exists
+            existing_images = self.get_available_trino_images()
+            if version in existing_images:
+                logger.info(f"Trino image version {version} already exists, skipping pull")
+                if progress_callback:
+                    progress_callback(1.0)  # Complete
+                return True
+            
+            # Pull with progress tracking if callback provided
+            if progress_callback:
+                # Using low-level API to get progress updates
+                for line in self.client.api.pull(f"trinodb/trino:{version}", stream=True, decode=True):
+                    if 'progress' in line:
+                        # Extract progress percentage if available
+                        if 'progressDetail' in line and 'current' in line['progressDetail'] and 'total' in line['progressDetail']:
+                            current = line['progressDetail']['current']
+                            total = line['progressDetail']['total']
+                            if total > 0:
+                                progress = min(float(current) / float(total), 1.0)
+                                progress_callback(progress)
+                # Final update to ensure 100% is reported
+                progress_callback(1.0)
+            else:
+                # Standard pull without progress tracking
+                image = self.client.images.pull(f"trinodb/trino:{version}")
+                
             logger.info(f"Successfully pulled Trino image version {version}")
             return True
         except Exception as e:
             logger.error(f"Error pulling Trino image version {version}: {str(e)}")
             return False
             
+    def get_available_trino_images(self):
+        """Get a list of available Trino Docker images"""
+        if not self.docker_available:
+            logger.warning("Docker not available, cannot get list of Trino images")
+            return []
+            
+        try:
+            logger.info("Getting list of available Trino images...")
+            images = self.client.images.list(name="trinodb/trino")
+            # Extract tags from images
+            trino_versions = []
+            for image in images:
+                if image.tags:
+                    for tag in image.tags:
+                        if 'trinodb/trino:' in tag:
+                            version = tag.split(':')[1]
+                            trino_versions.append(version)
+            
+            logger.info(f"Found {len(trino_versions)} Trino images: {', '.join(trino_versions)}")
+            return trino_versions
+        except Exception as e:
+            logger.error(f"Error getting list of Trino images: {str(e)}")
+            return []
+    
     def stop_trino_cluster(self, container_name):
         """Stop and remove a Trino cluster"""
         if not self.docker_available:

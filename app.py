@@ -83,12 +83,18 @@ def index():
     cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
     cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
     
+    # Get available Trino images if Docker is available
+    available_trino_images = []
+    if docker_available:
+        available_trino_images = docker_manager.get_available_trino_images()
+    
     # Merged the catalog_config_page and index page
     return render_template('index.html', 
                            config=config, 
                            cluster1_status=cluster1_status,
                            cluster2_status=cluster2_status,
-                           docker_available=docker_available)
+                           docker_available=docker_available,
+                           available_trino_images=available_trino_images)
 
 @app.route('/pull_trino_images', methods=['POST'])
 def pull_trino_images():
@@ -102,24 +108,51 @@ def pull_trino_images():
             
         config = load_config()
         versions = [config['cluster1']['version'], config['cluster2']['version']]
+        version_to_pull = request.form.get('version')
+        
+        # If a specific version is requested, only pull that one
+        if version_to_pull:
+            versions = [version_to_pull]
+            
+        # Global variable to track progress of pulling images
+        progress_data = {}
+        for version in versions:
+            progress_data[version] = 0.0
+            
+        # Create a progress tracker callback function
+        def update_progress(version):
+            def callback(value):
+                progress_data[version] = value
+                logger.debug(f"Pull progress for Trino {version}: {value:.1%}")
+                # We don't actually need to return anything, the progress is stored in the shared dict
+            return callback
         
         results = {}
         for version in versions:
             if version not in results:
-                success = docker_manager.pull_trino_image(version)
+                # Pass the progress callback function for this version
+                progress_callback = update_progress(version)
+                success = docker_manager.pull_trino_image(version, progress_callback)
                 results[version] = success
         
+        # Include progress information in the response
+        response_data = {
+            'progress': progress_data
+        }
+        
         if all(results.values()):
-            return jsonify({
+            response_data.update({
                 'success': True, 
                 'message': f'Successfully pulled Trino images: {", ".join(versions)}'
             })
+            return jsonify(response_data)
         else:
             failed = [v for v, success in results.items() if not success]
-            return jsonify({
+            response_data.update({
                 'success': False, 
                 'message': f'Failed to pull some Trino images: {", ".join(failed)}'
             })
+            return jsonify(response_data)
             
     except Exception as e:
         logger.error(f"Error pulling Trino images: {str(e)}")
