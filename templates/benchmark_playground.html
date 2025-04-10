@@ -14,7 +14,7 @@
                 </div>
                 <div class="card-body">
                     {% if benchmarks %}
-                        <form action="{{ url_for('run_benchmark') }}" method="post">
+                        <form action="{{ url_for('run_benchmark') }}" method="post" data-loading-message="Running benchmark query... Performance tests might take several minutes to complete.">
                             <div class="mb-3">
                                 <label for="benchmark_id" class="form-label">Select a benchmark query:</label>
                                 <select class="form-select" id="benchmark_id" name="benchmark_id" required>

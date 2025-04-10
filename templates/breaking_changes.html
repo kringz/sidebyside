@@ -10,7 +10,7 @@
                 </h5>
             </div>
             <div class="card-body">
-                <form id="version-comparison-form" method="post" action="{{ url_for('compare_versions') }}" class="mb-4">
+                <form id="version-comparison-form" method="post" action="{{ url_for('compare_versions') }}" class="mb-4" data-loading-message="Comparing Trino versions... Fetching release notes and analyzing changes.">
                     <div class="row align-items-end">
                         <div class="col-md-5 mb-3">
                             <label for="from_version" class="form-label">From Version:</label>

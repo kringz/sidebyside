@@ -90,7 +90,7 @@
                     <h5 class="mb-0">Add New Version</h5>
                 </div>
                 <div class="card-body">
-                    <form action="{{ url_for('add_version') }}" method="post">
+                    <form action="{{ url_for('add_version') }}" method="post" data-loading-message="Adding new Trino version...">
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="mb-3">
@@ -134,7 +134,7 @@
                     <h5 class="mb-0">Add/Update Catalog Compatibility</h5>
                 </div>
                 <div class="card-body">
-                    <form action="{{ url_for('add_catalog_compatibility') }}" method="post">
+                    <form action="{{ url_for('add_catalog_compatibility') }}" method="post" data-loading-message="Saving catalog compatibility information...">
                         <div class="row">
                             <div class="col-md-2">
                                 <div class="mb-3">
