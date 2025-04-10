@@ -712,7 +712,7 @@ def query_history():
     """Page for viewing query history"""
     if not DATABASE_URL:
         flash('Database functionality is disabled.', 'warning')
-        return redirect(url_for('index'))
+        return redirect(url_for('trino_dashboard'))
         
     try:
         history = db.session.query(QueryHistory).order_by(QueryHistory.execution_time.desc()).all()
@@ -795,7 +795,7 @@ def save_catalog_config():
         logger.error(f"Error saving catalog configuration: {str(e)}")
         flash(f'Error saving catalog configuration: {str(e)}', 'danger')
     
-    return redirect(url_for('index'))
+    return redirect(url_for('trino_dashboard'))
 
 # Seed predefined benchmark queries
 def seed_benchmark_queries():
@@ -995,7 +995,7 @@ def version_compatibility():
     """Page for displaying Trino version compatibility information"""
     if not DATABASE_URL:
         flash('Database functionality is disabled.', 'warning')
-        return redirect(url_for('index'))
+        return redirect(url_for('trino_dashboard'))
     
     try:
         versions = db.session.query(TrinoVersion).order_by(TrinoVersion.version.desc()).all()
@@ -1036,7 +1036,7 @@ def add_version():
     """Add a new Trino version"""
     if not DATABASE_URL:
         flash('Database functionality is disabled.', 'warning')
-        return redirect(url_for('index'))
+        return redirect(url_for('trino_dashboard'))
     
     try:
         version = request.form.get('version')
