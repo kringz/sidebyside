@@ -765,12 +765,12 @@ def benchmark_playground():
     
     # Get recent benchmark results (last 10)
     try:
-        recent_results = BenchmarkResult.query.order_by(BenchmarkResult.execution_time.desc()).limit(10).all()
-    except AttributeError:
-        # Fix for SQLAlchemy ordering issue
-        recent_results = BenchmarkResult.query.all()
-        # Sort manually if needed
-        recent_results = sorted(recent_results, key=lambda x: x.execution_time, reverse=True)[:10] if recent_results else []
+        recent_results = db.session.query(BenchmarkResult).order_by(BenchmarkResult.execution_time.desc()).limit(10).all()
+    except Exception as e:
+        # Log the error
+        app.logger.error(f"Error querying benchmark results: {str(e)}")
+        # Provide empty results as fallback
+        recent_results = []
     
     return render_template('benchmark_playground.html',
                            benchmarks=benchmarks,
@@ -938,12 +938,12 @@ def benchmark_results():
     
     # Get all benchmark results with their queries
     try:
-        results = BenchmarkResult.query.order_by(BenchmarkResult.execution_time.desc()).all()
-    except AttributeError:
-        # Fix for SQLAlchemy ordering issue
-        results = BenchmarkResult.query.all()
-        # Sort manually if needed
-        results = sorted(results, key=lambda x: x.execution_time, reverse=True) if results else []
+        results = db.session.query(BenchmarkResult).order_by(BenchmarkResult.execution_time.desc()).all()
+    except Exception as e:
+        # Log the error
+        app.logger.error(f"Error querying benchmark results: {str(e)}")
+        # Provide empty results as fallback
+        results = []
     
     # Group by query for easier analysis
     results_by_query = {}
@@ -965,8 +965,13 @@ def view_benchmark_result(result_id):
         flash('Database functionality is disabled. Benchmarking requires database access.', 'warning')
         return redirect(url_for('index'))
     
-    result = BenchmarkResult.query.get_or_404(result_id)
-    benchmark = BenchmarkQuery.query.get(result.benchmark_query_id)
+    try:
+        result = db.session.query(BenchmarkResult).get_or_404(result_id)
+        benchmark = db.session.query(BenchmarkQuery).get(result.benchmark_query_id)
+    except Exception as e:
+        app.logger.error(f"Error retrieving benchmark result: {str(e)}")
+        flash(f"Error retrieving benchmark result: {str(e)}", "danger")
+        return redirect(url_for('benchmark_results'))
     
     return render_template('benchmark_result_detail.html',
                            result=result,
@@ -985,12 +990,12 @@ def benchmark_comparison():
     
     # Get version info
     try:
-        versions = TrinoVersion.query.order_by(TrinoVersion.version.desc()).all()
-    except AttributeError:
-        # Fix for SQLAlchemy ordering issue
-        versions = TrinoVersion.query.all()
-        # Sort manually 
-        versions = sorted(versions, key=lambda x: x.version, reverse=True) if versions else []
+        versions = db.session.query(TrinoVersion).order_by(TrinoVersion.version.desc()).all()
+    except Exception as e:
+        # Log the error
+        app.logger.error(f"Error querying Trino versions: {str(e)}")
+        # Provide empty results as fallback
+        versions = []
     
     # For each benchmark, get performance across versions
     comparison_data = {}
@@ -1008,12 +1013,12 @@ def benchmark_comparison():
         
         # Get results for this benchmark
         try:
-            results = BenchmarkResult.query.filter_by(benchmark_query_id=benchmark.id).order_by(BenchmarkResult.execution_time).all()
-        except AttributeError:
-            # Fix for SQLAlchemy ordering issue 
-            results = BenchmarkResult.query.filter_by(benchmark_query_id=benchmark.id).all()
-            # Sort manually if needed
-            results = sorted(results, key=lambda x: x.execution_time) if results else []
+            results = db.session.query(BenchmarkResult).filter_by(benchmark_query_id=benchmark.id).order_by(BenchmarkResult.execution_time).all()
+        except Exception as e:
+            # Log the error
+            app.logger.error(f"Error querying benchmark results: {str(e)}")
+            # Provide empty results as fallback
+            results = []
         
         for result in results:
             version_pair = f"{result.cluster1_version}-{result.cluster2_version}"
