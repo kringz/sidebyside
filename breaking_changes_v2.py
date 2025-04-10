@@ -39,6 +39,7 @@ def register_breaking_changes_routes(app):
             })
     
     @app.route('/breaking_changes', methods=['GET', 'POST'])
+    @app.route('/breaking_changes_v2', methods=['GET', 'POST'])
     def breaking_changes():
         """Page for displaying changes for all releases between two Trino versions"""
         # Get all available versions if database is configured
