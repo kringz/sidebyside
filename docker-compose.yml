@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  trino-breaking-changes:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:5000"
+    volumes:
+      - ./instance:/app/instance
+    restart: unless-stopped

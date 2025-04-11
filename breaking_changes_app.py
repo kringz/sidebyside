@@ -18,14 +18,16 @@ class Base(DeclarativeBase):
 
 db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
+# Set a secure secret key - change this in production!
 app.secret_key = os.environ.get("SESSION_SECRET", "breaking-changes-secret-key")
 
-# Configure the database
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///breaking_changes.db")
+# Configure the database - supports SQLite by default or use DATABASE_URL env var for other databases
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///instance/breaking_changes.db")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
 }
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
 # Define database models
@@ -201,14 +203,27 @@ def index():
 @app.route('/breaking_changes')
 def breaking_changes():
     """Page for displaying breaking changes and feature comparisons between Trino versions"""
+    # Directly define common versions to ensure they're always available
+    common_versions = ['401', '406', '414', '424', '438', '442', '446', '451', '458', '465', '473', '474']
+    
+    # Ensure these versions exist in the database
+    for version in common_versions:
+        existing = TrinoVersion.query.filter_by(version=version).first()
+        if not existing:
+            db.session.add(TrinoVersion(version=version))
+    
+    try:
+        db.session.commit()
+    except:
+        db.session.rollback()
+        logger.warning("Failed to commit version additions, rolling back")
+    
+    # Get all versions from database
     versions = [v.version for v in TrinoVersion.query.order_by(TrinoVersion.version.desc()).all()]
     
-    # If no versions in database, add some common ones
+    # If there's still no versions in the database for some reason, use the common ones directly
     if not versions:
-        common_versions = ['401', '406', '414', '424', '438', '442', '446', '451', '458', '465', '473', '474']
-        for version in common_versions:
-            db.session.add(TrinoVersion(version=version))
-        db.session.commit()
+        logger.warning("No versions found in database, using predefined list")
         versions = common_versions
     
     return render_template('breaking_changes.html', versions=versions)
@@ -237,6 +252,21 @@ def init_db():
     with app.app_context():
         db.create_all()
         logger.info("Database tables created")
+        
+        # Seed initial versions to ensure they're available
+        common_versions = ['401', '406', '414', '424', '438', '442', '446', '451', '458', '465', '473', '474']
+        
+        for version in common_versions:
+            existing = TrinoVersion.query.filter_by(version=version).first()
+            if not existing:
+                db.session.add(TrinoVersion(version=version))
+        
+        try:
+            db.session.commit()
+            logger.info("Database seeded with initial Trino versions")
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error seeding database: {str(e)}")
 
 if __name__ == '__main__':
     init_db()
