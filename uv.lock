@@ -717,6 +717,7 @@ dependencies = [
     { name = "psycopg2-binary" },
     { name = "pyyaml" },
     { name = "requests" },
+    { name = "sqlalchemy" },
     { name = "trafilatura" },
     { name = "trino" },
 ]
@@ -732,6 +733,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "requests", specifier = ">=2.32.3" },
+    { name = "sqlalchemy", specifier = ">=2.0.40" },
     { name = "trafilatura", specifier = ">=2.0.0" },
     { name = "trino", specifier = ">=0.333.0" },
 ]
