@@ -315,7 +315,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="properties-editor mb-3 d-none">
+                                    <div class="properties-editor mb-3">
                                         <textarea class="form-control code-editor" id="cluster1PropertiesEditor" rows="15" style="font-family: monospace;"></textarea>
                                     </div>
                                     <div id="cluster1PropertiesStatus"></div>
@@ -362,7 +362,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="properties-editor mb-3 d-none">
+                                    <div class="properties-editor mb-3">
                                         <textarea class="form-control code-editor" id="cluster2PropertiesEditor" rows="15" style="font-family: monospace;"></textarea>
                                     </div>
                                     <div id="cluster2PropertiesStatus"></div>
@@ -1067,7 +1067,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 $('#cluster1PropertiesStatus').html('<div class="alert alert-info">Saving properties...</div>');
             },
             success: function(response) {
-                $('#cluster1PropertiesStatus').html('<div class="alert alert-success">Properties saved successfully.</div>');
+                if (response.message) {
+                    $('#cluster1PropertiesStatus').html(`<div class="alert alert-success">${response.message}</div>`);
+                } else {
+                    $('#cluster1PropertiesStatus').html('<div class="alert alert-success">Properties saved successfully.</div>');
+                }
             },
             error: function(xhr) {
                 let errorMessage = 'Error saving properties';
@@ -1093,7 +1097,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 $('#cluster2PropertiesStatus').html('<div class="alert alert-info">Saving properties...</div>');
             },
             success: function(response) {
-                $('#cluster2PropertiesStatus').html('<div class="alert alert-success">Properties saved successfully.</div>');
+                if (response.message) {
+                    $('#cluster2PropertiesStatus').html(`<div class="alert alert-success">${response.message}</div>`);
+                } else {
+                    $('#cluster2PropertiesStatus').html('<div class="alert alert-success">Properties saved successfully.</div>');
+                }
             },
             error: function(xhr) {
                 let errorMessage = 'Error saving properties';
