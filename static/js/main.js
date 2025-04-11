@@ -280,7 +280,16 @@ function setupImagePullTracking() {
             
             const cardHeader = document.createElement('div');
             cardHeader.className = 'card-header';
-            cardHeader.innerHTML = '<h5 class="mb-0"><i class="fas fa-spinner fa-spin me-2"></i> Pulling Trino Images</h5>';
+            
+            // Check if any of the progress bars are in demo mode
+            const isDemoMode = Object.values(data.progress_details || {}).some(detail => detail.demo === true);
+            
+            if (isDemoMode) {
+                cardHeader.innerHTML = '<h5 class="mb-0 text-warning"><i class="fas fa-exclamation-triangle me-2"></i> <span class="badge bg-warning text-dark">DEMO MODE</span> NOT ACTUALLY DOWNLOADING IMAGES</h5>';
+                cardHeader.style.backgroundColor = '#fff3cd';  // Warning background color
+            } else {
+                cardHeader.innerHTML = '<h5 class="mb-0"><i class="fas fa-spinner fa-spin me-2"></i> Pulling Trino Images</h5>';
+            }
             
             const cardBody = document.createElement('div');
             cardBody.className = 'card-body';
