@@ -466,23 +466,54 @@ def start_clusters():
                     flash(f"Trino image version {version} ready", 'info')
                 else:
                     flash(f"Failed to pull Trino image version {version}", 'warning')
+                    
+        # Check if there are any pending catalog properties to apply
+        pending_catalog_props = {}
+        for cluster_id in ['1', '2']:
+            pending_catalog_props[cluster_id] = {}
+            for catalog_name in config['catalogs']:
+                if config['catalogs'][catalog_name]['enabled']:
+                    # Check if there are saved properties in the session
+                    session_key = f"cluster{cluster_id}_{catalog_name}_properties"
+                    if session_key in session:
+                        properties_content = session[session_key]
+                        logger.info(f"Found pending catalog properties for cluster {cluster_id}, catalog {catalog_name}")
+                        pending_catalog_props[cluster_id][catalog_name] = properties_content
         
-        # Start first cluster
+        # Apply any pending catalog properties to the catalog configuration
+        import os
+        if hasattr(app, 'pending_catalog_props') and os.path.exists(app.pending_catalog_props):
+            logger.info("Applying pending catalog properties before cluster start")
+            for cluster_id in ['1', '2']:
+                cluster_dir = os.path.join(app.pending_catalog_props, f'cluster{cluster_id}')
+                if os.path.exists(cluster_dir):
+                    for filename in os.listdir(cluster_dir):
+                        if filename.endswith('.properties'):
+                            catalog_name = filename.replace('.properties', '')
+                            file_path = os.path.join(cluster_dir, filename)
+                            with open(file_path, 'r') as f:
+                                properties_content = f.read()
+                                pending_catalog_props[cluster_id][catalog_name] = properties_content
+                                logger.info(f"Loaded saved properties for cluster {cluster_id}, catalog {catalog_name}")
+        
+        # Start first cluster with any pending catalog properties
         flash(f"Starting Trino cluster 1 (version {config['cluster1']['version']})...", 'info')
         docker_manager.start_trino_cluster(
             config['cluster1']['container_name'],
             config['cluster1']['version'],
             config['cluster1']['port'],
-            config['catalogs']
+            config['catalogs'],
+            pending_properties=pending_catalog_props.get('1', {})
         )
         
-        # Start second cluster
+        # Start second cluster with any pending catalog properties
         flash(f"Starting Trino cluster 2 (version {config['cluster2']['version']})...", 'info')
         docker_manager.start_trino_cluster(
             config['cluster2']['container_name'],
             config['cluster2']['version'],
             config['cluster2']['port'],
-            config['catalogs']
+            config['catalogs'],
+            pending_properties=pending_catalog_props.get('2', {})
         )
         
         # Wait for clusters to initialize
@@ -599,13 +630,40 @@ def restart_cluster(cluster_id):
         docker_manager.stop_trino_cluster(container_name)
         time.sleep(2)
         
+        # Check for any pending catalog properties to apply during restart
+        pending_catalog_props = {}
+        for catalog_name in config['catalogs']:
+            if config['catalogs'][catalog_name]['enabled']:
+                # Check if there are saved properties in the session
+                session_key = f"cluster{cluster_id}_{catalog_name}_properties"
+                if session_key in session:
+                    properties_content = session[session_key]
+                    logger.info(f"Found pending catalog properties for cluster {cluster_id}, catalog {catalog_name}")
+                    pending_catalog_props[catalog_name] = properties_content
+                    
+        # Apply any pending catalog properties from files
+        import os
+        if hasattr(app, 'pending_catalog_props') and os.path.exists(app.pending_catalog_props):
+            logger.info(f"Checking for pending catalog properties for cluster {cluster_id}")
+            cluster_dir = os.path.join(app.pending_catalog_props, f'cluster{cluster_id}')
+            if os.path.exists(cluster_dir):
+                for filename in os.listdir(cluster_dir):
+                    if filename.endswith('.properties'):
+                        catalog_name = filename.replace('.properties', '')
+                        file_path = os.path.join(cluster_dir, filename)
+                        with open(file_path, 'r') as f:
+                            properties_content = f.read()
+                            pending_catalog_props[catalog_name] = properties_content
+                            logger.info(f"Loaded saved properties for cluster {cluster_id}, catalog {catalog_name}")
+        
         # Then start it
         catalogs_config = {k: v for k, v in config['catalogs'].items() if v.get('enabled', False)}
         docker_manager.start_trino_cluster(
             container_name, 
             config[cluster_key]['version'],
             config[cluster_key]['port'],
-            catalogs_config
+            catalogs_config,
+            pending_properties=pending_catalog_props
         )
         
         flash(f'Trino cluster {cluster_id} restarted successfully!', 'success')

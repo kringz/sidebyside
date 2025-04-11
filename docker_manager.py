@@ -119,11 +119,24 @@ class DockerManager:
             logger.error(f"Error getting container status for {container_name}: {str(e)}")
             return "error"
     
-    def start_trino_cluster(self, container_name, version, port, catalogs_config):
-        """Start a Trino cluster with the specified version and catalogs"""
+    def start_trino_cluster(self, container_name, version, port, catalogs_config, pending_properties=None):
+        """Start a Trino cluster with the specified version and catalogs
+        
+        Args:
+            container_name (str): Name of the Trino container
+            version (str): Trino version to use
+            port (int): Port to expose Trino on
+            catalogs_config (dict): Catalog configuration dictionary
+            pending_properties (dict, optional): Dictionary of catalog properties to apply, 
+                                               keyed by catalog name
+        """
         if not self.docker_available:
             logger.warning(f"Docker not available, cannot start Trino cluster {container_name}")
             raise RuntimeError("Docker is not available in this environment")
+            
+        # Initialize pending_properties if not provided
+        if pending_properties is None:
+            pending_properties = {}
             
         try:
             # Always ensure TPC-H catalog is enabled
@@ -207,6 +220,14 @@ class DockerManager:
                 if catalog_config.get('enabled', False):
                     catalog_file_path = f"{config_dir}/catalog/{catalog_name}.properties"
                     logger.info(f"Creating catalog file for {catalog_name} at {catalog_file_path}")
+                    
+                    # Check if there are pending properties for this catalog
+                    if catalog_name in pending_properties:
+                        # Use the pending properties directly from the parameter
+                        logger.info(f"Using pending properties for catalog {catalog_name}")
+                        with open(catalog_file_path, "w") as f:
+                            f.write(pending_properties[catalog_name])
+                        continue  # Skip the default property generation for this catalog
                     
                     # Generate catalog properties based on catalog type
                     if catalog_name == 'hive':
