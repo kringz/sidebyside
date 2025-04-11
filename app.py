@@ -76,6 +76,11 @@ if not docker_available:
             config['catalogs']['postgres']['enabled'] = True
             logger.info("PostgreSQL catalog enabled for demo mode")
             
+        # Enable Iceberg catalog for REST testing in demo mode
+        if 'iceberg' in config['catalogs']:
+            config['catalogs']['iceberg']['enabled'] = True
+            logger.info("Iceberg REST catalog enabled for demo mode")
+            
         save_config(config)
     except Exception as e:
         logger.error(f"Error enabling catalogs in demo mode: {str(e)}")
@@ -162,6 +167,19 @@ def trino_dashboard():
             'database': 'postgres'
         }
         logger.info("PostgreSQL catalog enabled for demo mode")
+        
+    # Ensure Iceberg catalog exists for REST testing
+    if 'iceberg' not in config['catalogs']:
+        config['catalogs']['iceberg'] = {
+            'enabled': True,
+            'rest_host': 'localhost',
+            'rest_port': '8181',
+            's3_endpoint': 'http://localhost:9000',
+            's3_region': 'us-east-1',
+            's3_access_key': 'access-key',
+            's3_secret_key': 'secret-key'
+        }
+        logger.info("Iceberg REST catalog enabled for demo mode")
     
     # Save the updated config
     save_config(config)

@@ -36,6 +36,7 @@ class DockerManager:
         self.client = None
         self.timeout = timeout
         self.trino_connect_host = trino_connect_host
+        self.demo_mode = False
         
         if not docker_imported:
             logger.warning("Docker package not available. Running in demo mode.")
@@ -104,6 +105,7 @@ class DockerManager:
         # If we get here, Docker is not available
         logger.error("Docker not available: Could not connect to Docker with any method")
         logger.info("Running in demo mode (Docker functionality disabled)")
+        self.demo_mode = True
     
     def get_container_status(self, container_name):
         """Get the status of a container"""
