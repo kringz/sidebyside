@@ -87,15 +87,16 @@ function setupImagePullTracking() {
             
             // If in demo mode, make it clear this is simulated
             if (isDemoMode) {
-                displayText = `${Math.floor(progress * 100)}% (${downloadedMB} MB / ${totalMB} MB) - SIMULATION`;
+                displayText = `<span class="badge bg-warning text-dark me-1">SIMULATION</span> ${Math.floor(progress * 100)}% (${downloadedMB} MB / ${totalMB} MB)`;
             } else {
                 displayText = `${Math.floor(progress * 100)}% (${downloadedMB} MB / ${totalMB} MB)`;
             }
             console.log(`Progress bar text for ${version}: ${displayText}`);
         } else {
-            displayText = `${Math.floor(progress * 100)}%`;
             if (isDemoMode) {
-                displayText += ' - SIMULATION';
+                displayText = `<span class="badge bg-warning text-dark me-1">SIMULATION</span> ${Math.floor(progress * 100)}%`;
+            } else {
+                displayText = `${Math.floor(progress * 100)}%`;
             }
         }
         
@@ -133,7 +134,15 @@ function setupImagePullTracking() {
         
         progressBar.style.width = `${percentValue}%`;
         progressBar.setAttribute('aria-valuenow', percentValue);
-        percentText.textContent = displayText;
+        
+        // Use innerHTML instead of textContent to support HTML tags in displayText
+        percentText.innerHTML = displayText;
+        
+        // Add special styling for demo mode
+        if (isDemoMode) {
+            progressBar.style.backgroundColor = '#ffc107';  // warning color
+            progressBar.style.backgroundImage = 'repeating-linear-gradient(45deg, #ffc107, #ffc107 10px, #ffdb58 10px, #ffdb58 20px)';
+        }
         
         // If progress is complete, mark it as success after a delay
         if (progress >= 1) {
@@ -281,8 +290,9 @@ function setupImagePullTracking() {
             const cardHeader = document.createElement('div');
             cardHeader.className = 'card-header';
             
-            // Check if any of the progress bars are in demo mode
-            const isDemoMode = Object.values(data.progress_details || {}).some(detail => detail.demo === true);
+            // Assume demo mode if Docker isn't available
+            // We'll check this properly when progress data arrives
+            const isDemoMode = document.querySelector('.alert-warning .badge.bg-warning') !== null;
             
             if (isDemoMode) {
                 cardHeader.innerHTML = '<h5 class="mb-0 text-warning"><i class="fas fa-exclamation-triangle me-2"></i> <span class="badge bg-warning text-dark">DEMO MODE</span> NOT ACTUALLY DOWNLOADING IMAGES</h5>';

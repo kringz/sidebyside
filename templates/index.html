@@ -49,16 +49,46 @@
                 <!-- Control buttons -->
                 <div class="card-footer mb-4">
                     <div class="d-flex justify-content-center">
-                        <form action="{{ url_for('pull_trino_images') }}" method="post" class="me-2" id="pullImagesForm" data-loading-message="Pulling Trino images... This may take several minutes.">
+                        <form action="{{ url_for('pull_trino_images') }}" method="post" class="me-2" id="pullImagesForm" data-loading-message="{% if docker_available %}Pulling Trino images... This may take several minutes.{% else %}SIMULATION: No actual images will be pulled{% endif %}">
                             <div class="dropdown">
-                                <button type="button" class="btn btn-info dropdown-toggle" id="pullImagesBtn" data-bs-toggle="dropdown" aria-expanded="false" {% if not docker_available %}disabled{% endif %}>
+                                {% if docker_available %}
+                                <button type="button" class="btn btn-info dropdown-toggle" id="pullImagesBtn" data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="fas fa-download me-1"></i> Pull Images
                                 </button>
+                                {% else %}
+                                <button type="button" class="btn btn-warning dropdown-toggle" id="pullImagesBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-theater-masks me-1"></i> Simulate Image Pull (Demo)
+                                </button>
+                                {% endif %}
                                 <ul class="dropdown-menu" aria-labelledby="pullImagesBtn">
-                                    <li><button type="button" class="dropdown-item" id="pullAllImagesBtn">Pull Both Configured Images</button></li>
+                                    <li>
+                                        <button type="button" class="dropdown-item" id="pullAllImagesBtn">
+                                            {% if docker_available %}
+                                            Pull Both Configured Images
+                                            {% else %}
+                                            <span class="badge bg-warning text-dark me-1">DEMO</span> Simulate Pulling Both Images
+                                            {% endif %}
+                                        </button>
+                                    </li>
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><button type="button" class="dropdown-item pull-version-btn" data-version="{{ config.cluster1.version }}">Pull Cluster 1 ({{ config.cluster1.version }}) Image</button></li>
-                                    <li><button type="button" class="dropdown-item pull-version-btn" data-version="{{ config.cluster2.version }}">Pull Cluster 2 ({{ config.cluster2.version }}) Image</button></li>
+                                    <li>
+                                        <button type="button" class="dropdown-item pull-version-btn" data-version="{{ config.cluster1.version }}">
+                                            {% if docker_available %}
+                                            Pull Cluster 1 ({{ config.cluster1.version }}) Image
+                                            {% else %}
+                                            <span class="badge bg-warning text-dark me-1">DEMO</span> Simulate Cluster 1 ({{ config.cluster1.version }})
+                                            {% endif %}
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button" class="dropdown-item pull-version-btn" data-version="{{ config.cluster2.version }}">
+                                            {% if docker_available %}
+                                            Pull Cluster 2 ({{ config.cluster2.version }}) Image
+                                            {% else %}
+                                            <span class="badge bg-warning text-dark me-1">DEMO</span> Simulate Cluster 2 ({{ config.cluster2.version }})
+                                            {% endif %}
+                                        </button>
+                                    </li>
                                 </ul>
                             </div>
                         </form>
@@ -110,8 +140,13 @@
                                 </div>
                             {% endif %}
                         {% else %}
-                            <div class="alert alert-warning">
-                                <i class="fas fa-exclamation-triangle me-2"></i> Docker is not available. Image management is disabled.
+                            <div class="alert alert-warning" style="background-color: #FFF5CC; border: 2px dashed #FF9900; padding: 15px;">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="badge bg-warning text-dark me-2" style="font-size: 1rem;">DEMO MODE</span>
+                                    <h4 class="mb-0 text-warning"><i class="fas fa-theater-masks me-2"></i>Docker is not available</h4>
+                                </div>
+                                <p class="mb-1">Running in <strong>simulation mode</strong> - no real Docker operations will be performed.</p>
+                                <p class="mb-0">Any "downloads" shown are purely simulated for demonstration purposes.</p>
                             </div>
                         {% endif %}
                         
@@ -270,9 +305,12 @@
                 </div>
                 <div class="card-body">
                     {% if not docker_available %}
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Docker is not available in this environment. Catalog properties will be shown in demo mode.
+                    <div class="alert alert-warning" style="background-color: #FFF5CC; border: 2px dashed #FF9900; padding: 15px;">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-warning text-dark me-2" style="font-size: 1rem;">DEMO MODE</span>
+                            <h5 class="mb-0 text-warning"><i class="fas fa-theater-masks me-2"></i>Docker is not available</h5>
+                        </div>
+                        <p class="mb-0">Catalog properties are <strong>editable</strong> but changes will only be simulated - no real containers will be affected.</p>
                     </div>
                     {% endif %}
                     <div class="row">
@@ -377,10 +415,12 @@
                 </div>
                 <div class="card-body">
                     {% if not docker_available %}
-                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Docker is not available in this environment.</strong> You can configure catalogs, but they cannot be used with Trino clusters in demo mode.
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <div class="alert alert-warning" style="background-color: #FFF5CC; border: 2px dashed #FF9900; padding: 15px;">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-warning text-dark me-2" style="font-size: 1rem;">DEMO MODE</span>
+                            <h5 class="mb-0 text-warning"><i class="fas fa-theater-masks me-2"></i>Simulated Catalog Controls</h5>
+                        </div>
+                        <p class="mb-0">Catalogs can be <strong>configured</strong> in demo mode, but they will only be simulated - no real containers will be created.</p>
                     </div>
                     {% endif %}
                     <form action="{{ url_for('save_catalog_config') }}" method="post" data-loading-message="Saving catalog configuration...">
