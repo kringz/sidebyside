@@ -21,12 +21,10 @@ app = Flask(__name__)
 # Set a secure secret key - change this in production!
 app.secret_key = os.environ.get("SESSION_SECRET", "breaking-changes-secret-key")
 
-# Configure the database - supports SQLite by default or use DATABASE_URL env var for other databases
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///instance/breaking_changes.db")
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_recycle": 300,
-    "pool_pre_ping": True,
-}
+# Force using SQLite for the standalone app to avoid conflicts with main app database
+# Use absolute path to ensure the database file is created in the right location
+db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'standalone_breaking_changes.db')
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
@@ -269,5 +267,14 @@ def init_db():
             logger.error(f"Error seeding database: {str(e)}")
 
 if __name__ == '__main__':
+    # Check if port is specified in environment
+    port = int(os.environ.get('PORT', 5000))
+    
+    # Initialize the database
     init_db()
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    
+    print(f"Starting Trino Breaking Changes app on port {port}")
+    print(f"Visit http://localhost:{port}/ to use the application")
+    
+    # Run the Flask application
+    app.run(host='0.0.0.0', port=port, debug=True)
