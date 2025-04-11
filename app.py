@@ -680,11 +680,60 @@ def get_catalog_properties(cluster_id, catalog_name):
     # If Docker is available, proceed with the normal container-based flow
     cluster_key = f'cluster{cluster_id}'
     container_name = config[cluster_key]['container_name']
+    version = config[cluster_key].get('version', 'latest')
     
     # Check if the container is running
     status = docker_manager.get_container_status(container_name)
+    
+    # If container is not running, generate template properties for this catalog
     if status != 'running':
-        return jsonify({"error": f"Cluster {cluster_id} is not running"}), 400
+        # Generate default properties for this catalog when cluster is not running
+        properties_content = f"# Default properties template for {catalog_name} catalog (Trino {version})\n\n"
+        
+        # Generate default properties based on catalog type
+        if catalog_name == 'tpch':
+            properties_content += "connector.name=tpch\n"
+            properties_content += "tpch.column-naming=STANDARD\n"
+            
+        elif catalog_name == 'postgres':
+            properties_content += "connector.name=postgresql\n"
+            properties_content += f"connection-url=jdbc:postgresql://postgres-for-{container_name}:5432/postgres\n"
+            properties_content += "connection-user=postgres\n"
+            properties_content += "connection-password=postgres123\n"
+            
+        elif catalog_name == 'iceberg':
+            properties_content += "connector.name=iceberg\n"
+            properties_content += "iceberg.catalog.type=rest\n"
+            properties_content += f"iceberg.rest-catalog.uri=http://iceberg-rest-for-{container_name}:8181\n"
+            properties_content += "iceberg.rest-catalog.warehouse=s3://sample-bucket/wh/\n"
+            
+        elif catalog_name == 'hive':
+            properties_content += "connector.name=hive\n"
+            properties_content += "hive.metastore.uri=thrift://metastore:9083\n"
+            properties_content += "hive.s3.endpoint=http://minio:9000\n"
+            properties_content += "hive.s3.path-style-access=true\n"
+            properties_content += "hive.s3.aws-access-key=minio\n"
+            properties_content += "hive.s3.aws-secret-key=minio123\n"
+            
+        elif catalog_name == 'mysql':
+            properties_content += "connector.name=mysql\n"
+            properties_content += "connection-url=jdbc:mysql://mysql:3306\n"
+            properties_content += "connection-user=root\n"
+            properties_content += "connection-password=mysql123\n"
+            
+        elif catalog_name == 'elasticsearch':
+            properties_content += "connector.name=elasticsearch\n"
+            properties_content += "elasticsearch.host=elasticsearch\n"
+            properties_content += "elasticsearch.port=9200\n"
+            properties_content += "elasticsearch.default-schema-name=default\n"
+            
+        # Add a session-specific identifier to these properties
+        session_key = f"cluster{cluster_id}_{catalog_name}_properties"
+        if session_key in session:
+            # Use previously saved properties if they exist
+            properties_content = session[session_key]
+            
+        return jsonify({"content": properties_content})
     
     try:
         # Get the properties file content from the container
@@ -751,17 +800,49 @@ def update_catalog_properties(cluster_id, catalog_name):
     cluster_key = f'cluster{cluster_id}'
     container_name = config[cluster_key]['container_name']
     
+    # Get the new content from the request
+    content = request.json.get('content')
+    if not content:
+        return jsonify({"error": "No content provided"}), 400
+    
     # Check if the container is running
     status = docker_manager.get_container_status(container_name)
-    if status != 'running':
-        return jsonify({"error": f"Cluster {cluster_id} is not running"}), 400
     
+    # If cluster is not running, store properties for later use
+    if status != 'running':
+        try:
+            # Create a session key for storing these properties
+            session_key = f"cluster{cluster_id}_{catalog_name}_properties"
+            session[session_key] = content
+            
+            # Store the properties in a file for use when the cluster starts
+            import os
+            import tempfile
+            
+            # Create a temp directory to store the catalog properties if it doesn't exist
+            if not hasattr(app, 'pending_catalog_props'):
+                app.pending_catalog_props = tempfile.mkdtemp()
+                os.makedirs(os.path.join(app.pending_catalog_props, 'cluster1'), exist_ok=True)
+                os.makedirs(os.path.join(app.pending_catalog_props, 'cluster2'), exist_ok=True)
+            
+            # Save the content to a file in the temp directory
+            cluster_dir = os.path.join(app.pending_catalog_props, f'cluster{cluster_id}')
+            file_path = os.path.join(cluster_dir, f'{catalog_name}.properties')
+            with open(file_path, 'w') as f:
+                f.write(content)
+            
+            logger.info(f"Stored {catalog_name}.properties for cluster {cluster_id} to apply when started")
+            return jsonify({
+                "success": True, 
+                "message": f"Saved {catalog_name}.properties for cluster {cluster_id}. Changes will be applied when the cluster starts."
+            })
+            
+        except Exception as e:
+            logger.error(f"Error storing catalog properties for non-running cluster: {str(e)}")
+            return jsonify({"error": str(e)}), 500
+    
+    # If the cluster is running, update the properties file in the container
     try:
-        # Get the new content from the request
-        content = request.json.get('content')
-        if not content:
-            return jsonify({"error": "No content provided"}), 400
-        
         # Update the properties file in the container
         client = docker_manager.client
         container = client.containers.get(container_name)
