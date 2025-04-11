@@ -69,7 +69,7 @@ function setupImagePullTracking() {
     const activePulls = new Set();
     
     // Create or update a progress bar for a specific version
-    function createOrUpdateProgressBar(version, progress, bytesDownloaded, totalBytes) {
+    function createOrUpdateProgressBar(version, progress, bytesDownloaded, totalBytes, isDemoMode) {
         const progressBarsContainer = document.getElementById('imagePullProgressBars');
         if (!progressBarsContainer) {
             console.error('Progress bars container not found!');
@@ -84,10 +84,19 @@ function setupImagePullTracking() {
             bytesDownloaded !== null && totalBytes !== null && totalBytes > 0) {
             const downloadedMB = (bytesDownloaded / (1024 * 1024)).toFixed(1);
             const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
-            displayText = `${Math.floor(progress * 100)}% (${downloadedMB} MB / ${totalMB} MB)`;
+            
+            // If in demo mode, make it clear this is simulated
+            if (isDemoMode) {
+                displayText = `${Math.floor(progress * 100)}% (${downloadedMB} MB / ${totalMB} MB) - SIMULATION`;
+            } else {
+                displayText = `${Math.floor(progress * 100)}% (${downloadedMB} MB / ${totalMB} MB)`;
+            }
             console.log(`Progress bar text for ${version}: ${displayText}`);
         } else {
             displayText = `${Math.floor(progress * 100)}%`;
+            if (isDemoMode) {
+                displayText += ' - SIMULATION';
+            }
         }
         
         if (!progressBarContainer) {
@@ -227,7 +236,8 @@ function setupImagePullTracking() {
                         version,
                         detail.progress,
                         detail.current_bytes,
-                        detail.total_bytes
+                        detail.total_bytes,
+                        detail.demo
                     );
                 });
             } else if (data.progress) {
@@ -337,7 +347,8 @@ function setupImagePullTracking() {
                                         version, 
                                         detail.progress, 
                                         detail.current_bytes, 
-                                        detail.total_bytes
+                                        detail.total_bytes,
+                                        detail.demo
                                     );
                                     
                                     // Check if this pull is still in progress
