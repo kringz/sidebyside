@@ -25,9 +25,13 @@ catalogs:
     metastore_host: localhost
     metastore_port: '9083'
   iceberg:
-    enabled: false
-    metastore_host: localhost
-    metastore_port: '9083'
+    enabled: true
+    rest_host: localhost
+    rest_port: '8181'
+    s3_access_key: access-key
+    s3_endpoint: http://localhost:9000
+    s3_region: us-east-1
+    s3_secret_key: secret-key
   mariadb:
     enabled: false
     host: localhost
