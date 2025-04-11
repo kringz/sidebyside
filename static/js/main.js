@@ -180,6 +180,27 @@ function setupImagePullTracking() {
                 // Success - progress is already tracked by the progress bars
                 console.log('Pull request successful:', data.message);
                 
+                // Check if this is demo mode
+                if (data.demo) {
+                    // Update the UI to clearly show this is a simulation
+                    const progressHeader = document.querySelector('#imagePullProgress .card-header h5');
+                    if (progressHeader) {
+                        progressHeader.innerHTML = '<i class="fas fa-info-circle me-2"></i> DEMO MODE - No actual downloads';
+                        progressHeader.classList.add('text-warning');
+                    }
+                    
+                    // Add demo mode indicator to progress bars
+                    const progressBars = document.querySelectorAll('#imagePullProgressBars .mb-3');
+                    progressBars.forEach(bar => {
+                        const label = bar.querySelector('.mb-1');
+                        if (label) {
+                            label.innerHTML += ' <span class="badge bg-warning">DEMO</span>';
+                        }
+                    });
+                    
+                    console.log('Running in DEMO mode - this is a simulation');
+                }
+                
                 // Start polling for progress updates
                 startProgressPolling();
             } else {

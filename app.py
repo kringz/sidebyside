@@ -217,9 +217,11 @@ def pull_trino_images():
     """Pull Trino Docker images in advance"""
     try:
         if not docker_available:
+            # In demo mode, make it clear we're not actually downloading anything
             return jsonify({
-                'success': False, 
-                'message': 'Docker is not available in this environment. Image pulling is disabled.'
+                'success': True, 
+                'demo': True,
+                'message': 'DEMO MODE: Docker is not available. This is a simulation - no actual images are being downloaded.'
             })
             
         config = load_config()
@@ -420,8 +422,11 @@ def check_pull_progress():
             session['pull_details'][version]['current_bytes'] = current_bytes
             session['pull_details'][version]['total_bytes'] = total_bytes
             
+            # Add demo flag to indicate this is simulated
+            session['pull_details'][version]['demo'] = True
+            
             # Log the simulation data for debugging
-            app.logger.debug(f"Simulated progress for {version}: {progress:.1%} ({current_bytes/(1024*1024):.1f}MB / {total_bytes/(1024*1024):.1f}MB)")
+            app.logger.debug(f"DEMO MODE: Simulated progress for {version}: {progress:.1%} ({current_bytes/(1024*1024):.1f}MB / {total_bytes/(1024*1024):.1f}MB)")
         else:
             # Get detailed information from the session if available
             current_bytes = session['pull_details'][version].get('current_bytes', 0)
@@ -439,7 +444,8 @@ def check_pull_progress():
         progress_with_bytes[version] = {
             'progress': progress,
             'current_bytes': current_bytes,
-            'total_bytes': total_bytes
+            'total_bytes': total_bytes,
+            'demo': session['pull_details'][version].get('demo', False)
         }
     
     # Add debug logging to see what we're returning
