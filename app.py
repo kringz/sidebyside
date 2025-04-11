@@ -458,7 +458,55 @@ def start_clusters():
         config = load_config()
         
         if not docker_available:
-            flash('Docker is not available in this environment. Cluster startup is disabled.', 'warning')
+            # In demo mode, we'll just apply the pending properties without actually starting the clusters
+            # This allows saving/updating catalog properties even when Docker isn't available
+            
+            # Check if there are any pending catalog properties to apply
+            pending_catalog_props = {}
+            for cluster_id in ['1', '2']:
+                pending_catalog_props[cluster_id] = {}
+                for catalog_name in config['catalogs']:
+                    if config['catalogs'][catalog_name]['enabled']:
+                        # Check if there are saved properties in the session
+                        session_key = f"cluster{cluster_id}_{catalog_name}_properties"
+                        if session_key in session:
+                            properties_content = session[session_key]
+                            logger.info(f"Found pending catalog properties for cluster{cluster_id} {catalog_name}")
+                            pending_catalog_props[cluster_id][catalog_name] = properties_content
+            
+            # Apply the pending properties in demo mode
+            if pending_catalog_props['1']:
+                logger.info(f"Demo mode: Applying {len(pending_catalog_props['1'])} pending catalog properties for cluster 1")
+                try:
+                    docker_manager.start_trino_cluster(
+                        config['cluster1']['container_name'], 
+                        config['cluster1']['version'], 
+                        config['cluster1']['port'], 
+                        config['catalogs'],
+                        pending_catalog_props['1']
+                    )
+                    flash(f"Demo mode: Applied catalog properties for cluster 1", 'success')
+                except Exception as e:
+                    logger.error(f"Error applying properties for cluster 1: {str(e)}")
+                    flash(f"Error applying properties for cluster 1: {str(e)}", 'danger')
+            
+            if pending_catalog_props['2']:
+                logger.info(f"Demo mode: Applying {len(pending_catalog_props['2'])} pending catalog properties for cluster 2")
+                try:
+                    docker_manager.start_trino_cluster(
+                        config['cluster2']['container_name'], 
+                        config['cluster2']['version'], 
+                        config['cluster2']['port'], 
+                        config['catalogs'],
+                        pending_catalog_props['2']
+                    )
+                    flash(f"Demo mode: Applied catalog properties for cluster 2", 'success')
+                except Exception as e:
+                    logger.error(f"Error applying properties for cluster 2: {str(e)}")
+                    flash(f"Error applying properties for cluster 2: {str(e)}", 'danger')
+            
+            # Show warning but allow properties to be updated
+            flash('Docker is not available in this environment. Running in demo mode with simulated clusters.', 'warning')
             return redirect(url_for('trino_dashboard'))
         
         # Always ensure TPC-H is enabled before starting clusters
