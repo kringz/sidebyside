@@ -284,11 +284,11 @@
                                 </div>
                                 <div class="card-body">
                                     {% if cluster1_status != 'running' %}
-                                    <div class="alert alert-warning">
-                                        <i class="fas fa-exclamation-triangle me-2"></i>
-                                        Cluster 1 is not running. Start the cluster to edit catalog properties.
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Cluster 1 is not running. You can edit catalog properties now, and they will be applied when the cluster starts.
                                     </div>
-                                    {% else %}
+                                    {% endif %}
                                     <div class="mb-3">
                                         <label for="cluster1CatalogSelect" class="form-label">Select Catalog:</label>
                                         <select class="form-select" id="cluster1CatalogSelect">
