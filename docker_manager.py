@@ -234,8 +234,6 @@ class DockerManager:
                         with open(catalog_file_path, "w") as f:
                             f.write("connector.name=hive\n")
                             f.write(f"hive.metastore.uri=thrift://{catalog_config.get('metastore_host', 'localhost')}:{catalog_config.get('metastore_port', '9083')}\n")
-                            f.write("hive.allow-drop-table=true\n")
-                            f.write("hive.allow-rename-table=true\n")
                     
                     elif catalog_name == 'mysql':
                         with open(catalog_file_path, "w") as f:
