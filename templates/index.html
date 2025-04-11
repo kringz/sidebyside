@@ -319,7 +319,6 @@
                                         <textarea class="form-control code-editor" id="cluster1PropertiesEditor" rows="15" style="font-family: monospace;"></textarea>
                                     </div>
                                     <div id="cluster1PropertiesStatus"></div>
-                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -332,11 +331,11 @@
                                 </div>
                                 <div class="card-body">
                                     {% if cluster2_status != 'running' %}
-                                    <div class="alert alert-warning">
-                                        <i class="fas fa-exclamation-triangle me-2"></i>
-                                        Cluster 2 is not running. Start the cluster to edit catalog properties.
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Cluster 2 is not running. You can edit catalog properties now, and they will be applied when the cluster starts.
                                     </div>
-                                    {% else %}
+                                    {% endif %}
                                     <div class="mb-3">
                                         <label for="cluster2CatalogSelect" class="form-label">Select Catalog:</label>
                                         <select class="form-select" id="cluster2CatalogSelect">
@@ -367,7 +366,6 @@
                                         <textarea class="form-control code-editor" id="cluster2PropertiesEditor" rows="15" style="font-family: monospace;"></textarea>
                                     </div>
                                     <div id="cluster2PropertiesStatus"></div>
-                                    {% endif %}
                                 </div>
                             </div>
                         </div>
