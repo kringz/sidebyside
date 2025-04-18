@@ -16,4 +16,5 @@ dependencies = [
     "sqlalchemy>=2.0.40",
     "trafilatura>=2.0.0",
     "trino>=0.333.0",
+    "minitrino>=2.2.4"
 ]

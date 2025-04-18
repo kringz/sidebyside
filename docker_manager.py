@@ -6,6 +6,11 @@ import time
 import json
 import threading
 import random
+import subprocess
+from pathlib import Path
+from minitrino import components
+from minitrino import utils
+from minitrino import settings
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +42,17 @@ class DockerManager:
         self.timeout = timeout
         self.trino_connect_host = trino_connect_host
         self.demo_mode = False
+        self.minitrino_manager = None
         
+        # Try to initialize Minitrino first
+        try:
+            self.minitrino_manager = MinitrinoManager()
+            logger.info("Minitrino manager initialized successfully")
+            return
+        except Exception as e:
+            logger.warning(f"Minitrino not available: {str(e)}")
+        
+        # Fall back to Docker if Minitrino is not available
         if not docker_imported:
             logger.warning("Docker package not available. Running in demo mode.")
             return
@@ -108,12 +123,26 @@ class DockerManager:
         self.demo_mode = True
     
     def get_container_status(self, container_name):
-        """Get the status of a container"""
+        """Get the status of a container/cluster
+        
+        Args:
+            container_name (str): Name of the container/cluster
+            
+        Returns:
+            dict: Status information
+        """
+        # Try Minitrino first
+        if self.minitrino_manager:
+            try:
+                return self.minitrino_manager.get_cluster_status(container_name)
+            except Exception as e:
+                logger.warning(f"Failed to get status with Minitrino: {str(e)}")
+                # Fall back to Docker
+                
+        # Fall back to Docker implementation
         if not self.docker_available:
-            if self.demo_mode:
-                # In demo mode we simulate the container is running
-                return "demo"
-            return "not_available"
+            logger.warning("Docker not available. Running in demo mode.")
+            return {"status": "demo", "version": "demo", "port": 0}
             
         try:
             container = self.client.containers.get(container_name)
@@ -124,26 +153,107 @@ class DockerManager:
             logger.error(f"Error getting container status for {container_name}: {str(e)}")
             return "error"
     
-    def start_trino_cluster(self, container_name, version, port, catalogs_config, pending_properties=None):
-        """Start a Trino cluster with the specified version and catalogs
+    def start_trino_clusters(self, cluster1_config, cluster2_config):
+        """Start two Trino clusters for side-by-side comparison
         
         Args:
-            container_name (str): Name of the Trino container
-            version (str): Trino version to use
-            port (int): Port to expose Trino on
-            catalogs_config (dict): Catalog configuration dictionary
-            pending_properties (dict, optional): Dictionary of catalog properties to apply, 
-                                               keyed by catalog name
+            cluster1_config (dict): Configuration for first cluster
+            cluster2_config (dict): Configuration for second cluster
         """
+        # Try Minitrino first
+        if self.minitrino_manager:
+            try:
+                return self.minitrino_manager.start_clusters(cluster1_config, cluster2_config)
+            except Exception as e:
+                logger.warning(f"Failed to start clusters with Minitrino: {str(e)}")
+                # Fall back to Docker
+                
+        # Fall back to Docker implementation
         if not self.docker_available:
-            logger.warning(f"Docker not available, cannot start Trino cluster {container_name}")
-            # Instead of raising an exception, we'll just handle pending properties in demo mode
-            # This allows editing catalog properties even without Docker
-            if pending_properties:
-                logger.info(f"Demo mode: Simulating applying pending properties for {len(pending_properties)} catalogs")
-                for catalog_name, properties in pending_properties.items():
-                    logger.info(f"Demo mode: Would apply properties for {catalog_name}")
-            return True  # Return success in demo mode
+            logger.warning("Docker not available. Running in demo mode.")
+            self.demo_mode = True
+            return True
+            
+        # Start cluster 1
+        try:
+            self.start_trino_cluster(
+                container_name='cluster1',
+                version=cluster1_config.get('version'),
+                port=cluster1_config.get('port'),
+                catalogs_config=cluster1_config.get('catalogs', {})
+            )
+        except Exception as e:
+            logger.error(f"Failed to start cluster1: {str(e)}")
+            return False
+            
+        # Start cluster 2
+        try:
+            self.start_trino_cluster(
+                container_name='cluster2',
+                version=cluster2_config.get('version'),
+                port=cluster2_config.get('port'),
+                catalogs_config=cluster2_config.get('catalogs', {})
+            )
+        except Exception as e:
+            logger.error(f"Failed to start cluster2: {str(e)}")
+            # Clean up cluster1 if cluster2 fails
+            self.stop_trino_cluster('cluster1')
+            return False
+            
+        return True
+
+    def stop_trino_clusters(self):
+        """Stop both Trino clusters"""
+        # Try Minitrino first
+        if self.minitrino_manager:
+            try:
+                return self.minitrino_manager.stop_clusters()
+            except Exception as e:
+                logger.warning(f"Failed to stop clusters with Minitrino: {str(e)}")
+                # Fall back to Docker
+                
+        # Fall back to Docker implementation
+        if not self.docker_available:
+            logger.warning("Docker not available. Running in demo mode.")
+            return True
+            
+        # Stop both clusters
+        try:
+            self.stop_trino_cluster('cluster1')
+            self.stop_trino_cluster('cluster2')
+            return True
+        except Exception as e:
+            logger.error(f"Failed to stop clusters: {str(e)}")
+            return False
+    
+    def start_trino_cluster(self, container_name, version, port, catalogs_config, pending_properties=None):
+        """Start a Trino cluster using either Minitrino or Docker
+        
+        Args:
+            container_name (str): Name for the container
+            version (str): Trino version to use
+            port (int): Port to expose
+            catalogs_config (dict): Catalog configuration
+            pending_properties (dict, optional): Additional properties to apply
+        """
+        # Try Minitrino first
+        if self.minitrino_manager:
+            try:
+                return self.minitrino_manager.start_cluster(
+                    cluster_name=container_name,
+                    version=version,
+                    port=port,
+                    catalogs_config=catalogs_config
+                )
+            except Exception as e:
+                logger.warning(f"Failed to start cluster with Minitrino: {str(e)}")
+                # Fall back to Docker
+                
+        # Fall back to Docker implementation
+        if not self.docker_available:
+            logger.warning("Docker not available. Running in demo mode.")
+            self.demo_mode = True
+            return True
             
         # Initialize pending_properties if not provided
         if pending_properties is None:
@@ -1355,10 +1465,23 @@ class DockerManager:
             logger.error(f"Error seeding PostgreSQL container {container_name}: {str(e)}")
     
     def stop_trino_cluster(self, container_name):
-        """Stop and remove a Trino cluster and its associated containers (PostgreSQL, Iceberg, etc.)"""
+        """Stop a Trino cluster
+        
+        Args:
+            container_name (str): Name of the container to stop
+        """
+        # Try Minitrino first
+        if self.minitrino_manager:
+            try:
+                return self.minitrino_manager.stop_cluster(container_name)
+            except Exception as e:
+                logger.warning(f"Failed to stop cluster with Minitrino: {str(e)}")
+                # Fall back to Docker
+                
+        # Fall back to Docker implementation
         if not self.docker_available:
-            logger.warning(f"Docker not available, cannot stop Trino cluster {container_name}")
-            return
+            logger.warning("Docker not available. Running in demo mode.")
+            return True
             
         # First try to stop and remove the associated PostgreSQL container if it exists
         postgres_container_name = f"postgres-for-{container_name}"
@@ -1431,3 +1554,215 @@ class DockerManager:
         except Exception as e:
             logger.error(f"Error stopping Trino container {container_name}: {str(e)}")
             raise RuntimeError(f"Failed to stop Trino container: {str(e)}")
+
+class MinitrinoManager:
+    """Manages two Trino clusters using Minitrino CLI"""
+    
+    def __init__(self, config_path=None):
+        """Initialize the Minitrino manager for two clusters
+        
+        Args:
+            config_path (str, optional): Path to Minitrino configuration file
+        """
+        self.config_path = config_path
+        self.clusters = {}
+        self.docker_available = False
+        
+        # Try to initialize Docker client
+        try:
+            import docker
+            self.client = docker.from_env()
+            self.docker_available = True
+        except Exception as e:
+            logger.warning(f"Docker not available: {str(e)}")
+            self.docker_available = False
+            
+    def _run_minitrino_command(self, command, args=None, env_vars=None, check_output=False):
+        """Run a minitrino command
+        
+        Args:
+            command (str): The minitrino command to run
+            args (list, optional): Additional arguments
+            env_vars (list, optional): Environment variables in the format ["KEY=VALUE", ...]
+            check_output (bool): Whether to return command output
+            
+        Returns:
+            bool: True if successful, False otherwise
+            str: Command output if check_output is True
+        """
+        try:
+            cmd = ['minitrino', '-v']  # Add verbose flag
+            
+            # Add environment variables if provided
+            if env_vars:
+                for env_var in env_vars:
+                    cmd.extend(['-e', env_var])
+                    
+            if command:
+                cmd.append(command)
+            if args:
+                cmd.extend(args)
+                
+            logger.info(f"Running minitrino command: {' '.join(cmd)}")
+            
+            if check_output:
+                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                return True, result.stdout
+            else:
+                subprocess.run(cmd, check=True)
+                return True, None
+                
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Minitrino command failed: {e.stderr if e.stderr else str(e)}")
+            return False, e.stderr if e.stderr else str(e)
+        except Exception as e:
+            logger.error(f"Error running minitrino command: {str(e)}")
+            return False, str(e)
+            
+    def get_cluster_status(self, cluster_name):
+        """Get the status of a cluster
+        
+        Args:
+            cluster_name (str): Name of the cluster ('cluster1' or 'cluster2')
+            
+        Returns:
+            dict: Cluster status information
+        """
+        try:
+            # Check if containers are running using Docker
+            if self.docker_available:
+                try:
+                    container = self.client.containers.get(f"minitrino_{cluster_name}")
+                    return {
+                        "status": container.status,
+                        "version": self.clusters.get(cluster_name, {}).get("version", "unknown"),
+                        "port": self.clusters.get(cluster_name, {}).get("port", 0)
+                    }
+                except:
+                    pass
+            
+            # Fall back to checking if the cluster is in our tracked clusters
+            status = "running" if cluster_name in self.clusters else "stopped"
+            return {
+                "status": status,
+                "version": self.clusters.get(cluster_name, {}).get("version", "unknown"),
+                "port": self.clusters.get(cluster_name, {}).get("port", 0)
+            }
+        except Exception as e:
+            logger.error(f"Failed to get status for Minitrino cluster {cluster_name}: {str(e)}")
+            return {"status": "error", "error": str(e)}
+            
+    def start_clusters(self, cluster1_config, cluster2_config):
+        """Start two Trino clusters for side-by-side comparison
+        
+        Args:
+            cluster1_config (dict): Configuration for first cluster
+            cluster2_config (dict): Configuration for second cluster
+        """
+        try:
+            # Start cluster 1
+            success1 = self._start_cluster('cluster1', cluster1_config)
+            if not success1:
+                logger.error("Failed to start cluster1")
+                return False
+                
+            # Start cluster 2
+            success2 = self._start_cluster('cluster2', cluster2_config)
+            if not success2:
+                logger.error("Failed to start cluster2")
+                # Clean up cluster1
+                self.stop_clusters()
+                return False
+                
+            # Store cluster configurations
+            self.clusters['cluster1'] = cluster1_config
+            self.clusters['cluster2'] = cluster2_config
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to start clusters: {str(e)}")
+            self.stop_clusters()
+            return False
+    
+    def _start_cluster(self, cluster_name, config):
+        """Start a single cluster using Minitrino
+        
+        Args:
+            cluster_name (str): Name for the cluster
+            config (dict): Cluster configuration
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            version = config.get('version', 'latest')
+            port = config.get('port', 8080)
+            
+            # Set environment variables
+            env_vars = [
+                f"MINITRINO_ENV_NAME={cluster_name}",
+                f"STARBURST_VER={version}",
+                f"TRINO_PORT={port}"
+            ]
+            
+            # Get enabled catalogs
+            catalogs_config = config.get('catalogs', {})
+            enabled_catalogs = [name for name, cfg in catalogs_config.items() if cfg.get('enabled', False)]
+            
+            if enabled_catalogs:
+                # Start with provision command
+                success, _ = self._run_minitrino_command('provision')
+                if not success:
+                    return False
+                
+                # Add each catalog module separately
+                for catalog in enabled_catalogs:
+                    success, _ = self._run_minitrino_command('provision', ['-m', catalog], env_vars=env_vars)
+                    if not success:
+                        return False
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error starting cluster {cluster_name}: {str(e)}")
+            return False
+            
+    def _get_minitrino_module_name(self, catalog_name):
+        """Convert catalog name to Minitrino module name
+        
+        Args:
+            catalog_name (str): Name of the catalog
+            
+        Returns:
+            str: Minitrino module name or None if not supported
+        """
+        module_map = {
+            'elasticsearch': 'elasticsearch',
+            'postgres': 'postgres',
+            'mysql': 'mysql',
+            'iceberg': 'iceberg',
+            'hive': 'hive',
+            'delta': 'delta',
+            'clickhouse': 'clickhouse',
+            'pinot': 'pinot',
+            'db2': 'db2',
+            'sqlserver': 'sqlserver'
+        }
+        return module_map.get(catalog_name.lower())
+            
+    def stop_clusters(self):
+        """Stop both Trino clusters"""
+        try:
+            # Stop all clusters
+            success, _ = self._run_minitrino_command('down')
+            if success:
+                self.clusters.clear()
+            return success
+        except Exception as e:
+            logger.error(f"Failed to stop clusters: {str(e)}")
+            return False
+            
+    def cleanup(self):
+        """Clean up all clusters"""
+        self.stop_clusters()
