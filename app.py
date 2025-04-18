@@ -50,50 +50,14 @@ db.init_app(app)
 # Load configuration to get Docker settings
 config = load_config()
 
-# Initialize Docker manager with custom settings if available
-docker_settings = config.get('docker', {})
-docker_manager = DockerManager(
-    socket_path=docker_settings.get('socket_path', None),
-    timeout=int(docker_settings.get('timeout', 30)),
-    trino_connect_host=docker_settings.get('trino_connect_host', 'localhost')
-)
-
-# Check Docker availability
+# Initialize Docker manager
+docker_manager = DockerManager()
 docker_available = docker_manager.docker_available
+
 if not docker_available:
-    logger.warning("Docker is not available. Running in demo mode.")
-    
-    # Force enable TPC-H and PostgreSQL catalogs in demo mode
-    try:
-        config = load_config()
-        # Enable TPC-H
-        if 'tpch' in config['catalogs']:
-            config['catalogs']['tpch']['enabled'] = True
-            logger.info("TPC-H catalog enabled for demo mode")
-            
-        # Enable PostgreSQL
-        if 'postgres' in config['catalogs']:
-            config['catalogs']['postgres']['enabled'] = True
-            logger.info("PostgreSQL catalog enabled for demo mode")
-            
-        # Enable Iceberg catalog for REST testing in demo mode
-        if 'iceberg' in config['catalogs']:
-            config['catalogs']['iceberg']['enabled'] = True
-            logger.info("Iceberg REST catalog enabled for demo mode")
-            
-        save_config(config)
-    except Exception as e:
-        logger.error(f"Error enabling catalogs in demo mode: {str(e)}")
-else:
-    # Check for and clean up stale containers on startup
-    try:
-        config = load_config()
-        container_names = [config['cluster1']['container_name'], config['cluster2']['container_name']]
-        cleaned_containers = docker_manager.cleanup_stale_containers(container_names)
-        if cleaned_containers:
-            logger.info(f"Cleaned up stale containers on startup: {', '.join(cleaned_containers)}")
-    except Exception as e:
-        logger.error(f"Error checking for stale containers on startup: {str(e)}")
+    logger.error("Docker is not available. This application requires Docker to be running and accessible.")
+    # Don't enable demo mode - we want to fail fast if Docker is not available
+    raise Exception("Docker is not available. This application requires Docker to be running and accessible.")
 
 # Initialize Trino clients (will be set up when clusters are started)
 trino_clients = {
@@ -184,20 +148,31 @@ def trino_dashboard():
     # Save the updated config
     save_config(config)
         
+    # Get cluster statuses
     cluster1_status = docker_manager.get_container_status(config['cluster1']['container_name'])
     cluster2_status = docker_manager.get_container_status(config['cluster2']['container_name'])
     
+    # Extract status strings from the dictionaries
+    cluster1_status_str = cluster1_status.get('status', 'unknown') if isinstance(cluster1_status, dict) else str(cluster1_status)
+    cluster2_status_str = cluster2_status.get('status', 'unknown') if isinstance(cluster2_status, dict) else str(cluster2_status)
+    
+    # Get ports from status
+    cluster1_port = cluster1_status.get('port', 0) if isinstance(cluster1_status, dict) else 0
+    cluster2_port = cluster2_status.get('port', 0) if isinstance(cluster2_status, dict) else 0
+    
+    # Update config with actual ports
+    config['cluster1']['port'] = cluster1_port
+    config['cluster2']['port'] = cluster2_port
+    
     # Verify containers are truly running if they report as running
     if docker_available:
-        if cluster1_status == 'running' and not docker_manager.verify_container_running(config['cluster1']['container_name']):
+        if cluster1_status_str == 'running' and not docker_manager.verify_container_running(config['cluster1']['container_name']):
             logger.warning(f"Container {config['cluster1']['container_name']} reports as running but is not functional")
             flash(f"Container {config['cluster1']['container_name']} reports as running but might not be functional. Consider restarting.", 'warning')
-            # Don't change status here, but show warning to user
             
-        if cluster2_status == 'running' and not docker_manager.verify_container_running(config['cluster2']['container_name']):
+        if cluster2_status_str == 'running' and not docker_manager.verify_container_running(config['cluster2']['container_name']):
             logger.warning(f"Container {config['cluster2']['container_name']} reports as running but is not functional")
             flash(f"Container {config['cluster2']['container_name']} reports as running but might not be functional. Consider restarting.", 'warning')
-            # Don't change status here, but show warning to user
     
     # Get available Trino images if Docker is available
     available_trino_images = []
@@ -207,8 +182,8 @@ def trino_dashboard():
     # Merged the catalog_config_page and index page
     return render_template('index.html', 
                            config=config, 
-                           cluster1_status=cluster1_status,
-                           cluster2_status=cluster2_status,
+                           cluster1_status=cluster1_status_str,
+                           cluster2_status=cluster2_status_str,
                            docker_available=docker_available,
                            available_trino_images=available_trino_images)
 

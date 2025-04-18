@@ -48,9 +48,12 @@ class DockerManager:
         try:
             self.minitrino_manager = MinitrinoManager()
             logger.info("Minitrino manager initialized successfully")
+            self.docker_available = self.minitrino_manager.docker_available
+            self.client = self.minitrino_manager.client
             return
         except Exception as e:
-            logger.warning(f"Minitrino not available: {str(e)}")
+            logger.error(f"Minitrino initialization failed: {str(e)}")
+            raise Exception("Minitrino initialization failed. Docker is required for this application to work.")
         
         # Fall back to Docker if Minitrino is not available
         if not docker_imported:
@@ -123,35 +126,28 @@ class DockerManager:
         self.demo_mode = True
     
     def get_container_status(self, container_name):
-        """Get the status of a container/cluster
+        """Get the status of a container
         
         Args:
-            container_name (str): Name of the container/cluster
+            container_name (str): Name of the container
             
         Returns:
-            dict: Status information
+            dict: Status information including running state and version
         """
-        # Try Minitrino first
-        if self.minitrino_manager:
-            try:
-                return self.minitrino_manager.get_cluster_status(container_name)
-            except Exception as e:
-                logger.warning(f"Failed to get status with Minitrino: {str(e)}")
-                # Fall back to Docker
-                
-        # Fall back to Docker implementation
-        if not self.docker_available:
-            logger.warning("Docker not available. Running in demo mode.")
-            return {"status": "demo", "version": "demo", "port": 0}
+        if not self.minitrino_manager:
+            raise Exception("Docker manager not initialized")
             
         try:
-            container = self.client.containers.get(container_name)
-            return container.status
-        except docker.errors.NotFound:
-            return "not_found"
+            status = self.minitrino_manager.get_cluster_status(container_name)
+            # Convert Docker status to our expected format
+            return {
+                "status": "running" if status == "running" else "stopped",
+                "version": "latest",  # We can enhance this later if needed
+                "port": 8080 if status == "running" else 0
+            }
         except Exception as e:
-            logger.error(f"Error getting container status for {container_name}: {str(e)}")
-            return "error"
+            logger.error(f"Error getting container status: {str(e)}")
+            return {"status": "error", "version": "unknown", "port": 0}
     
     def start_trino_clusters(self, cluster1_config, cluster2_config):
         """Start two Trino clusters for side-by-side comparison
@@ -1556,27 +1552,32 @@ class DockerManager:
             raise RuntimeError(f"Failed to stop Trino container: {str(e)}")
 
 class MinitrinoManager:
-    """Manages two Trino clusters using Minitrino CLI"""
+    """Manages Trino clusters using Minitrino"""
     
     def __init__(self, config_path=None):
-        """Initialize the Minitrino manager for two clusters
+        """Initialize the Minitrino manager
         
         Args:
             config_path (str, optional): Path to Minitrino configuration file
         """
         self.config_path = config_path
-        self.clusters = {}
         self.docker_available = False
+        self.client = None
         
         # Try to initialize Docker client
-        try:
-            import docker
-            self.client = docker.from_env()
-            self.docker_available = True
-        except Exception as e:
-            logger.warning(f"Docker not available: {str(e)}")
-            self.docker_available = False
-            
+        if docker_imported:
+            try:
+                # Try the known working socket path first
+                self.client = docker.DockerClient(base_url='unix:///Users/stephen.krings/.docker/run/docker.sock')
+                # Test connection
+                self.client.containers.list()
+                self.docker_available = True
+                logger.info("Docker client initialized successfully in MinitrinoManager")
+            except Exception as e:
+                logger.error(f"Cannot connect to Docker in MinitrinoManager: {str(e)}")
+                self.docker_available = False
+                raise Exception("Docker is required for Minitrino to work. Please ensure Docker is running and accessible.")
+
     def _run_minitrino_command(self, command, args=None, env_vars=None, check_output=False):
         """Run a minitrino command
         
@@ -1623,35 +1624,27 @@ class MinitrinoManager:
         """Get the status of a cluster
         
         Args:
-            cluster_name (str): Name of the cluster ('cluster1' or 'cluster2')
+            cluster_name (str): Name of the cluster
             
         Returns:
-            dict: Cluster status information
+            str: Status of the cluster ('running', 'not_found', 'error', etc.)
         """
+        if not self.docker_available:
+            raise Exception("Docker is not available. Minitrino requires Docker to be running and accessible.")
+            
         try:
-            # Check if containers are running using Docker
-            if self.docker_available:
-                try:
-                    container = self.client.containers.get(f"minitrino_{cluster_name}")
-                    return {
-                        "status": container.status,
-                        "version": self.clusters.get(cluster_name, {}).get("version", "unknown"),
-                        "port": self.clusters.get(cluster_name, {}).get("port", 0)
-                    }
-                except:
-                    pass
+            container = self.client.containers.get(cluster_name)
+            container.reload()  # Refresh container info
             
-            # Fall back to checking if the cluster is in our tracked clusters
-            status = "running" if cluster_name in self.clusters else "stopped"
-            return {
-                "status": status,
-                "version": self.clusters.get(cluster_name, {}).get("version", "unknown"),
-                "port": self.clusters.get(cluster_name, {}).get("port", 0)
-            }
+            # Return just the status string
+            return container.status
+            
+        except docker.errors.NotFound:
+            return "not_found"
         except Exception as e:
-            logger.error(f"Failed to get status for Minitrino cluster {cluster_name}: {str(e)}")
-            return {"status": "error", "error": str(e)}
-            
+            logger.error(f"Error getting cluster status for {cluster_name}: {str(e)}")
+            return "error"
+    
     def start_clusters(self, cluster1_config, cluster2_config):
         """Start two Trino clusters for side-by-side comparison
         
