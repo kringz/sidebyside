@@ -25,7 +25,7 @@ catalogs:
     metastore_host: localhost
     metastore_port: '9083'
   iceberg:
-    enabled: true
+    enabled: false
     rest_host: localhost
     rest_port: '8181'
     s3_access_key: access-key
